@@ -4,5 +4,6 @@ pub enum RunState {
     PreRun,
     PlayerTurn,
     MonsterTurn,
-    ShowInventory,
+    InventoryMenu,
+    DropItemMenu,
 }

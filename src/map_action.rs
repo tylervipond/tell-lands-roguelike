@@ -8,6 +8,7 @@ pub enum MapAction {
   MoveDownLeft,
   MoveDownRight,
   PickupItem,
-  ShowInventory,
+  ShowInventoryMenu,
+  ShowDropMenu,
   NoAction
 }
