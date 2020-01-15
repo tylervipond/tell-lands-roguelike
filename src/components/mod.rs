@@ -13,3 +13,4 @@ pub mod viewshed;
 pub mod wants_to_drink_potion;
 pub mod wants_to_melee;
 pub mod wants_to_pick_up_item;
+pub mod wants_to_drop_item;

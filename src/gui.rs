@@ -124,7 +124,7 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
   draw_tooltip(ecs, ctx);
 }
 
-pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>) {
+pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>, title: &str) {
   let inventory_count = inventory.iter().count() as i32;
   let y = 25 - (inventory_count / 2);
   ctx.draw_box(
@@ -135,7 +135,7 @@ pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>) {
     RGB::named(WHITE),
     RGB::named(BLACK),
   );
-  print_yellow_on_black(ctx, 18, y - 2, "Inventory");
+  print_yellow_on_black(ctx, 18, y - 2, title);
   print_yellow_on_black(ctx, 18, y + inventory_count + 1, "Escape to cancel");
   for (i, name) in inventory.iter().enumerate() {
     let new_y = y + i as i32;
