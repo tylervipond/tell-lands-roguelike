@@ -1,6 +1,7 @@
 use crate::components::{
-  blocks_tile::BlocksTile, combat_stats::CombatStats, item::Item, monster::Monster, name::Name,
-  player::Player, position::Position, potion::Potion, renderable::Renderable, viewshed::Viewshed, 
+  blocks_tile::BlocksTile, combat_stats::CombatStats, consumable::Consumable, item::Item,
+  monster::Monster, name::Name, player::Player, position::Position, potion::Potion,
+  provides_healing::ProvidesHealing, renderable::Renderable, viewshed::Viewshed,
 };
 use crate::map::{idx_xy, rect::Rect, xy_idx};
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
@@ -17,7 +18,7 @@ pub fn spawn_player(ecs: &mut World, x: i32, y: i32) -> Entity {
       glyph: to_cp437('@'),
       fg: RGB::named(rltk::YELLOW),
       bg: RGB::named(rltk::BLACK),
-      layer: 0
+      layer: 0,
     })
     .with(Player {})
     .with(Viewshed {
@@ -46,7 +47,7 @@ pub fn spawn_monster<S: ToString>(ecs: &mut World, idx: i32, glyph: u8, name: S)
       glyph,
       fg: RGB::named(rltk::RED),
       bg: RGB::named(rltk::BLACK),
-      layer: 0
+      layer: 0,
     })
     .with(Viewshed {
       visible_tiles: vec![],
@@ -101,7 +102,8 @@ pub fn spawn_health_potion(ecs: &mut World, idx: i32) -> Entity {
       layer: 1,
     })
     .with(Item {})
-    .with(Potion { heal_amount: 8 })
+    .with(Consumable {})
+    .with(ProvidesHealing { amount: 8 })
     .build()
 }
 
@@ -131,11 +133,11 @@ pub fn spawn_item_entities_for_room(ecs: &mut World, rect: &Rect) {
   let mut item_spawn_points: Vec<usize> = vec![];
   {
     let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    let num_items = rng.roll_dice(1, MAX_ITEMS_PER_ROOM + 2) -3;
+    let num_items = rng.roll_dice(1, MAX_ITEMS_PER_ROOM + 2) - 3;
     for _i in 0..num_items {
       let mut added = false;
       while !added {
-      let (x, y) = rect.get_random_coord(&mut rng);
+        let (x, y) = rect.get_random_coord(&mut rng);
         let idx = xy_idx(x, y);
         if !item_spawn_points.contains(&idx) {
           item_spawn_points.push(idx);
