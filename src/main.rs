@@ -18,11 +18,12 @@ mod systems;
 mod utils;
 
 use components::{
-    blocks_tile::BlocksTile, combat_stats::CombatStats, in_backpack::InBackpack, item::Item,
-    monster::Monster, name::Name, player::Player, position::Position, potion::Potion,
-    renderable::Renderable, suffer_damage::SufferDamage, viewshed::Viewshed,
-    wants_to_drink_potion::WantsToDrinkPotion, wants_to_drop_item::WantsToDropItem,
+    blocks_tile::BlocksTile, combat_stats::CombatStats, consumable::Consumable,
+    in_backpack::InBackpack, item::Item, monster::Monster, name::Name, player::Player,
+    position::Position, potion::Potion, provides_healing::ProvidesHealing, renderable::Renderable,
+    suffer_damage::SufferDamage, viewshed::Viewshed, wants_to_drop_item::WantsToDropItem,
     wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
+    wants_to_use::WantsToUse,
 };
 use game_log::GameLog;
 use input::{map_input_to_inventory_action, map_input_to_map_action};
@@ -35,7 +36,7 @@ use systems::{
     damage_system::DamageSystem, item_collection_system::ItemCollectionSystem,
     item_drop_system::ItemDropSystem, map_indexing_system::MapIndexingSystem,
     melee_combat_system::MeleeCombatSystem, monster_ai_system::MonsterAI,
-    use_potion_system::UsePotionSystem, visibility_system::VisibilitySystem,
+    use_item_system::UseItemSystem, visibility_system::VisibilitySystem,
 };
 
 fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
@@ -77,8 +78,8 @@ impl State {
         damage.run_now(&self.ecs);
         let mut pickup = ItemCollectionSystem {};
         pickup.run_now(&self.ecs);
-        let mut potions = UsePotionSystem {};
-        potions.run_now(&self.ecs);
+        let mut to_use = UseItemSystem {};
+        to_use.run_now(&self.ecs);
         let mut drop = ItemDropSystem {};
         drop.run_now(&self.ecs);
         self.ecs.maintain();
@@ -124,13 +125,10 @@ impl GameState for State {
                     InventoryAction::NoAction => RunState::InventoryMenu,
                     InventoryAction::Exit => RunState::AwaitingInput,
                     InventoryAction::Selected(ent) => {
-                        let mut intent = self.ecs.write_storage::<WantsToDrinkPotion>();
+                        let mut intent = self.ecs.write_storage::<WantsToUse>();
                         intent
-                            .insert(
-                                *self.ecs.fetch::<Entity>(),
-                                WantsToDrinkPotion { potion: ent },
-                            )
-                            .expect("Unable To Insert Potion Intent");
+                            .insert(*self.ecs.fetch::<Entity>(), WantsToUse { item: ent })
+                            .expect("Unable To Insert Use Item Intent");
                         RunState::PlayerTurn
                     }
                 }
@@ -178,8 +176,10 @@ fn main() {
     gs.ecs.register::<Potion>();
     gs.ecs.register::<InBackpack>();
     gs.ecs.register::<WantsToPickUpItem>();
-    gs.ecs.register::<WantsToDrinkPotion>();
+    gs.ecs.register::<WantsToUse>();
     gs.ecs.register::<WantsToDropItem>();
+    gs.ecs.register::<ProvidesHealing>();
+    gs.ecs.register::<Consumable>();
     gs.ecs.insert(game_log::GameLog {
         entries: vec!["Welcome to Tell-Lands".to_owned()],
     });
