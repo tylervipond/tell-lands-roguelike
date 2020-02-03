@@ -12,21 +12,26 @@ mod inventory_action;
 mod map;
 mod map_action;
 mod player;
+mod ranged;
 mod run_state;
 mod spawner;
 mod systems;
+mod targeting_action;
 mod utils;
 
 use components::{
-    blocks_tile::BlocksTile, combat_stats::CombatStats, consumable::Consumable,
-    in_backpack::InBackpack, item::Item, monster::Monster, name::Name, player::Player,
-    position::Position, potion::Potion, provides_healing::ProvidesHealing, renderable::Renderable,
-    suffer_damage::SufferDamage, viewshed::Viewshed, wants_to_drop_item::WantsToDropItem,
-    wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
-    wants_to_use::WantsToUse,
+    area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
+    confused::Confused, confusion::Confusion, consumable::Consumable, in_backpack::InBackpack,
+    inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name, player::Player,
+    position::Position, potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged,
+    renderable::Renderable, suffer_damage::SufferDamage, viewshed::Viewshed,
+    wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
+    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
 use game_log::GameLog;
-use input::{map_input_to_inventory_action, map_input_to_map_action};
+use input::{
+    map_input_to_inventory_action, map_input_to_map_action, map_input_to_targeting_action,
+};
 use inventory_action::InventoryAction;
 use map::{draw_map, Map};
 use map_action::MapAction;
@@ -38,6 +43,7 @@ use systems::{
     melee_combat_system::MeleeCombatSystem, monster_ai_system::MonsterAI,
     use_item_system::UseItemSystem, visibility_system::VisibilitySystem,
 };
+use targeting_action::TargetingAction;
 
 fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
     let positions = ecs.read_storage::<Position>();
@@ -125,11 +131,25 @@ impl GameState for State {
                     InventoryAction::NoAction => RunState::InventoryMenu,
                     InventoryAction::Exit => RunState::AwaitingInput,
                     InventoryAction::Selected(ent) => {
-                        let mut intent = self.ecs.write_storage::<WantsToUse>();
-                        intent
-                            .insert(*self.ecs.fetch::<Entity>(), WantsToUse { item: ent })
-                            .expect("Unable To Insert Use Item Intent");
-                        RunState::PlayerTurn
+                        let ranged = self.ecs.read_storage::<Ranged>();
+                        if let Some(ranged_props) = ranged.get(ent) {
+                            RunState::ShowTargeting {
+                                range: ranged_props.range,
+                                item: ent,
+                            }
+                        } else {
+                            let mut intent = self.ecs.write_storage::<WantsToUse>();
+                            intent
+                                .insert(
+                                    *self.ecs.fetch::<Entity>(),
+                                    WantsToUse {
+                                        item: ent,
+                                        target: None,
+                                    },
+                                )
+                                .expect("Unable To Insert Use Item Intent");
+                            RunState::PlayerTurn
+                        }
                     }
                 }
             }
@@ -146,6 +166,32 @@ impl GameState for State {
                         let mut intent = self.ecs.write_storage::<WantsToDropItem>();
                         intent
                             .insert(*self.ecs.fetch::<Entity>(), WantsToDropItem { item: ent })
+                            .expect("Unable To Insert Drop Item Intent");
+                        RunState::PlayerTurn
+                    }
+                }
+            }
+            RunState::ShowTargeting { range, item } => {
+                let visible_tiles = ranged::get_visible_tiles_in_range(&self.ecs, range);
+                gui::show_valid_targeting_area(ctx, &visible_tiles);
+                let target = ranged::get_target(ctx, &visible_tiles);
+                if let Some(point) = target {
+                    gui::show_current_target(ctx, point);
+                }
+                let action = map_input_to_targeting_action(ctx, target);
+                match action {
+                    TargetingAction::NoAction => RunState::ShowTargeting { range, item },
+                    TargetingAction::Exit => RunState::AwaitingInput,
+                    TargetingAction::Selected(target) => {
+                        let mut intent = self.ecs.write_storage::<WantsToUse>();
+                        intent
+                            .insert(
+                                *self.ecs.fetch::<Entity>(),
+                                WantsToUse {
+                                    item,
+                                    target: Some(target),
+                                },
+                            )
                             .expect("Unable To Insert Drop Item Intent");
                         RunState::PlayerTurn
                     }
@@ -180,6 +226,11 @@ fn main() {
     gs.ecs.register::<WantsToDropItem>();
     gs.ecs.register::<ProvidesHealing>();
     gs.ecs.register::<Consumable>();
+    gs.ecs.register::<Ranged>();
+    gs.ecs.register::<InflictsDamage>();
+    gs.ecs.register::<AreaOfEffect>();
+    gs.ecs.register::<Confusion>();
+    gs.ecs.register::<Confused>();
     gs.ecs.insert(game_log::GameLog {
         entries: vec!["Welcome to Tell-Lands".to_owned()],
     });

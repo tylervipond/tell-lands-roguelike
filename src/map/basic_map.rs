@@ -23,14 +23,19 @@ impl Map {
     idx_xy(idx)
   }
 
+  pub fn entities_at_xy(&self, x: i32, y: i32) -> Vec<Entity> {
+    let idx = self.xy_idx(x, y);
+    self.tile_content[idx].to_vec()
+  }
+
   pub fn populate_blocked(&mut self) {
     for (i, tile) in self.tiles.iter_mut().enumerate() {
       self.blocked[i] = *tile == TileType::Wall;
     }
   }
 
-  fn point_not_in_map(&self, point: &Point) -> bool {
-    point.x < 1 || point.x > self.width - 1 || point.y < 1 || point.y > self.height - 1
+  pub fn point_not_in_map(&self, point: &Point) -> bool {
+    point.x < 0 || point.x >= self.width || point.y < 0 || point.y >= self.height
   }
 
   fn is_exit_valid(&self, x: i32, y: i32) -> bool {
