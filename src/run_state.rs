@@ -1,3 +1,5 @@
+use specs::{Entity};
+
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
     AwaitingInput,
@@ -6,4 +8,5 @@ pub enum RunState {
     MonsterTurn,
     InventoryMenu,
     DropItemMenu,
+    ShowTargeting { range: i32, item: Entity}
 }

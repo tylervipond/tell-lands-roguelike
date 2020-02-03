@@ -3,7 +3,9 @@ use crate::components::{
 };
 use crate::game_log::GameLog;
 use crate::map::Map;
-use rltk::{console::Console, Point, Rltk, BLACK, GREY, MAGENTA, RED, RGB, WHITE, YELLOW};
+use rltk::{
+  console::Console, Point, Rltk, BLACK, BLUE, CYAN, GREY, MAGENTA, RED, RGB, WHITE, YELLOW,
+};
 use specs::{Join, World, WorldExt};
 
 const GUI_LEFT: i32 = 0;
@@ -144,4 +146,15 @@ pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>, title: &str) {
     char_white_on_black(ctx, 19, new_y, rltk::to_cp437(')'));
     ctx.print(21, new_y, name);
   }
+}
+
+pub fn show_valid_targeting_area(ctx: &mut Rltk, tiles: &Vec<Point>) {
+  print_yellow_on_black(ctx, 5, 0, "Select Target");
+  tiles
+    .iter()
+    .for_each(|tile| ctx.set_bg(tile.x, tile.y, RGB::named(BLUE)))
+}
+
+pub fn show_current_target(ctx: &mut Rltk, tile: &Point) {
+  ctx.set_bg(tile.x, tile.y, RGB::named(CYAN))
 }

@@ -1,5 +1,6 @@
 use crate::components::{
-  monster::Monster, position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
+  confused::Confused, monster::Monster, position::Position, viewshed::Viewshed,
+  wants_to_melee::WantsToMelee,
 };
 use crate::map::Map;
 use crate::RunState;
@@ -19,6 +20,7 @@ impl<'a> System<'a> for MonsterAI {
     WriteStorage<'a, Position>,
     ReadStorage<'a, Monster>,
     WriteStorage<'a, WantsToMelee>,
+    WriteStorage<'a, Confused>,
   );
   fn run(&mut self, data: Self::SystemData) {
     let (
@@ -31,6 +33,7 @@ impl<'a> System<'a> for MonsterAI {
       mut positions,
       monsters,
       mut wants_to_melee,
+      mut confused,
     ) = data;
     if *runstate != RunState::MonsterTurn {
       return;
@@ -38,6 +41,13 @@ impl<'a> System<'a> for MonsterAI {
     for (_monsters, entity, mut viewshed, mut position) in
       (&monsters, &entities, &mut viewsheds, &mut positions).join()
     {
+      if let Some(is_confused) = confused.get_mut(entity) {
+        is_confused.turns -= 1;
+        if is_confused.turns < 1 {
+          confused.remove(entity);
+        }
+        return;
+      }
       let distance = Pythagoras.distance2d(Point::new(position.x, position.y), *player_position);
       if distance < 1.5 {
         wants_to_melee

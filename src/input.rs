@@ -1,6 +1,7 @@
 use crate::inventory_action::InventoryAction;
 use crate::map_action::MapAction;
-use rltk::{Rltk, VirtualKeyCode};
+use crate::targeting_action::TargetingAction;
+use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::Entity;
 
 pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
@@ -23,7 +24,10 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
   }
 }
 
-pub fn map_input_to_inventory_action(ctx: &mut Rltk, inventory: &mut Vec<Entity>) -> InventoryAction {
+pub fn map_input_to_inventory_action(
+  ctx: &mut Rltk,
+  inventory: &mut Vec<Entity>,
+) -> InventoryAction {
   match ctx.key {
     None => InventoryAction::NoAction,
     Some(key) => match key {
@@ -34,7 +38,23 @@ pub fn map_input_to_inventory_action(ctx: &mut Rltk, inventory: &mut Vec<Entity>
           return InventoryAction::Selected(inventory.remove(selection as usize));
         }
         return InventoryAction::NoAction;
-      },
+      }
     },
+  }
+}
+
+pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<&Point>) -> TargetingAction {
+  if ctx.left_click {
+    return match target {
+      Some(point) => TargetingAction::Selected(*point),
+      None => TargetingAction::Exit
+    }
+  }
+  match ctx.key {
+    None => TargetingAction::NoAction,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => TargetingAction::Exit,
+      _ => TargetingAction::NoAction
+    }
   }
 }
