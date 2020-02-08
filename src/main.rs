@@ -18,6 +18,7 @@ mod spawner;
 mod systems;
 mod targeting_action;
 mod utils;
+mod main_menu_action;
 
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,

@@ -37,6 +37,10 @@ fn char_yellow_on_black(ctx: &mut Rltk, x: i32, y: i32, c: u8) {
   ctx.set(x, y, RGB::named(YELLOW), RGB::named(BLACK), c);
 }
 
+fn draw_white_on_black_box(ctx: &mut Rltk, x: i32, y: i32, width: i32, height: i32) {
+  ctx.draw_box(x, y, width, height, RGB::named(WHITE), RGB::named(BLACK));
+}
+
 pub fn draw_tooltip(ecs: &World, ctx: &mut Rltk) {
   let map = ecs.fetch::<Map>();
   let names = ecs.read_storage::<Name>();
@@ -94,14 +98,7 @@ pub fn draw_tooltip(ecs: &World, ctx: &mut Rltk) {
 }
 
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
-  ctx.draw_box(
-    GUI_LEFT,
-    GUI_TOP,
-    GUI_WIDTH,
-    GUI_HEIGHT,
-    RGB::named(WHITE),
-    RGB::named(BLACK),
-  );
+  draw_white_on_black_box(ctx, GUI_LEFT, GUI_TOP, GUI_WIDTH, GUI_HEIGHT);
   let player = ecs.read_storage::<Player>();
   let combat_stats = ecs.read_storage::<CombatStats>();
   let log = ecs.fetch::<GameLog>();
@@ -129,14 +126,7 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
 pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>, title: &str) {
   let inventory_count = inventory.iter().count() as i32;
   let y = 25 - (inventory_count / 2);
-  ctx.draw_box(
-    15,
-    y - 2,
-    31,
-    inventory_count + 3,
-    RGB::named(WHITE),
-    RGB::named(BLACK),
-  );
+  draw_white_on_black_box(ctx, 15, y - 2, 31, inventory_count + 3);
   print_yellow_on_black(ctx, 18, y - 2, title);
   print_yellow_on_black(ctx, 18, y + inventory_count + 1, "Escape to cancel");
   for (i, name) in inventory.iter().enumerate() {

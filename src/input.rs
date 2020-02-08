@@ -1,6 +1,7 @@
 use crate::inventory_action::InventoryAction;
 use crate::map_action::MapAction;
 use crate::targeting_action::TargetingAction;
+use crate::main_menu_action::MainMenuAction;
 use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::Entity;
 
@@ -57,4 +58,8 @@ pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<&Point>) -> 
       _ => TargetingAction::NoAction
     }
   }
+}
+
+pub fn map_input_to_main_menu_action() -> MainMenuAction {
+  MainMenuAction::NoAction
 }
