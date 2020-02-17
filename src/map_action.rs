@@ -10,5 +10,6 @@ pub enum MapAction {
   PickupItem,
   ShowInventoryMenu,
   ShowDropMenu,
-  NoAction
+  NoAction,
+  Exit
 }

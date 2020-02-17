@@ -2,14 +2,26 @@ use crate::components::{
   area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
   confusion::Confusion, consumable::Consumable, inflicts_damage::InflictsDamage, item::Item,
   monster::Monster, name::Name, player::Player, position::Position,
-  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, viewshed::Viewshed,
+  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
+  viewshed::Viewshed,
 };
 use crate::map::{idx_xy, rect::Rect, xy_idx};
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
-use specs::{Builder, Entity, World, WorldExt};
+use specs::{
+  saveload::{MarkedBuilder, SimpleMarker},
+  Builder, Entity, EntityBuilder, World, WorldExt,
+};
 
 pub const MAX_MONSTERS_PER_ROOM: i32 = 4;
 pub const MAX_ITEMS_PER_ROOM: i32 = 2;
+
+fn created_marked_entity_with_position(ecs: &mut World, map_idx: i32) -> EntityBuilder {
+  let (x, y) = idx_xy(map_idx);
+  ecs
+    .create_entity()
+    .with(Position { x, y })
+    .marked::<SimpleMarker<Saveable>>()
+}
 
 pub fn spawn_player(ecs: &mut World, x: i32, y: i32) -> Entity {
   ecs
@@ -36,14 +48,12 @@ pub fn spawn_player(ecs: &mut World, x: i32, y: i32) -> Entity {
       power: 5,
       defense: 2,
     })
+    .marked::<SimpleMarker<Saveable>>()
     .build()
 }
 
 pub fn spawn_monster<S: ToString>(ecs: &mut World, idx: i32, glyph: u8, name: S) -> Entity {
-  let (x, y) = idx_xy(idx);
-  ecs
-    .create_entity()
-    .with(Position { x, y })
+  created_marked_entity_with_position(ecs, idx)
     .with(Renderable {
       glyph,
       fg: RGB::named(rltk::RED),
@@ -89,10 +99,7 @@ pub fn spawn_random_monster(ecs: &mut World, idx: i32) -> Entity {
 }
 
 pub fn spawn_health_potion(ecs: &mut World, idx: i32) -> Entity {
-  let (x, y) = idx_xy(idx);
-  ecs
-    .create_entity()
-    .with(Position { x, y })
+  created_marked_entity_with_position(ecs, idx)
     .with(Name {
       name: "Health Potion".to_string(),
     })
@@ -109,10 +116,7 @@ pub fn spawn_health_potion(ecs: &mut World, idx: i32) -> Entity {
 }
 
 pub fn spawn_magic_missile_scroll(ecs: &mut World, idx: i32) -> Entity {
-  let (x, y) = idx_xy(idx);
-  ecs
-    .create_entity()
-    .with(Position { x, y })
+  created_marked_entity_with_position(ecs, idx)
     .with(Name {
       name: "Scroll of Magic Missile".to_string(),
     })
@@ -130,10 +134,7 @@ pub fn spawn_magic_missile_scroll(ecs: &mut World, idx: i32) -> Entity {
 }
 
 pub fn spawn_fireball_scroll(ecs: &mut World, idx: i32) -> Entity {
-  let (x, y) = idx_xy(idx);
-  ecs
-    .create_entity()
-    .with(Position { x, y })
+  created_marked_entity_with_position(ecs, idx)
     .with(Name {
       name: "Scroll of Fireball".to_string(),
     })
@@ -152,10 +153,7 @@ pub fn spawn_fireball_scroll(ecs: &mut World, idx: i32) -> Entity {
 }
 
 pub fn spawn_confusion_scroll(ecs: &mut World, idx: i32) -> Entity {
-  let (x, y) = idx_xy(idx);
-  ecs
-    .create_entity()
-    .with(Position { x, y })
+  created_marked_entity_with_position(ecs, idx)
     .with(Name {
       name: "Scroll of Confusion".to_string(),
     })
@@ -181,7 +179,7 @@ pub fn spawn_monster_entities_for_room(ecs: &mut World, rect: &Rect) {
       let mut added = false;
       while !added {
         let (x, y) = rect.get_random_coord(&mut rng);
-        let idx = xy_idx(x, y);
+        let idx = xy_idx(x, y) as usize;
         if !monster_spawn_points.contains(&idx) {
           monster_spawn_points.push(idx);
           added = true;
@@ -224,7 +222,7 @@ pub fn spawn_item_entities_for_room(ecs: &mut World, rect: &Rect) {
       let mut added = false;
       while !added {
         let (x, y) = rect.get_random_coord(&mut rng);
-        let idx = xy_idx(x, y);
+        let idx = xy_idx(x, y) as usize;
         if !item_spawn_points.contains(&idx) {
           item_spawn_points.push(idx);
           added = true;

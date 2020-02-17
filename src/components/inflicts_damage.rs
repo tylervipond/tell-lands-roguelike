@@ -1,6 +1,11 @@
-use specs::{Component, DenseVecStorage};
+use serde::{Deserialize, Serialize};
+use specs::{
+  error::NoError,
+  saveload::{ConvertSaveload, Marker},
+  Component, DenseVecStorage, Entity,
+};
 
-#[derive(Component, Debug)]
+#[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct InflictsDamage {
-  pub amount: i32
+  pub amount: i32,
 }

@@ -1,6 +1,11 @@
-use specs::{Component, DenseVecStorage};
+use serde::{Deserialize, Serialize};
+use specs::{
+  error::NoError,
+  saveload::{ConvertSaveload, Marker},
+  Component, DenseVecStorage, Entity,
+};
 
-#[derive(Component)]
+#[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct Confused {
   pub turns: i32,
 }

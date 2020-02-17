@@ -9,5 +9,5 @@ pub enum RunState {
   InventoryMenu,
   DropItemMenu,
   ShowTargeting { range: i32, item: Entity },
-  MainMenu,
+  MainMenu { highlighted: usize },
 }

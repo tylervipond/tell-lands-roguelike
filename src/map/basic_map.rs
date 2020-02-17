@@ -2,7 +2,9 @@ use crate::map::{rect::Rect, xy_idx, idx_xy, TileType, MAP_COUNT, MAP_HEIGHT, MA
 use rltk::{Algorithm2D, BaseMap, DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
 use specs::Entity;
 use std::cmp::{max, min};
+use serde::{Serialize, Deserialize};
 
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct Map {
   pub height: i32,
   pub width: i32,
@@ -11,11 +13,13 @@ pub struct Map {
   pub revealed_tiles: Vec<bool>,
   pub visible_tiles: Vec<bool>,
   pub blocked: Vec<bool>,
+  pub depth: i32,
+  #[serde(skip_serializing, skip_deserializing)]
   pub tile_content: Vec<Vec<Entity>>,
 }
 
 impl Map {
-  pub fn xy_idx(&self, x: i32, y: i32) -> usize {
+  pub fn xy_idx(&self, x: i32, y: i32) -> i32 {
     xy_idx(x, y)
   }
 
@@ -25,7 +29,7 @@ impl Map {
 
   pub fn entities_at_xy(&self, x: i32, y: i32) -> Vec<Entity> {
     let idx = self.xy_idx(x, y);
-    self.tile_content[idx].to_vec()
+    self.tile_content[idx as usize].to_vec()
   }
 
   pub fn populate_blocked(&mut self) {
@@ -43,7 +47,7 @@ impl Map {
       return false;
     }
     let idx = self.xy_idx(x, y);
-    !self.blocked[idx]
+    !self.blocked[idx as usize]
   }
 
   fn set_tile_to_floor(&mut self, idx: usize) {
@@ -53,7 +57,7 @@ impl Map {
   fn add_horizontal_tunnel(&mut self, x1: i32, x2: i32, y: i32) {
     for x in min(x1, x2)..=max(x1, x2) {
       let idx = self.xy_idx(x, y);
-      if idx > 0 && idx < MAP_COUNT {
+      if idx > 0 && idx < MAP_COUNT as i32 {
         self.set_tile_to_floor(idx as usize);
       }
     }
@@ -62,7 +66,7 @@ impl Map {
   fn add_vertical_tunnel(&mut self, x: i32, y1: i32, y2: i32) {
     for y in min(y1, y2)..=max(y1, y2) {
       let idx = self.xy_idx(x, y);
-      if idx > 0 && idx < MAP_COUNT {
+      if idx > 0 && idx < MAP_COUNT as i32 {
         self.set_tile_to_floor(idx as usize);
       }
     }
@@ -71,7 +75,7 @@ impl Map {
   fn add_room_to_map(&mut self, room: &Rect) {
     for y in room.y1 + 1..=room.y2 {
       for x in room.x1 + 1..=room.x2 {
-        self.set_tile_to_floor(self.xy_idx(x, y));
+        self.set_tile_to_floor(self.xy_idx(x, y) as usize);
       }
     }
   }
@@ -82,7 +86,7 @@ impl Map {
     }
   }
 
-  pub fn create_basic_map() -> Self {
+  pub fn create_basic_map(depth: i32) -> Self {
     let mut map = Map {
       tiles: vec![TileType::Wall; MAP_COUNT],
       rooms: vec![],
@@ -92,6 +96,7 @@ impl Map {
       visible_tiles: vec![false; MAP_COUNT],
       blocked: vec![false; MAP_COUNT],
       tile_content: vec![vec![]; MAP_COUNT],
+      depth
     };
 
     const MAX_ROOMS: i32 = 30;
@@ -118,11 +123,11 @@ impl Map {
           let (new_x, new_y) = new_room.center();
           let (prev_x, prev_y) = map.rooms[map.rooms.len() - 1].center();
           if rng.range(0, 1) == 1 {
-            map.add_horizontal_tunnel(prev_x, new_x, prev_y);
-            map.add_vertical_tunnel(new_x, new_y, prev_y);
+            map.add_horizontal_tunnel(prev_x as i32, new_x as i32, prev_y as i32);
+            map.add_vertical_tunnel(new_x as i32, new_y as i32, prev_y as i32);
           } else {
-            map.add_vertical_tunnel(prev_x, prev_y, new_y);
-            map.add_horizontal_tunnel(prev_x, new_x, new_y);
+            map.add_vertical_tunnel(prev_x as i32, prev_y as i32, new_y as i32);
+            map.add_horizontal_tunnel(prev_x as i32, new_x as i32, new_y as i32);
           }
         }
         map.rooms.push(new_room);
@@ -133,13 +138,13 @@ impl Map {
 }
 
 impl BaseMap for Map {
-  fn is_opaque(&self, idx: i32) -> bool {
+  fn is_opaque(&self, idx: usize) -> bool {
     self.tiles[idx as usize] == TileType::Wall
   }
 
-  fn get_available_exits(&self, idx: i32) -> Vec<(i32, f32)> {
-    let mut exits: Vec<(i32, f32)> = vec![];
-    let (x, y) = self.idx_xy(idx);
+  fn get_available_exits(&self, idx: usize) -> Vec<(usize, f32)> {
+    let mut exits: Vec<(usize, f32)> = vec![];
+    let (x, y) = self.idx_xy(idx as i32);
     if self.is_exit_valid(x - 1, y) {
       exits.push((idx - 1, 1.0))
     }
@@ -147,27 +152,27 @@ impl BaseMap for Map {
       exits.push((idx + 1, 1.0))
     }
     if self.is_exit_valid(x, y - 1) {
-      exits.push((idx - self.width, 1.0))
+      exits.push((idx - self.width as usize, 1.0))
     }
     if self.is_exit_valid(x, y + 1) {
-      exits.push((idx + self.width, 1.0))
+      exits.push((idx + self.width as usize, 1.0))
     }
     if self.is_exit_valid(x - 1, y - 1) {
-      exits.push(((idx - self.width) - 1, 1.45))
+      exits.push(((idx - self.width as usize) - 1, 1.45))
     }
     if self.is_exit_valid(x + 1, y - 1) {
-      exits.push(((idx - self.width) + 1, 1.45))
+      exits.push(((idx - self.width as usize) + 1, 1.45))
     }
     if self.is_exit_valid(x - 1, y + 1) {
-      exits.push(((idx + self.width) - 1, 1.45))
+      exits.push(((idx + self.width as usize) - 1, 1.45))
     }
     if self.is_exit_valid(x + 1, y + 1) {
-      exits.push(((idx + self.width) + 1, 1.45))
+      exits.push(((idx + self.width as usize) + 1, 1.45))
     }
     exits
   }
 
-  fn get_pathing_distance(&self, idx1: i32, idx2: i32) -> f32 {
+  fn get_pathing_distance(&self, idx1: usize, idx2: usize) -> f32 {
     let p1 = self.index_to_point2d(idx1);
     let p2 = self.index_to_point2d(idx2);
     Pythagoras.distance2d(p1, p2)
@@ -175,12 +180,7 @@ impl BaseMap for Map {
 }
 
 impl Algorithm2D for Map {
-  fn point2d_to_index(&self, pt: Point) -> i32 {
-    self.xy_idx(pt.x, pt.y) as i32
-  }
-
-  fn index_to_point2d(&self, idx: i32) -> Point {
-    let (x, y) = self.idx_xy(idx);
-    Point::new(x, y)
+  fn dimensions(&self) -> Point {
+    Point::new(self.width, self.height)
   }
 }

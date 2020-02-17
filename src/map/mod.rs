@@ -15,8 +15,8 @@ pub const MAP_HEIGHT: usize = 43;
 pub const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
 
 
-pub fn xy_idx(x: i32, y: i32) -> usize {
-  (y * MAP_WIDTH as i32 + x) as usize
+pub fn xy_idx(x: i32, y: i32) -> i32 {
+  (y * MAP_WIDTH as i32 + x)
 }
 
 pub fn idx_xy(idx: i32) -> (i32, i32) {

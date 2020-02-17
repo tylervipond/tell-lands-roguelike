@@ -1,39 +1,46 @@
 rltk::add_wasm_support!();
 use rltk::{Console, GameState, Point, RandomNumberGenerator, Rltk};
 use specs::prelude::*;
+use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 #[macro_use]
 extern crate specs_derive;
+extern crate serde;
 mod components;
 mod game_log;
 mod gui;
 mod input;
 mod inventory;
 mod inventory_action;
+mod main_menu_action;
+mod main_menu_option;
 mod map;
 mod map_action;
+mod persistence;
 mod player;
 mod ranged;
 mod run_state;
+mod sizes;
 mod spawner;
 mod systems;
 mod targeting_action;
 mod utils;
-mod main_menu_action;
-
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
     confused::Confused, confusion::Confusion, consumable::Consumable, in_backpack::InBackpack,
     inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name, player::Player,
     position::Position, potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged,
-    renderable::Renderable, suffer_damage::SufferDamage, viewshed::Viewshed,
-    wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
-    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
+    renderable::Renderable, saveable::Saveable, serialization_helper::SerializationHelper,
+    suffer_damage::SufferDamage, viewshed::Viewshed, wants_to_drop_item::WantsToDropItem,
+    wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
+    wants_to_use::WantsToUse,
 };
-use game_log::GameLog;
 use input::{
-    map_input_to_inventory_action, map_input_to_map_action, map_input_to_targeting_action,
+    map_input_to_inventory_action, map_input_to_main_menu_action, map_input_to_map_action,
+    map_input_to_targeting_action,
 };
 use inventory_action::InventoryAction;
+use main_menu_action::MainMenuAction;
+use main_menu_option::MainMenuOption;
 use map::{draw_map, Map};
 use map_action::MapAction;
 use player::{get_player_inventory_list, player_action};
@@ -54,7 +61,7 @@ fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
     sorted_renderables.sort_unstable_by(|a, b| b.1.layer.cmp(&a.1.layer));
     for (pos, render) in sorted_renderables.iter() {
         let idx = map.xy_idx(pos.x, pos.y);
-        if map.visible_tiles[idx] {
+        if map.visible_tiles[idx as usize] {
             ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
         }
     }
@@ -105,6 +112,10 @@ impl GameState for State {
             RunState::AwaitingInput => {
                 let action = map_input_to_map_action(ctx);
                 match action {
+                    MapAction::Exit => {
+                        persistence::save_game(&mut self.ecs);
+                        RunState::MainMenu { highlighted: 0 }
+                    }
                     MapAction::NoAction => RunState::AwaitingInput,
                     MapAction::ShowInventoryMenu => RunState::InventoryMenu,
                     MapAction::ShowDropMenu => RunState::DropItemMenu,
@@ -198,6 +209,59 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::MainMenu { highlighted } => {
+                let has_save_game = persistence::has_save_game();
+                let menu = vec![
+                    MainMenuOption::new("New Game", false),
+                    MainMenuOption::new("Continue", !has_save_game),
+                    MainMenuOption::new("Quit", false),
+                ];
+
+                ctx.cls();
+                gui::show_main_menu(ctx, &menu, highlighted);
+                let action = map_input_to_main_menu_action(ctx, highlighted);
+                match action {
+                    MainMenuAction::Exit => RunState::MainMenu { highlighted },
+                    MainMenuAction::NoAction => RunState::MainMenu { highlighted },
+                    MainMenuAction::MoveHighlightDown => RunState::MainMenu {
+                        highlighted: match menu.get(highlighted + 1) {
+                            Some(o) => match o.disabled {
+                                true => match highlighted < menu.len() - 1 {
+                                    true => highlighted + 2,
+                                    false => 0,
+                                },
+                                false => highlighted + 1,
+                            },
+                            None => 0,
+                        },
+                    },
+                    MainMenuAction::MoveHighlightUp => RunState::MainMenu {
+                        highlighted: match highlighted {
+                            0 => menu.len() - 1,
+                            _ => match menu.get(highlighted - 1) {
+                                Some(o) => match o.disabled {
+                                    true => match highlighted > 1 {
+                                        true => highlighted - 2,
+                                        false => menu.len() - 1,
+                                    },
+                                    false => highlighted - 1,
+                                },
+                                None => menu.len() - 1,
+                            },
+                        },
+                    },
+                    MainMenuAction::Select { option } => match option {
+                        0 => RunState::PreRun,
+                        1 => {
+                            persistence::load_game(&mut self.ecs);
+                            persistence::delete_save();
+                            RunState::AwaitingInput
+                        }
+                        2 => std::process::exit(0),
+                        _ => RunState::MainMenu { highlighted },
+                    },
+                }
+            }
         };
         {
             let mut run_writer = self.ecs.write_resource::<RunState>();
@@ -232,21 +296,29 @@ fn main() {
     gs.ecs.register::<AreaOfEffect>();
     gs.ecs.register::<Confusion>();
     gs.ecs.register::<Confused>();
+    gs.ecs.register::<SimpleMarker<Saveable>>();
+    gs.ecs.register::<SerializationHelper>();
+    gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.ecs.insert(game_log::GameLog {
         entries: vec!["Welcome to Tell-Lands".to_owned()],
     });
-    let map = Map::create_basic_map();
+    let map = Map::create_basic_map(1);
     let (player_x, player_y) = map.rooms[0].center();
     gs.ecs.insert(Point::new(player_x, player_y));
-    let player_entity = spawner::spawn_player(&mut gs.ecs, player_x, player_y);
+    let player_entity = spawner::spawn_player(&mut gs.ecs, player_x as i32, player_y as i32);
     gs.ecs.insert(player_entity);
-    gs.ecs.insert(RunState::PreRun);
+    gs.ecs.insert(RunState::MainMenu { highlighted: 0 });
     let rng = RandomNumberGenerator::new();
     gs.ecs.insert(rng);
     for (_i, room) in map.rooms.iter().skip(1).enumerate() {
         spawner::spawn_entities_for_room(&mut gs.ecs, &room);
     }
     gs.ecs.insert(map);
-    let context = Rltk::init_simple8x8(80, 50, "Tell-Lands", "resources");
+    let context = Rltk::init_simple8x8(
+        sizes::CHAR_COUNT_HORIZONTAL as u32,
+        sizes::CHAR_COUNT_VERTICAL as u32,
+        "Tell-Lands",
+        "resources",
+    );
     rltk::main_loop(context, gs);
 }

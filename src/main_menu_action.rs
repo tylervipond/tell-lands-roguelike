@@ -1,5 +1,7 @@
 pub enum MainMenuAction {
-  NewGame,
+  Select {option: usize},
+  MoveHighlightUp,
+  MoveHighlightDown,
   Exit,
   NoAction
 }

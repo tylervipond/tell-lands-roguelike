@@ -1,7 +1,7 @@
 use crate::inventory_action::InventoryAction;
+use crate::main_menu_action::MainMenuAction;
 use crate::map_action::MapAction;
 use crate::targeting_action::TargetingAction;
-use crate::main_menu_action::MainMenuAction;
 use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::Entity;
 
@@ -9,6 +9,7 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
   match ctx.key {
     None => MapAction::NoAction,
     Some(key) => match key {
+      VirtualKeyCode::Escape => MapAction::Exit,
       VirtualKeyCode::A => MapAction::MoveLeft,
       VirtualKeyCode::D => MapAction::MoveRight,
       VirtualKeyCode::W => MapAction::MoveUp,
@@ -48,18 +49,32 @@ pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<&Point>) -> 
   if ctx.left_click {
     return match target {
       Some(point) => TargetingAction::Selected(*point),
-      None => TargetingAction::Exit
-    }
+      None => TargetingAction::Exit,
+    };
   }
   match ctx.key {
     None => TargetingAction::NoAction,
     Some(key) => match key {
       VirtualKeyCode::Escape => TargetingAction::Exit,
-      _ => TargetingAction::NoAction
-    }
+      _ => TargetingAction::NoAction,
+    },
   }
 }
 
-pub fn map_input_to_main_menu_action() -> MainMenuAction {
-  MainMenuAction::NoAction
+pub fn map_input_to_main_menu_action(
+  ctx: &mut Rltk,
+  highlighted: usize,
+) -> MainMenuAction {
+  match ctx.key {
+    None => MainMenuAction::NoAction,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => MainMenuAction::Exit,
+      VirtualKeyCode::Up => MainMenuAction::MoveHighlightUp,
+      VirtualKeyCode::Down => MainMenuAction::MoveHighlightDown,
+      VirtualKeyCode::Return => MainMenuAction::Select {
+        option: highlighted,
+      },
+      _ => MainMenuAction::NoAction,
+    },
+  }
 }

@@ -32,7 +32,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let y = pos.y + delta_y;
     let destination_index = map.xy_idx(x, y);
 
-    for potential_target in map.tile_content[destination_index].iter() {
+    for potential_target in map.tile_content[destination_index as usize].iter() {
       let target = combat_stats.get(*potential_target);
       if let Some(_target) = target {
         wants_to_melee
@@ -46,7 +46,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
         return;
       }
     } // this block of code could be written in a better way.
-    if !map.blocked[destination_index] {
+    if !map.blocked[destination_index as usize] {
       pos.x = min(79, max(0, x));
       pos.y = min(49, max(0, y));
       viewshed.dirty = true;
