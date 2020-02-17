@@ -1,4 +1,5 @@
+use serde::{Deserialize, Serialize};
 use specs::{Component, DenseVecStorage};
 
-#[derive(Component, Debug)]
+#[derive(Component, Serialize, Deserialize, Clone, Debug)]
 pub struct Monster {}

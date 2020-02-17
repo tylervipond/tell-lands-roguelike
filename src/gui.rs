@@ -2,9 +2,12 @@ use crate::components::{
   combat_stats::CombatStats, name::Name, player::Player, position::Position,
 };
 use crate::game_log::GameLog;
+use crate::main_menu_option::MainMenuOption;
 use crate::map::Map;
+use crate::sizes;
 use rltk::{
-  console::Console, Point, Rltk, BLACK, BLUE, CYAN, GREY, MAGENTA, RED, RGB, WHITE, YELLOW,
+  console::Console, Point, Rltk, BLACK, BLUE, CYAN, GREY, LIGHT_GRAY, MAGENTA, RED, RGB, WHITE,
+  YELLOW,
 };
 use specs::{Join, World, WorldExt};
 
@@ -29,6 +32,10 @@ fn print_white_on_black(ctx: &mut Rltk, x: i32, y: i32, s: &str) {
   ctx.print_color(x, y, RGB::named(WHITE), RGB::named(BLACK), s);
 }
 
+fn print_light_grey_on_black(ctx: &mut Rltk, x: i32, y: i32, s: &str) {
+  ctx.print_color(x, y, RGB::named(LIGHT_GRAY), RGB::named(BLACK), s);
+}
+
 fn char_white_on_black(ctx: &mut Rltk, x: i32, y: i32, c: u8) {
   ctx.set(x, y, RGB::named(WHITE), RGB::named(BLACK), c);
 }
@@ -37,13 +44,17 @@ fn char_yellow_on_black(ctx: &mut Rltk, x: i32, y: i32, c: u8) {
   ctx.set(x, y, RGB::named(YELLOW), RGB::named(BLACK), c);
 }
 
+fn draw_white_on_black_box(ctx: &mut Rltk, x: i32, y: i32, width: i32, height: i32) {
+  ctx.draw_box(x, y, width, height, RGB::named(WHITE), RGB::named(BLACK));
+}
+
 pub fn draw_tooltip(ecs: &World, ctx: &mut Rltk) {
   let map = ecs.fetch::<Map>();
   let names = ecs.read_storage::<Name>();
   let positions = ecs.read_storage::<Position>();
 
   let mouse_pos = ctx.mouse_pos();
-  if mouse_pos.0 >= map.width || mouse_pos.1 >= map.height {
+  if mouse_pos.0 >= map.width as i32 || mouse_pos.1 >= map.height as i32 {
     return;
   }
   let tooltip: Vec<String> =
@@ -94,17 +105,13 @@ pub fn draw_tooltip(ecs: &World, ctx: &mut Rltk) {
 }
 
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
-  ctx.draw_box(
-    GUI_LEFT,
-    GUI_TOP,
-    GUI_WIDTH,
-    GUI_HEIGHT,
-    RGB::named(WHITE),
-    RGB::named(BLACK),
-  );
+  draw_white_on_black_box(ctx, GUI_LEFT, GUI_TOP, GUI_WIDTH, GUI_HEIGHT);
   let player = ecs.read_storage::<Player>();
   let combat_stats = ecs.read_storage::<CombatStats>();
   let log = ecs.fetch::<GameLog>();
+  let map = ecs.fetch::<Map>();
+  let depth = format!("Depth: {}", map.depth);
+  print_yellow_on_black(ctx, 2, 43, &depth);
   for (_player, stats) in (&player, &combat_stats).join() {
     let health = format!("HP: {} / {}", stats.hp, stats.max_hp);
     print_yellow_on_black(ctx, GUI_HEALTH_LEFT, GUI_TOP, &health);
@@ -129,14 +136,7 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
 pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>, title: &str) {
   let inventory_count = inventory.iter().count() as i32;
   let y = 25 - (inventory_count / 2);
-  ctx.draw_box(
-    15,
-    y - 2,
-    31,
-    inventory_count + 3,
-    RGB::named(WHITE),
-    RGB::named(BLACK),
-  );
+  draw_white_on_black_box(ctx, 15, y - 2, 31, inventory_count + 3);
   print_yellow_on_black(ctx, 18, y - 2, title);
   print_yellow_on_black(ctx, 18, y + inventory_count + 1, "Escape to cancel");
   for (i, name) in inventory.iter().enumerate() {
@@ -157,4 +157,47 @@ pub fn show_valid_targeting_area(ctx: &mut Rltk, tiles: &Vec<Point>) {
 
 pub fn show_current_target(ctx: &mut Rltk, tile: &Point) {
   ctx.set_bg(tile.x, tile.y, RGB::named(CYAN))
+}
+
+fn get_offset_from_center(context_size: usize, content_size: usize) -> usize {
+  return context_size / 2 - content_size / 2;
+}
+
+fn print_main_menu_option(
+  ctx: &mut Rltk,
+  option: &MainMenuOption,
+  highighted: bool,
+  vertical_offset: usize,
+) {
+  let copy_horizontal_offset =
+    get_offset_from_center(sizes::CHAR_COUNT_HORIZONTAL, option.text.len());
+  if option.disabled {
+    print_light_grey_on_black(
+      ctx,
+      copy_horizontal_offset as i32,
+      vertical_offset as i32,
+      option.text,
+    )
+  } else if highighted {
+    print_yellow_on_black(
+      ctx,
+      copy_horizontal_offset as i32,
+      vertical_offset as i32,
+      option.text,
+    )
+  } else {
+    print_white_on_black(
+      ctx,
+      copy_horizontal_offset as i32,
+      vertical_offset as i32,
+      option.text,
+    );
+  }
+}
+
+pub fn show_main_menu(ctx: &mut Rltk, menu: &Vec<MainMenuOption>, highighted: usize) {
+  menu
+    .iter()
+    .enumerate()
+    .for_each(|(i, o)| print_main_menu_option(ctx, o, highighted == i, (i + 1) * 2));
 }

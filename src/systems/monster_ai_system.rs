@@ -59,16 +59,16 @@ impl<'a> System<'a> for MonsterAI {
           )
           .expect("Unable to insert attack");
       } else if viewshed.visible_tiles.contains(&*player_position) {
-        let idx1 = map.xy_idx(position.x, position.y) as i32;
-        let idx2 = map.xy_idx(player_position.x, player_position.y) as i32;
+        let idx1 = map.xy_idx(position.x, position.y) as usize;
+        let idx2 = map.xy_idx(player_position.x, player_position.y) as usize;
         let path = a_star_search(idx1, idx2, &mut *map);
         if path.success && path.steps.len() > 1 {
-          let (x, y) = map.idx_xy(path.steps[1]);
-          position.x = x;
-          position.y = y;
+          let (x, y) = map.idx_xy(path.steps[1] as i32);
+          position.x = x as i32;
+          position.y = y as i32;
           viewshed.dirty = true;
-          map.blocked[idx1 as usize] = false;
-          map.blocked[path.steps[1] as usize] = true;
+          map.blocked[idx1] = false;
+          map.blocked[path.steps[1]] = true;
         }
       }
     }

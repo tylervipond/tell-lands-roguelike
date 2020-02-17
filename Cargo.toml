@@ -1,12 +1,12 @@
 [package]
-name = "roguelike-tutorial-part-one"
+name = "tell-lands"
 version = "0.1.0"
 authors = ["Tyler Vipond <tylervipond@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-rltk = { git = "https://github.com/thebracket/rltk_rs" }
-specs = "0.15.0"
+rltk = { version = "0.6.2", features = ["serde"] }
+specs = { version = "0.15.0", features = ["serde"] }
 specs-derive = "0.4.0"
+serde = { version = "1.0.93", features = ["derive"] }
+serde_json = "1.0.39"

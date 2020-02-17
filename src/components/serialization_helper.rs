@@ -1,3 +1,4 @@
+use crate::map::basic_map::Map;
 use serde::{Deserialize, Serialize};
 use specs::{
   error::NoError,
@@ -6,7 +7,6 @@ use specs::{
 };
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
-pub struct Position {
-  pub x: i32,
-  pub y: i32,
+pub struct SerializationHelper {
+  pub map: Map,
 }

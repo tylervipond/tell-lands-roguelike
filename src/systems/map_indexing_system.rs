@@ -25,9 +25,9 @@ impl<'a> System<'a> for MapIndexingSystem {
       let idx = map.xy_idx(position.x, position.y);
       let _p = blockers.get(entity);
       if let Some(_p) = _p {
-        map.blocked[idx] = true
+        map.blocked[idx as usize] = true
       }
-      map.tile_content[idx].push(entity);
+      map.tile_content[idx as usize].push(entity);
     }
   }
 }

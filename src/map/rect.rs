@@ -1,7 +1,8 @@
 use crate::utils::get_random_between_numbers;
 use rltk::RandomNumberGenerator;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub struct Rect {
   pub x1: i32,
   pub x2: i32,
