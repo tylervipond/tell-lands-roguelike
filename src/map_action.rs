@@ -11,5 +11,7 @@ pub enum MapAction {
   ShowInventoryMenu,
   ShowDropMenu,
   NoAction,
+  GoDownStairs,
+  GoUpStairs,
   Exit
 }

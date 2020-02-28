@@ -1,8 +1,8 @@
 use crate::components::{
-  confused::Confused, monster::Monster, position::Position, viewshed::Viewshed,
-  wants_to_melee::WantsToMelee,
+  confused::Confused, dungeon_level::DungeonLevel, monster::Monster, position::Position,
+  viewshed::Viewshed, wants_to_melee::WantsToMelee,
 };
-use crate::map::Map;
+use crate::dungeon::dungeon::Dungeon;
 use crate::RunState;
 use rltk::{a_star_search, DistanceAlg::Pythagoras, Point};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
@@ -11,7 +11,7 @@ pub struct MonsterAI {}
 
 impl<'a> System<'a> for MonsterAI {
   type SystemData = (
-    WriteExpect<'a, Map>,
+    WriteExpect<'a, Dungeon>,
     ReadExpect<'a, Point>,
     ReadExpect<'a, Entity>,
     ReadExpect<'a, RunState>,
@@ -21,10 +21,13 @@ impl<'a> System<'a> for MonsterAI {
     ReadStorage<'a, Monster>,
     WriteStorage<'a, WantsToMelee>,
     WriteStorage<'a, Confused>,
+    ReadStorage<'a, DungeonLevel>,
   );
+  // This is currently very limited. Monsters will only act if they can see a player, which means that they must
+  // also be on the same map to act.
   fn run(&mut self, data: Self::SystemData) {
     let (
-      mut map,
+      mut dungeon,
       player_position,
       player_entity,
       runstate,
@@ -34,19 +37,33 @@ impl<'a> System<'a> for MonsterAI {
       monsters,
       mut wants_to_melee,
       mut confused,
+      levels,
     ) = data;
     if *runstate != RunState::MonsterTurn {
       return;
     }
-    for (_monsters, entity, mut viewshed, mut position) in
-      (&monsters, &entities, &mut viewsheds, &mut positions).join()
+
+    let player_level = levels.get(*player_entity).unwrap();
+    let map = dungeon.get_map(player_level.level).unwrap();
+
+    for (_monsters, entity, mut viewshed, mut position, level) in (
+      &monsters,
+      &entities,
+      &mut viewsheds,
+      &mut positions,
+      &levels,
+    )
+      .join()
     {
       if let Some(is_confused) = confused.get_mut(entity) {
         is_confused.turns -= 1;
         if is_confused.turns < 1 {
           confused.remove(entity);
         }
-        return;
+        continue;
+      }
+      if level.level != player_level.level {
+        continue;
       }
       let distance = Pythagoras.distance2d(Point::new(position.x, position.y), *player_position);
       if distance < 1.5 {

@@ -21,6 +21,8 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::F => MapAction::PickupItem,
       VirtualKeyCode::I => MapAction::ShowInventoryMenu,
       VirtualKeyCode::R => MapAction::ShowDropMenu,
+      VirtualKeyCode::Period => MapAction::GoDownStairs,
+      VirtualKeyCode::Comma => MapAction::GoUpStairs,
       _ => MapAction::NoAction,
     },
   }

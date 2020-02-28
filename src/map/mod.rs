@@ -1,14 +1,15 @@
 use rltk::{Console, Rltk, RGB};
-use specs::{World};
+use specs::{World, WorldExt, Entity};
 
 pub mod basic_map;
 pub mod rect;
 pub mod tile_type;
 
-pub use crate::components::{player::Player, viewshed::Viewshed};
+pub use crate::components::{player::Player, viewshed::Viewshed, dungeon_level::DungeonLevel};
 
 pub use basic_map::Map;
 pub use tile_type::TileType;
+pub use crate::dungeon::dungeon::Dungeon;
 
 pub const MAP_WIDTH: usize = 80;
 pub const MAP_HEIGHT: usize = 43;
@@ -24,8 +25,11 @@ pub fn idx_xy(idx: i32) -> (i32, i32) {
 }
 
 pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
-  let map = ecs.fetch::<Map>();
-
+  let mut dungeon = ecs.fetch_mut::<Dungeon>();
+  let player_ent = ecs.fetch::<Entity>();
+  let levels = ecs.read_storage::<DungeonLevel>();
+  let player_level = levels.get(*player_ent).unwrap();
+  let map = dungeon.get_map(player_level.level).unwrap();
   for (i, tile) in map.tiles.iter().enumerate() {
     if map.revealed_tiles[i] {
       let x = i % MAP_WIDTH as usize;
@@ -33,6 +37,8 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
       let character = match tile {
         TileType::Floor => '.',
         TileType::Wall => '#',
+        TileType::DownStairs => '>',
+        TileType::UpStairs => '<',
       };
       let foreground_color = match map.visible_tiles[i] {
         true => rltk::GREEN,

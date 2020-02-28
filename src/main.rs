@@ -6,6 +6,7 @@ use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 extern crate specs_derive;
 extern crate serde;
 mod components;
+mod dungeon;
 mod game_log;
 mod gui;
 mod input;
@@ -26,14 +27,15 @@ mod targeting_action;
 mod utils;
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
-    confused::Confused, confusion::Confusion, consumable::Consumable, in_backpack::InBackpack,
-    inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name, player::Player,
-    position::Position, potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged,
-    renderable::Renderable, saveable::Saveable, serialization_helper::SerializationHelper,
-    suffer_damage::SufferDamage, viewshed::Viewshed, wants_to_drop_item::WantsToDropItem,
-    wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
-    wants_to_use::WantsToUse,
+    confused::Confused, confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
+    in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
+    name::Name, player::Player, position::Position, potion::Potion,
+    provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
+    serialization_helper::SerializationHelper, suffer_damage::SufferDamage, viewshed::Viewshed,
+    wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
+    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
+use dungeon::dungeon::Dungeon;
 use input::{
     map_input_to_inventory_action, map_input_to_main_menu_action, map_input_to_map_action,
     map_input_to_targeting_action,
@@ -56,14 +58,21 @@ use targeting_action::TargetingAction;
 fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
     let positions = ecs.read_storage::<Position>();
     let renderables = ecs.read_storage::<Renderable>();
-    let map = ecs.fetch::<Map>();
-    let mut sorted_renderables = (&positions, &renderables).join().collect::<Vec<_>>();
+    let levels = ecs.read_storage::<DungeonLevel>();
+    let dungeon = ecs.fetch::<Dungeon>();
+    let player_ent = ecs.fetch::<Entity>();
+    let player_level = levels.get(*player_ent).unwrap();
+    let map = dungeon.maps.get(&player_level.level).unwrap();
+    let mut sorted_renderables = (&positions, &renderables, &levels)
+        .join()
+        .filter(|(p, r, l)| {
+            return l.level == player_level.level
+                && map.visible_tiles[map.xy_idx(p.x, p.y) as usize];
+        })
+        .collect::<Vec<_>>();
     sorted_renderables.sort_unstable_by(|a, b| b.1.layer.cmp(&a.1.layer));
-    for (pos, render) in sorted_renderables.iter() {
-        let idx = map.xy_idx(pos.x, pos.y);
-        if map.visible_tiles[idx as usize] {
-            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
-        }
+    for (pos, render, _) in sorted_renderables.iter() {
+        ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
     }
 }
 
@@ -71,7 +80,8 @@ fn draw_screen(ecs: &World, ctx: &mut Rltk) {
     ctx.cls();
     draw_map(ecs, ctx);
     draw_renderables_to_map(ecs, ctx);
-    gui::draw_ui(ecs, ctx)
+    gui::draw_ui(ecs, ctx);
+    gui::draw_tooltip(ecs, ctx);
 }
 
 pub struct State {
@@ -298,22 +308,29 @@ fn main() {
     gs.ecs.register::<Confused>();
     gs.ecs.register::<SimpleMarker<Saveable>>();
     gs.ecs.register::<SerializationHelper>();
+    gs.ecs.register::<DungeonLevel>();
     gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.ecs.insert(game_log::GameLog {
         entries: vec!["Welcome to Tell-Lands".to_owned()],
     });
-    let map = Map::create_basic_map(1);
-    let (player_x, player_y) = map.rooms[0].center();
-    gs.ecs.insert(Point::new(player_x, player_y));
-    let player_entity = spawner::spawn_player(&mut gs.ecs, player_x as i32, player_y as i32);
-    gs.ecs.insert(player_entity);
     gs.ecs.insert(RunState::MainMenu { highlighted: 0 });
     let rng = RandomNumberGenerator::new();
     gs.ecs.insert(rng);
-    for (_i, room) in map.rooms.iter().skip(1).enumerate() {
-        spawner::spawn_entities_for_room(&mut gs.ecs, &room);
-    }
-    gs.ecs.insert(map);
+
+    let mut dungeon = Dungeon::generate(1, 10);
+
+    let map = dungeon.get_map(9).unwrap();
+    let (player_x, player_y) = map.rooms[0].center();
+    gs.ecs.insert(Point::new(player_x, player_y));
+    let player_entity = spawner::spawn_player(&mut gs.ecs, player_x as i32, player_y as i32, 9);
+    gs.ecs.insert(player_entity);
+
+    dungeon.maps.iter().for_each(|(i, m)| {
+        for room in m.rooms.iter().skip(1) {
+            spawner::spawn_entities_for_room(&mut gs.ecs, &room, *i);
+        }
+    });
+    gs.ecs.insert(dungeon);
     let context = Rltk::init_simple8x8(
         sizes::CHAR_COUNT_HORIZONTAL as u32,
         sizes::CHAR_COUNT_VERTICAL as u32,

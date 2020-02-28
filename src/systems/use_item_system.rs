@@ -1,10 +1,11 @@
 use crate::components::{
   area_of_effect::AreaOfEffect, combat_stats::CombatStats, confused::Confused,
-  confusion::Confusion, consumable::Consumable, inflicts_damage::InflictsDamage, name::Name,
-  provides_healing::ProvidesHealing, suffer_damage::SufferDamage, wants_to_use::WantsToUse,
+  confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
+  inflicts_damage::InflictsDamage, name::Name, provides_healing::ProvidesHealing,
+  suffer_damage::SufferDamage, wants_to_use::WantsToUse,
 };
+use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
-use crate::map::Map;
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 pub struct UseItemSystem {}
@@ -21,10 +22,11 @@ impl<'a> System<'a> for UseItemSystem {
     ReadStorage<'a, ProvidesHealing>,
     ReadStorage<'a, InflictsDamage>,
     WriteStorage<'a, SufferDamage>,
-    ReadExpect<'a, Map>,
+    WriteExpect<'a, Dungeon>,
     ReadStorage<'a, AreaOfEffect>,
     ReadStorage<'a, Confusion>,
     WriteStorage<'a, Confused>,
+    ReadStorage<'a, DungeonLevel>,
   );
   fn run(&mut self, data: Self::SystemData) {
     let (
@@ -38,12 +40,14 @@ impl<'a> System<'a> for UseItemSystem {
       provides_healing,
       inflicts_damage,
       mut suffer_damage,
-      map,
+      mut dungeon,
       aoe,
       causes_confusion,
       mut is_confused,
+      dungeon_levels,
     ) = data;
-
+    let player_level = dungeon_levels.get(*player_entity).unwrap();
+    let map = dungeon.get_map(player_level.level).unwrap();
     for (to_use, entity) in (&wants_to_use, &entities).join() {
       let targets = match to_use.target {
         None => vec![*player_entity],
