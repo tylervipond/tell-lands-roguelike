@@ -5,7 +5,7 @@
 // to replace the custom macros
 
 use crate::components::{
-  area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
+  area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
   confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
   in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
   name::Name, player::Player, position::Position, provides_healing::ProvidesHealing,
@@ -101,6 +101,7 @@ pub fn save_game(ecs: &mut World) {
       WantsToUse,
       WantsToDropItem,
       DungeonLevel,
+      Blood,
       SerializationHelper
     );
   }
@@ -145,6 +146,7 @@ fn deserialize_from_save_file(ecs: &mut World) {
     WantsToUse,
     WantsToDropItem,
     DungeonLevel,
+    Blood,
     SerializationHelper
   );
 }

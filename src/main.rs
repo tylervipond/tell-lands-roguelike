@@ -33,7 +33,7 @@ use components::{
     provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
     serialization_helper::SerializationHelper, suffer_damage::SufferDamage, viewshed::Viewshed,
     wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
-    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
+    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse, blood::Blood
 };
 use dungeon::dungeon::Dungeon;
 use input::{
@@ -309,6 +309,7 @@ fn main() {
     gs.ecs.register::<SimpleMarker<Saveable>>();
     gs.ecs.register::<SerializationHelper>();
     gs.ecs.register::<DungeonLevel>();
+    gs.ecs.register::<Blood>();
     gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.ecs.insert(game_log::GameLog {
         entries: vec!["Welcome to Tell-Lands".to_owned()],
