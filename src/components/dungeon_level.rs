@@ -1,4 +1,3 @@
-use crate::dungeon::dungeon::Dungeon;
 use serde::{Deserialize, Serialize};
 use specs::{
   error::NoError,
@@ -6,7 +5,7 @@ use specs::{
   Component, DenseVecStorage, Entity,
 };
 
-#[derive(Component, ConvertSaveload, Debug, Clone)]
-pub struct SerializationHelper {
-  pub dungeon: Dungeon,
+#[derive(Component, ConvertSaveload, Clone, Debug)]
+pub struct DungeonLevel {
+  pub level: i32,
 }

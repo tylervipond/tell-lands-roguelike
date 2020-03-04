@@ -1,8 +1,8 @@
-use crate::map::{rect::Rect, xy_idx, idx_xy, TileType, MAP_COUNT, MAP_HEIGHT, MAP_WIDTH};
+use crate::map::{idx_xy, rect::Rect, xy_idx, TileType, MAP_COUNT, MAP_HEIGHT, MAP_WIDTH};
 use rltk::{Algorithm2D, BaseMap, DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
+use serde::{Deserialize, Serialize};
 use specs::Entity;
 use std::cmp::{max, min};
-use serde::{Serialize, Deserialize};
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct Map {
@@ -14,6 +14,8 @@ pub struct Map {
   pub visible_tiles: Vec<bool>,
   pub blocked: Vec<bool>,
   pub depth: i32,
+  pub stairs_down: Option<Point>,
+  pub stairs_up: Option<Point>,
   #[serde(skip_serializing, skip_deserializing)]
   pub tile_content: Vec<Vec<Entity>>,
 }
@@ -86,6 +88,20 @@ impl Map {
     }
   }
 
+  pub fn add_down_stairs(&mut self) {
+    let stairs_position = self.rooms[self.rooms.len() - 1].center();
+    let stairs_idx = self.xy_idx(stairs_position.0, stairs_position.1);
+    self.tiles[stairs_idx as usize] = TileType::DownStairs;
+    self.stairs_down = Some(Point::new(stairs_position.0, stairs_position.1));
+  }
+
+  pub fn add_up_stairs(&mut self) {
+    let stairs_position = self.rooms[0].center();
+    let stairs_idx = self.xy_idx(stairs_position.0, stairs_position.1);
+    self.tiles[stairs_idx as usize] = TileType::UpStairs;
+    self.stairs_up = Some(Point::new(stairs_position.0, stairs_position.1));
+  }
+
   pub fn create_basic_map(depth: i32) -> Self {
     let mut map = Map {
       tiles: vec![TileType::Wall; MAP_COUNT],
@@ -96,7 +112,9 @@ impl Map {
       visible_tiles: vec![false; MAP_COUNT],
       blocked: vec![false; MAP_COUNT],
       tile_content: vec![vec![]; MAP_COUNT],
-      depth
+      stairs_down: None,
+      stairs_up: None,
+      depth,
     };
 
     const MAX_ROOMS: i32 = 30;

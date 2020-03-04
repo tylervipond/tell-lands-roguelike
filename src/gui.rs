@@ -1,15 +1,16 @@
 use crate::components::{
-  combat_stats::CombatStats, name::Name, player::Player, position::Position,
+  combat_stats::CombatStats, dungeon_level::DungeonLevel, name::Name, player::Player,
+  position::Position,
 };
+use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
 use crate::main_menu_option::MainMenuOption;
-use crate::map::Map;
 use crate::sizes;
 use rltk::{
   console::Console, Point, Rltk, BLACK, BLUE, CYAN, GREY, LIGHT_GRAY, MAGENTA, RED, RGB, WHITE,
   YELLOW,
 };
-use specs::{Join, World, WorldExt};
+use specs::{Entity, Join, World, WorldExt};
 
 const GUI_LEFT: i32 = 0;
 const GUI_TOP: i32 = 43;
@@ -49,7 +50,11 @@ fn draw_white_on_black_box(ctx: &mut Rltk, x: i32, y: i32, width: i32, height: i
 }
 
 pub fn draw_tooltip(ecs: &World, ctx: &mut Rltk) {
-  let map = ecs.fetch::<Map>();
+  let mut dungeon = ecs.write_resource::<Dungeon>();
+  let levels = ecs.read_storage::<DungeonLevel>();
+  let player_ent = ecs.read_resource::<Entity>();
+  let player_level = levels.get(*player_ent).unwrap();
+  let map = dungeon.get_map(player_level.level).unwrap();
   let names = ecs.read_storage::<Name>();
   let positions = ecs.read_storage::<Position>();
 
@@ -109,7 +114,11 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
   let player = ecs.read_storage::<Player>();
   let combat_stats = ecs.read_storage::<CombatStats>();
   let log = ecs.fetch::<GameLog>();
-  let map = ecs.fetch::<Map>();
+  let mut dungeon = ecs.fetch_mut::<Dungeon>();
+  let player_ent = ecs.fetch::<Entity>();
+  let levels = ecs.read_storage::<DungeonLevel>();
+  let player_level = levels.get(*player_ent).unwrap();
+  let map = dungeon.get_map(player_level.level).unwrap();
   let depth = format!("Depth: {}", map.depth);
   print_yellow_on_black(ctx, 2, 43, &depth);
   for (_player, stats) in (&player, &combat_stats).join() {
@@ -130,7 +139,6 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
   }
   let mouse_pos = ctx.mouse_pos();
   ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(MAGENTA));
-  draw_tooltip(ecs, ctx);
 }
 
 pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>, title: &str) {
