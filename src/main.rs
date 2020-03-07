@@ -20,20 +20,21 @@ mod persistence;
 mod player;
 mod ranged;
 mod run_state;
+mod services;
 mod sizes;
 mod spawner;
 mod systems;
 mod targeting_action;
 mod utils;
 use components::{
-    area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
+    area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
     confused::Confused, confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
     in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
-    name::Name, player::Player, position::Position, potion::Potion,
-    provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
-    serialization_helper::SerializationHelper, suffer_damage::SufferDamage, viewshed::Viewshed,
-    wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
-    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse, blood::Blood
+    name::Name, particle_lifetime::ParticleLifetime, player::Player, position::Position,
+    potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable,
+    saveable::Saveable, serialization_helper::SerializationHelper, suffer_damage::SufferDamage,
+    viewshed::Viewshed, wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
+    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
 use dungeon::dungeon::Dungeon;
 use input::{
@@ -48,9 +49,10 @@ use map_action::MapAction;
 use player::{get_player_inventory_list, player_action};
 use run_state::RunState;
 use systems::{
-    damage_system::DamageSystem, item_collection_system::ItemCollectionSystem,
-    item_drop_system::ItemDropSystem, map_indexing_system::MapIndexingSystem,
-    melee_combat_system::MeleeCombatSystem, monster_ai_system::MonsterAI,
+    blood_spawn_system::BloodSpawnSystem, damage_system::DamageSystem,
+    item_collection_system::ItemCollectionSystem, item_drop_system::ItemDropSystem,
+    map_indexing_system::MapIndexingSystem, melee_combat_system::MeleeCombatSystem,
+    monster_ai_system::MonsterAI, particle_spawn_system::ParticleSpawnSystem,
     use_item_system::UseItemSystem, visibility_system::VisibilitySystem,
 };
 use targeting_action::TargetingAction;
@@ -76,7 +78,35 @@ fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
     }
 }
 
-fn draw_screen(ecs: &World, ctx: &mut Rltk) {
+fn update_particle_lifetimes(ecs: &mut World, ctx: &mut Rltk) {
+    let mut particles = ecs.write_storage::<ParticleLifetime>();
+    let entities = ecs.entities();
+    for (_ent, mut lifetime) in (&entities, &mut particles).join() {
+        lifetime.duration -= ctx.frame_time_ms;
+    }
+}
+
+fn cull_dead_particles(ecs: &World) -> Vec<Entity> {
+    let particles = ecs.write_storage::<ParticleLifetime>();
+    let entities = ecs.entities();
+    let dead_particles: Vec<Entity> = (&entities, &particles)
+        .join()
+        .filter(|(_ent, lt)| lt.duration < 0.0)
+        .map(|(ent, _lt)| ent)
+        .collect();
+    dead_particles
+}
+
+// the only reason this isn't a system is because it currently wants ctx. but it only wants ctx for the elapsed time,
+// which could be put into a resource. probably refactor this later.
+fn update_particles(ecs: &mut World, ctx: &mut Rltk) {
+    update_particle_lifetimes(ecs, ctx);
+    let dead_particles = cull_dead_particles(ecs);
+    ecs.delete_entities(&dead_particles.as_slice())
+        .expect("couldn't delete particles");
+}
+
+fn draw_screen(ecs: &mut World, ctx: &mut Rltk) {
     ctx.cls();
     draw_map(ecs, ctx);
     draw_renderables_to_map(ecs, ctx);
@@ -106,13 +136,18 @@ impl State {
         to_use.run_now(&self.ecs);
         let mut drop = ItemDropSystem {};
         drop.run_now(&self.ecs);
+        let mut blood_spawn_system = BloodSpawnSystem {};
+        blood_spawn_system.run_now(&self.ecs);
+        let mut particle_spawn_system = ParticleSpawnSystem {};
+        particle_spawn_system.run_now(&self.ecs);
         self.ecs.maintain();
     }
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
-        draw_screen(&self.ecs, ctx);
+        update_particles(&mut self.ecs, ctx);
+        draw_screen(&mut self.ecs, ctx);
         let old_runstate = { *(self.ecs.fetch::<RunState>()) };
         let new_runstate = match old_runstate {
             RunState::PreRun => {
@@ -310,6 +345,10 @@ fn main() {
     gs.ecs.register::<SerializationHelper>();
     gs.ecs.register::<DungeonLevel>();
     gs.ecs.register::<Blood>();
+    gs.ecs.register::<ParticleLifetime>();
+    gs.ecs
+        .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
+    gs.ecs.insert(services::blood_spawner::BloodSpawner::new());
     gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.ecs.insert(game_log::GameLog {
         entries: vec!["Welcome to Tell-Lands".to_owned()],

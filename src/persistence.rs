@@ -8,8 +8,8 @@ use crate::components::{
   area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
   confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
   in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
-  name::Name, player::Player, position::Position, provides_healing::ProvidesHealing,
-  ranged::Ranged, renderable::Renderable, saveable::Saveable,
+  name::Name, particle_lifetime::ParticleLifetime, player::Player, position::Position,
+  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
   serialization_helper::SerializationHelper, suffer_damage::SufferDamage, viewshed::Viewshed,
   wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
   wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
@@ -102,6 +102,7 @@ pub fn save_game(ecs: &mut World) {
       WantsToDropItem,
       DungeonLevel,
       Blood,
+      ParticleLifetime,
       SerializationHelper
     );
   }
@@ -147,6 +148,7 @@ fn deserialize_from_save_file(ecs: &mut World) {
     WantsToDropItem,
     DungeonLevel,
     Blood,
+    ParticleLifetime,
     SerializationHelper
   );
 }
