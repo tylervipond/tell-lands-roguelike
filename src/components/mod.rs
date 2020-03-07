@@ -24,3 +24,5 @@ pub mod wants_to_drop_item;
 pub mod wants_to_melee;
 pub mod wants_to_pick_up_item;
 pub mod wants_to_use;
+pub mod blood;
+pub mod particle_lifetime;

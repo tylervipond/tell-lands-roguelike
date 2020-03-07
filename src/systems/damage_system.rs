@@ -1,8 +1,13 @@
 use crate::components::{
-  combat_stats::CombatStats, name::Name, player::Player, suffer_damage::SufferDamage,
+  combat_stats::CombatStats, dungeon_level::DungeonLevel, name::Name, player::Player,
+  position::Position, suffer_damage::SufferDamage,
 };
 use crate::game_log::GameLog;
-use specs::{Entity, Join, System, World, WorldExt, WriteStorage};
+use crate::services::blood_spawner::BloodSpawner;
+use rltk::RGB;
+use specs::{
+  Entities, Entity, Join, ReadStorage, System, World, WorldExt, WriteExpect, WriteStorage,
+};
 
 pub struct DamageSystem {}
 
@@ -36,14 +41,29 @@ impl DamageSystem {
 
 impl<'a> System<'a> for DamageSystem {
   type SystemData = (
+    Entities<'a>,
     WriteStorage<'a, CombatStats>,
     WriteStorage<'a, SufferDamage>,
+    ReadStorage<'a, Position>,
+    ReadStorage<'a, DungeonLevel>,
+    WriteExpect<'a, BloodSpawner>,
   );
 
   fn run(&mut self, data: Self::SystemData) {
-    let (mut stats, mut suffer_damage) = data;
-    for (mut stats, suffer_damage) in (&mut stats, &suffer_damage).join() {
+    let (entities, mut stats, mut suffer_damage, positions, levels, mut blood_spawner) = data;
+    for (mut stats, suffer_damage, ent) in (&mut stats, &suffer_damage, &entities).join() {
       stats.hp -= suffer_damage.amount;
+      // create blood
+      let position = positions.get(ent).unwrap().clone();
+      let level = levels.get(ent).unwrap().clone();
+      blood_spawner.request(
+        position.x,
+        position.y,
+        RGB::from_f32(0.85, 0., 0.),
+        RGB::from_f32(0.50, 0., 0.),
+        177,
+        level.level,
+      );
     }
     suffer_damage.clear();
   }

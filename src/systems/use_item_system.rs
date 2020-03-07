@@ -1,11 +1,13 @@
 use crate::components::{
   area_of_effect::AreaOfEffect, combat_stats::CombatStats, confused::Confused,
   confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
-  inflicts_damage::InflictsDamage, name::Name, provides_healing::ProvidesHealing,
-  suffer_damage::SufferDamage, wants_to_use::WantsToUse,
+  inflicts_damage::InflictsDamage, name::Name, position::Position,
+  provides_healing::ProvidesHealing, suffer_damage::SufferDamage, wants_to_use::WantsToUse,
 };
 use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
+use crate::services::particle_effect_spawner::ParticleEffectSpawner;
+use rltk::{to_cp437, BLACK, GREEN, MAGENTA, ORANGE, RED, RGB};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 pub struct UseItemSystem {}
@@ -27,6 +29,8 @@ impl<'a> System<'a> for UseItemSystem {
     ReadStorage<'a, Confusion>,
     WriteStorage<'a, Confused>,
     ReadStorage<'a, DungeonLevel>,
+    WriteExpect<'a, ParticleEffectSpawner>,
+    ReadStorage<'a, Position>,
   );
   fn run(&mut self, data: Self::SystemData) {
     let (
@@ -45,6 +49,8 @@ impl<'a> System<'a> for UseItemSystem {
       causes_confusion,
       mut is_confused,
       dungeon_levels,
+      mut particle_spawner,
+      positions,
     ) = data;
     let player_level = dungeon_levels.get(*player_entity).unwrap();
     let map = dungeon.get_map(player_level.level).unwrap();
@@ -61,13 +67,49 @@ impl<'a> System<'a> for UseItemSystem {
             .collect(),
         },
       };
+
+      match to_use.target {
+        None => {}
+        Some(target) => match aoe.get(to_use.item) {
+          None => {}
+          Some(area) => {
+            let level = dungeon_levels.get(entity).unwrap();
+            rltk::field_of_view(target, area.radius, &*map)
+              .iter()
+              .filter(|p| !map.point_not_in_map(p))
+              .for_each(|p| {
+                particle_spawner.request(
+                  p.x,
+                  p.y,
+                  RGB::named(ORANGE),
+                  RGB::named(RED),
+                  to_cp437('░'),
+                  200.0,
+                  level.level,
+                )
+              })
+          }
+        },
+      };
+
       let heals = provides_healing.get(to_use.item);
       let damages = inflicts_damage.get(to_use.item);
       let confuses = causes_confusion.get(to_use.item);
       for target in targets {
         let mut stats = combat_stats.get_mut(target).unwrap();
+        let pos = positions.get(target).unwrap();
+        let level = dungeon_levels.get(target).unwrap();
         if let Some(heals) = heals {
           stats.hp = i32::min(stats.max_hp, stats.hp + heals.amount);
+          particle_spawner.request(
+            pos.x,
+            pos.y,
+            RGB::named(RED),
+            RGB::named(BLACK),
+            to_cp437('♥'),
+            200.0,
+            level.level,
+          );
           if entity == *player_entity {
             game_log.entries.insert(
               0,
@@ -88,6 +130,15 @@ impl<'a> System<'a> for UseItemSystem {
               },
             )
             .expect("Unable to insert into suffer_damage");
+          particle_spawner.request(
+            pos.x,
+            pos.y,
+            RGB::named(RED),
+            RGB::named(BLACK),
+            to_cp437('‼'),
+            200.0,
+            level.level,
+          );
           if entity == *player_entity {
             let mob_name = names.get(target).unwrap();
             let item_name = names.get(to_use.item).unwrap();
@@ -109,6 +160,15 @@ impl<'a> System<'a> for UseItemSystem {
               },
             )
             .expect("Failed to confuse target");
+          particle_spawner.request(
+            pos.x,
+            pos.y,
+            RGB::named(MAGENTA),
+            RGB::named(BLACK),
+            to_cp437('?'),
+            200.0,
+            level.level,
+          );
           if entity == *player_entity {
             let mob_name = names.get(target).unwrap();
             let item_name = names.get(to_use.item).unwrap();
