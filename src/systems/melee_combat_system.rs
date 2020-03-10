@@ -4,8 +4,7 @@ use crate::components::{
 };
 use crate::game_log::GameLog;
 use crate::services::particle_effect_spawner::ParticleEffectSpawner;
-use rltk::{to_cp437, BLACK, ORANGE, RGB};
-use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
+use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage, storage::GenericWriteStorage};
 
 pub struct MeleeCombatSystem {}
 
@@ -45,15 +44,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
           let damage = i32::max(0, stats.power - target_stats.defense);
           let position = positions.get(entity).unwrap();
           let level = levels.get(entity).unwrap();
-          particle_effect_spawner.request(
-            position.x,
-            position.y,
-            RGB::named(ORANGE),
-            RGB::named(BLACK),
-            to_cp437('‼'),
-            200.0,
-            level.level,
-          );
+          particle_effect_spawner.request_attack_particle(position.x, position.y, level.level);
           if damage == 0 {
             log.entries.insert(
               0,
@@ -67,9 +58,9 @@ impl<'a> System<'a> for MeleeCombatSystem {
                 &name.name, &target_name.name, damage
               ),
             );
-            suffer_damage
-              .insert(wants_to_melee.target, SufferDamage { amount: damage })
-              .expect("Unable to do damage");
+            if let Some(damage_to_suffer) = suffer_damage.get_mut_or_default(wants_to_melee.target) {
+              damage_to_suffer.amount += damage;
+            }
           }
         }
       }

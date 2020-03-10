@@ -1,9 +1,10 @@
 use crate::components::{
   area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
   confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
-  inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name, player::Player,
-  position::Position, provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable,
-  saveable::Saveable, viewshed::Viewshed,
+  entry_trigger::EntryTrigger, hidden::Hidden, inflicts_damage::InflictsDamage, item::Item,
+  monster::Monster, name::Name, player::Player, position::Position,
+  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
+  single_activation::SingleActivation, viewshed::Viewshed,
 };
 use crate::map::{idx_xy, rect::Rect, xy_idx};
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
@@ -178,6 +179,24 @@ pub fn spawn_confusion_scroll(ecs: &mut World, idx: i32, level: i32) -> Entity {
     .build()
 }
 
+pub fn spawn_bear_trap(ecs: &mut World, idx: i32, level: i32) -> Entity {
+  created_marked_entity_with_position(ecs, idx, level)
+    .with(Name {
+      name: "Bear Trap".to_string(),
+    })
+    .with(Renderable {
+      glyph: to_cp437('^'),
+      fg: RGB::named(rltk::RED),
+      bg: RGB::named(rltk::BLACK),
+      layer: 2,
+    })
+    .with(Hidden {})
+    .with(EntryTrigger {})
+    .with(InflictsDamage { amount: 6 })
+    .with(SingleActivation {})
+    .build()
+}
+
 pub fn spawn_monster_entities_for_room(ecs: &mut World, rect: &Rect, level: i32) {
   let mut monster_spawn_points: Vec<usize> = vec![];
   {
@@ -203,17 +222,20 @@ pub fn spawn_monster_entities_for_room(ecs: &mut World, rect: &Rect, level: i32)
 fn spawn_random_item(ecs: &mut World, idx: i32, level: i32) {
   let roll = {
     let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    rng.roll_dice(1, 4)
+    rng.roll_dice(1, 6)
   };
   match roll {
-    1 => {
+    1 | 2 => {
       spawn_health_potion(ecs, idx, level);
     }
-    2 => {
+    3 => {
       spawn_fireball_scroll(ecs, idx, level);
     }
-    3 => {
+    4 => {
       spawn_confusion_scroll(ecs, idx, level);
+    }
+    5 => {
+      spawn_bear_trap(ecs, idx, level);
     }
     _ => {
       spawn_magic_missile_scroll(ecs, idx, level);

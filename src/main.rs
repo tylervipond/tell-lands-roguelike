@@ -29,10 +29,12 @@ mod utils;
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
     confused::Confused, confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
+    entity_moved::EntityMoved, entry_trigger::EntryTrigger, hidden::Hidden,
     in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
     name::Name, particle_lifetime::ParticleLifetime, player::Player, position::Position,
     potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable,
-    saveable::Saveable, serialization_helper::SerializationHelper, suffer_damage::SufferDamage,
+    saveable::Saveable, serialization_helper::SerializationHelper,
+    single_activation::SingleActivation, suffer_damage::SufferDamage, triggered::Triggered,
     viewshed::Viewshed, wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
     wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
@@ -53,6 +55,8 @@ use systems::{
     item_collection_system::ItemCollectionSystem, item_drop_system::ItemDropSystem,
     map_indexing_system::MapIndexingSystem, melee_combat_system::MeleeCombatSystem,
     monster_ai_system::MonsterAI, particle_spawn_system::ParticleSpawnSystem,
+    remove_triggered_traps_system::RemoveTriggeredTrapsSystem,
+    reveal_traps_system::RevealTrapsSystem, trigger_system::TriggerSystem,
     use_item_system::UseItemSystem, visibility_system::VisibilitySystem,
 };
 use targeting_action::TargetingAction;
@@ -61,19 +65,20 @@ fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
     let positions = ecs.read_storage::<Position>();
     let renderables = ecs.read_storage::<Renderable>();
     let levels = ecs.read_storage::<DungeonLevel>();
+    let hidden = ecs.read_storage::<Hidden>();
     let dungeon = ecs.fetch::<Dungeon>();
     let player_ent = ecs.fetch::<Entity>();
     let player_level = levels.get(*player_ent).unwrap();
     let map = dungeon.maps.get(&player_level.level).unwrap();
-    let mut sorted_renderables = (&positions, &renderables, &levels)
+    let mut sorted_renderables = (&positions, &renderables, &levels, !&hidden)
         .join()
-        .filter(|(p, r, l)| {
+        .filter(|(p, r, l, _h)| {
             return l.level == player_level.level
                 && map.visible_tiles[map.xy_idx(p.x, p.y) as usize];
         })
         .collect::<Vec<_>>();
     sorted_renderables.sort_unstable_by(|a, b| b.1.layer.cmp(&a.1.layer));
-    for (pos, render, _) in sorted_renderables.iter() {
+    for (pos, render, _l, _h) in sorted_renderables.iter() {
         ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
     }
 }
@@ -128,6 +133,8 @@ impl State {
         mapindex.run_now(&self.ecs);
         let mut melee_combat = MeleeCombatSystem {};
         melee_combat.run_now(&self.ecs);
+        let mut triggers = TriggerSystem {};
+        triggers.run_now(&self.ecs);
         let mut damage = DamageSystem {};
         damage.run_now(&self.ecs);
         let mut pickup = ItemCollectionSystem {};
@@ -136,6 +143,10 @@ impl State {
         to_use.run_now(&self.ecs);
         let mut drop = ItemDropSystem {};
         drop.run_now(&self.ecs);
+        let mut remove_triggered_single_activation_traps_system = RemoveTriggeredTrapsSystem {};
+        remove_triggered_single_activation_traps_system.run_now(&self.ecs);
+        let mut reveal_traps = RevealTrapsSystem {};
+        reveal_traps.run_now(&self.ecs);
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.ecs);
         let mut particle_spawn_system = ParticleSpawnSystem {};
@@ -346,6 +357,11 @@ fn main() {
     gs.ecs.register::<DungeonLevel>();
     gs.ecs.register::<Blood>();
     gs.ecs.register::<ParticleLifetime>();
+    gs.ecs.register::<Hidden>();
+    gs.ecs.register::<EntryTrigger>();
+    gs.ecs.register::<EntityMoved>();
+    gs.ecs.register::<SingleActivation>();
+    gs.ecs.register::<Triggered>();
     gs.ecs
         .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
     gs.ecs.insert(services::blood_spawner::BloodSpawner::new());

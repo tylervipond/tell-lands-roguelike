@@ -8,7 +8,7 @@ use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
 use crate::services::particle_effect_spawner::ParticleEffectSpawner;
 use rltk::{to_cp437, BLACK, GREEN, MAGENTA, ORANGE, RED, RGB};
-use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
+use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage, storage::GenericWriteStorage};
 
 pub struct UseItemSystem {}
 
@@ -122,14 +122,10 @@ impl<'a> System<'a> for UseItemSystem {
           }
         }
         if let Some(damages) = damages {
-          suffer_damage
-            .insert(
-              target,
-              SufferDamage {
-                amount: damages.amount,
-              },
-            )
-            .expect("Unable to insert into suffer_damage");
+          // if let Some(damage_to_suffer) = suffer_damage.get_mut_or_default(target) {
+          //   damage_to_suffer.amount += damages.amount;
+          // }
+          suffer_damage.get_mut_or_default(target).unwrap().amount += damages.amount;
           particle_spawner.request(
             pos.x,
             pos.y,

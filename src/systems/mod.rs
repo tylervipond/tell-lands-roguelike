@@ -1,10 +1,13 @@
+pub mod blood_spawn_system;
 pub mod damage_system;
 pub mod item_collection_system;
 pub mod item_drop_system;
 pub mod map_indexing_system;
 pub mod melee_combat_system;
 pub mod monster_ai_system;
+pub mod particle_spawn_system;
+pub mod remove_triggered_traps_system;
+pub mod trigger_system;
 pub mod use_item_system;
 pub mod visibility_system;
-pub mod particle_spawn_system;
-pub mod blood_spawn_system;
+pub mod reveal_traps_system;

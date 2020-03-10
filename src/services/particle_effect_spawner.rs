@@ -1,4 +1,4 @@
-use rltk::RGB;
+use rltk::{RGB, to_cp437, ORANGE, BLACK};
 
 pub struct ParticleEffectSpawnerRequest {
     pub x: i32,
@@ -40,5 +40,17 @@ impl ParticleEffectSpawner {
             lifetime,
             level,
         })
+    }
+
+    pub fn request_attack_particle(&mut self, x: i32, y: i32, level: i32) {
+        self.request(
+            x,
+            y,
+            RGB::named(ORANGE),
+            RGB::named(BLACK),
+            to_cp437('‼'),
+            200.0,
+            level,
+          );
     }
 }
