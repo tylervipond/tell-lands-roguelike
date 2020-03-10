@@ -1,6 +1,6 @@
 use crate::components::{
-  combat_stats::CombatStats, dungeon_level::DungeonLevel, name::Name, player::Player,
-  position::Position,
+  combat_stats::CombatStats, dungeon_level::DungeonLevel, hidden::Hidden, name::Name,
+  player::Player, position::Position,
 };
 use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
@@ -57,15 +57,16 @@ pub fn draw_tooltip(ecs: &World, ctx: &mut Rltk) {
   let map = dungeon.get_map(player_level.level).unwrap();
   let names = ecs.read_storage::<Name>();
   let positions = ecs.read_storage::<Position>();
+  let hidden = ecs.read_storage::<Hidden>();
 
   let mouse_pos = ctx.mouse_pos();
   if mouse_pos.0 >= map.width as i32 || mouse_pos.1 >= map.height as i32 {
     return;
   }
   let tooltip: Vec<String> =
-    (&names, &positions)
+    (&names, &positions, !&hidden)
       .join()
-      .fold(vec![], |mut acc, (name, position)| {
+      .fold(vec![], |mut acc, (name, position, _)| {
         if position.x == mouse_pos.0 && position.y == mouse_pos.1 {
           acc.push(name.name.to_owned());
         }

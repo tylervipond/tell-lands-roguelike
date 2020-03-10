@@ -1,7 +1,7 @@
 use crate::components::{
-  combat_stats::CombatStats, dungeon_level::DungeonLevel, in_backpack::InBackpack, item::Item,
-  name::Name, player::Player, position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
-  wants_to_pick_up_item::WantsToPickUpItem,
+  combat_stats::CombatStats, dungeon_level::DungeonLevel, entity_moved::EntityMoved,
+  in_backpack::InBackpack, item::Item, name::Name, player::Player, position::Position,
+  viewshed::Viewshed, wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
 };
 use crate::dungeon::dungeon::Dungeon;
 use crate::map::basic_map::Map;
@@ -57,6 +57,10 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
       viewshed.dirty = true;
       ppos.x = pos.x;
       ppos.y = pos.y;
+      let mut entity_moved_storage = ecs.write_storage::<EntityMoved>();
+      entity_moved_storage
+        .insert(entity, EntityMoved {})
+        .expect("couldn't insert player into entity moved storage");
     }
   }
 }
@@ -121,7 +125,6 @@ fn can_go_down(current_map: &Map, player_point: &Point) -> bool {
   return false;
 }
 
-
 fn try_go_down_stairs(ecs: &mut World) {
   let mut player_point = ecs.write_resource::<Point>();
   let mut levels = ecs.write_storage::<DungeonLevel>();
@@ -143,6 +146,9 @@ fn try_go_down_stairs(ecs: &mut World) {
     player_level.level = next_level_number;
     player_point.x = stairs_up_coords.x;
     player_point.y = stairs_up_coords.y;
+    let mut viewsheds = ecs.write_storage::<Viewshed>();
+    let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
+    player_viewshed.dirty = true;
   }
 }
 
@@ -167,6 +173,9 @@ fn try_go_up_stairs(ecs: &mut World) {
     player_level.level = next_level_number;
     player_point.x = stairs_down_coords.x;
     player_point.y = stairs_down_coords.y;
+    let mut viewsheds = ecs.write_storage::<Viewshed>();
+    let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
+    player_viewshed.dirty = true;
   }
 }
 

@@ -1,6 +1,6 @@
 use crate::components::{
-  confused::Confused, dungeon_level::DungeonLevel, monster::Monster, position::Position,
-  viewshed::Viewshed, wants_to_melee::WantsToMelee,
+  confused::Confused, dungeon_level::DungeonLevel, entity_moved::EntityMoved, monster::Monster,
+  position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
 };
 use crate::dungeon::dungeon::Dungeon;
 use crate::RunState;
@@ -22,6 +22,7 @@ impl<'a> System<'a> for MonsterAI {
     WriteStorage<'a, WantsToMelee>,
     WriteStorage<'a, Confused>,
     ReadStorage<'a, DungeonLevel>,
+    WriteStorage<'a, EntityMoved>,
   );
   // This is currently very limited. Monsters will only act if they can see a player, which means that they must
   // also be on the same map to act.
@@ -38,6 +39,7 @@ impl<'a> System<'a> for MonsterAI {
       mut wants_to_melee,
       mut confused,
       levels,
+      mut moved,
     ) = data;
     if *runstate != RunState::MonsterTurn {
       return;
@@ -86,6 +88,9 @@ impl<'a> System<'a> for MonsterAI {
           viewshed.dirty = true;
           map.blocked[idx1] = false;
           map.blocked[path.steps[1]] = true;
+          moved
+            .insert(entity, EntityMoved {})
+            .expect("unable to insert EntityMoved for monster");
         }
       }
     }

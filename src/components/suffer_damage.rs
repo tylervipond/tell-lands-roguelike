@@ -5,7 +5,7 @@ use specs::{
   Component, DenseVecStorage, Entity,
 };
 
-#[derive(Component, ConvertSaveload, Clone, Debug)]
+#[derive(Component, ConvertSaveload, Clone, Debug, Default)]
 pub struct SufferDamage {
   pub amount: i32
 }
