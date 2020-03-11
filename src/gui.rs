@@ -210,3 +210,9 @@ pub fn show_main_menu(ctx: &mut Rltk, menu: &Vec<MainMenuOption>, highighted: us
     .enumerate()
     .for_each(|(i, o)| print_main_menu_option(ctx, o, highighted == i, (i + 1) * 2));
 }
+
+pub fn show_death_screen(ctx: &mut Rltk) {
+  let text = "You Died";
+  let copy_horizontal_offset = get_offset_from_center(sizes::CHAR_COUNT_HORIZONTAL, text.len());
+  print_white_on_black(ctx, copy_horizontal_offset as i32, 5, text);
+}

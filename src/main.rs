@@ -6,6 +6,7 @@ use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 extern crate specs_derive;
 extern crate serde;
 mod components;
+mod death_screen_action;
 mod dungeon;
 mod game_log;
 mod gui;
@@ -38,10 +39,11 @@ use components::{
     viewshed::Viewshed, wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
     wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
+use death_screen_action::DeathScreenAction;
 use dungeon::dungeon::Dungeon;
 use input::{
-    map_input_to_inventory_action, map_input_to_main_menu_action, map_input_to_map_action,
-    map_input_to_targeting_action,
+    map_input_to_death_screen_action, map_input_to_inventory_action, map_input_to_main_menu_action,
+    map_input_to_map_action, map_input_to_targeting_action,
 };
 use inventory_action::InventoryAction;
 use main_menu_action::MainMenuAction;
@@ -119,6 +121,63 @@ fn draw_screen(ecs: &mut World, ctx: &mut Rltk) {
     gui::draw_tooltip(ecs, ctx);
 }
 
+fn initialize_new_game(ecs: &mut World) {
+    ecs.write_storage::<Position>().clear();
+    ecs.write_storage::<Renderable>().clear();
+    ecs.write_storage::<Player>().clear();
+    ecs.write_storage::<Viewshed>().clear();
+    ecs.write_storage::<Monster>().clear();
+    ecs.write_storage::<Name>().clear();
+    ecs.write_storage::<BlocksTile>().clear();
+    ecs.write_storage::<WantsToMelee>().clear();
+    ecs.write_storage::<SufferDamage>().clear();
+    ecs.write_storage::<CombatStats>().clear();
+    ecs.write_storage::<Item>().clear();
+    ecs.write_storage::<Potion>().clear();
+    ecs.write_storage::<InBackpack>().clear();
+    ecs.write_storage::<WantsToPickUpItem>().clear();
+    ecs.write_storage::<WantsToUse>().clear();
+    ecs.write_storage::<WantsToDropItem>().clear();
+    ecs.write_storage::<ProvidesHealing>().clear();
+    ecs.write_storage::<Consumable>().clear();
+    ecs.write_storage::<Ranged>().clear();
+    ecs.write_storage::<InflictsDamage>().clear();
+    ecs.write_storage::<AreaOfEffect>().clear();
+    ecs.write_storage::<Confusion>().clear();
+    ecs.write_storage::<Confused>().clear();
+    ecs.write_storage::<SimpleMarker<Saveable>>().clear();
+    ecs.write_storage::<SerializationHelper>().clear();
+    ecs.write_storage::<DungeonLevel>().clear();
+    ecs.write_storage::<Blood>().clear();
+    ecs.write_storage::<ParticleLifetime>().clear();
+    ecs.write_storage::<Hidden>().clear();
+    ecs.write_storage::<EntryTrigger>().clear();
+    ecs.write_storage::<EntityMoved>().clear();
+    ecs.write_storage::<SingleActivation>().clear();
+    ecs.write_storage::<Triggered>().clear();
+    ecs.remove::<SimpleMarkerAllocator::<Saveable>>();
+    ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
+    let mut dungeon = Dungeon::generate(1, 10);
+    let map = dungeon.get_map(9).unwrap();
+    let (player_x, player_y) = map.rooms[0].center();
+    ecs.remove::<Point>();
+    ecs.insert(Point::new(player_x, player_y));
+    ecs.remove::<Entity>();
+    let player_entity = spawner::spawn_player(ecs, player_x as i32, player_y as i32, 9);
+    ecs.insert(player_entity);
+    dungeon.maps.iter().for_each(|(i, m)| {
+        for room in m.rooms.iter().skip(1) {
+            spawner::spawn_entities_for_room(ecs, &room, *i);
+        }
+    });
+    ecs.remove::<Dungeon>();
+    ecs.insert(dungeon);
+    ecs.remove::<game_log::GameLog>();
+    ecs.insert(game_log::GameLog {
+        entries: vec!["Welcome to Tell-Lands".to_owned()],
+    });
+}
+
 pub struct State {
     ecs: World,
 }
@@ -157,15 +216,18 @@ impl State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
-        update_particles(&mut self.ecs, ctx);
-        draw_screen(&mut self.ecs, ctx);
         let old_runstate = { *(self.ecs.fetch::<RunState>()) };
         let new_runstate = match old_runstate {
             RunState::PreRun => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
                 self.run_systems();
+                DamageSystem::delete_the_dead(&mut self.ecs);
                 RunState::AwaitingInput
             }
             RunState::AwaitingInput => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
                 let action = map_input_to_map_action(ctx);
                 match action {
                     MapAction::Exit => {
@@ -182,14 +244,31 @@ impl GameState for State {
                 }
             }
             RunState::PlayerTurn => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
                 self.run_systems();
+                DamageSystem::delete_the_dead(&mut self.ecs);
                 RunState::MonsterTurn
             }
             RunState::MonsterTurn => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
                 self.run_systems();
-                RunState::AwaitingInput
+                DamageSystem::delete_the_dead(&mut self.ecs);
+                let combat_stats = self.ecs.read_storage::<CombatStats>();
+                let player_ent = self.ecs.fetch::<Entity>();
+                let player_stats = combat_stats.get(*player_ent).unwrap();
+                match player_stats.hp < 1 {
+                    true => {
+                        persistence::delete_save();
+                        RunState::DeathScreen
+                    }
+                    _ => RunState::AwaitingInput,
+                }
             }
             RunState::InventoryMenu => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
                 let inventory = get_player_inventory_list(&mut self.ecs);
                 let (mut inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
@@ -222,6 +301,8 @@ impl GameState for State {
                 }
             }
             RunState::DropItemMenu => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
                 let inventory = get_player_inventory_list(&mut self.ecs);
                 let (mut inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
@@ -240,6 +321,8 @@ impl GameState for State {
                 }
             }
             RunState::ShowTargeting { range, item } => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.ecs, range);
                 gui::show_valid_targeting_area(ctx, &visible_tiles);
                 let target = ranged::get_target(ctx, &visible_tiles);
@@ -263,6 +346,15 @@ impl GameState for State {
                             .expect("Unable To Insert Drop Item Intent");
                         RunState::PlayerTurn
                     }
+                }
+            }
+            RunState::DeathScreen => {
+                ctx.cls();
+                gui::show_death_screen(ctx);
+                let action = map_input_to_death_screen_action(ctx);
+                match action {
+                    DeathScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
+                    DeathScreenAction::NoAction => RunState::DeathScreen,
                 }
             }
             RunState::MainMenu { highlighted } => {
@@ -307,7 +399,10 @@ impl GameState for State {
                         },
                     },
                     MainMenuAction::Select { option } => match option {
-                        0 => RunState::PreRun,
+                        0 => {
+                            initialize_new_game(&mut self.ecs);
+                            RunState::PreRun
+                        }
                         1 => {
                             persistence::load_game(&mut self.ecs);
                             persistence::delete_save();
@@ -323,7 +418,6 @@ impl GameState for State {
             let mut run_writer = self.ecs.write_resource::<RunState>();
             *run_writer = new_runstate
         }
-        DamageSystem::delete_the_dead(&mut self.ecs);
     }
 }
 
@@ -362,31 +456,12 @@ fn main() {
     gs.ecs.register::<EntityMoved>();
     gs.ecs.register::<SingleActivation>();
     gs.ecs.register::<Triggered>();
+    let rng = RandomNumberGenerator::new();
+    gs.ecs.insert(rng);
+    gs.ecs.insert(RunState::MainMenu { highlighted: 0 });
     gs.ecs
         .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
     gs.ecs.insert(services::blood_spawner::BloodSpawner::new());
-    gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
-    gs.ecs.insert(game_log::GameLog {
-        entries: vec!["Welcome to Tell-Lands".to_owned()],
-    });
-    gs.ecs.insert(RunState::MainMenu { highlighted: 0 });
-    let rng = RandomNumberGenerator::new();
-    gs.ecs.insert(rng);
-
-    let mut dungeon = Dungeon::generate(1, 10);
-
-    let map = dungeon.get_map(9).unwrap();
-    let (player_x, player_y) = map.rooms[0].center();
-    gs.ecs.insert(Point::new(player_x, player_y));
-    let player_entity = spawner::spawn_player(&mut gs.ecs, player_x as i32, player_y as i32, 9);
-    gs.ecs.insert(player_entity);
-
-    dungeon.maps.iter().for_each(|(i, m)| {
-        for room in m.rooms.iter().skip(1) {
-            spawner::spawn_entities_for_room(&mut gs.ecs, &room, *i);
-        }
-    });
-    gs.ecs.insert(dungeon);
     let context = Rltk::init_simple8x8(
         sizes::CHAR_COUNT_HORIZONTAL as u32,
         sizes::CHAR_COUNT_VERTICAL as u32,

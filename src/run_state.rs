@@ -10,4 +10,5 @@ pub enum RunState {
   DropItemMenu,
   ShowTargeting { range: i32, item: Entity },
   MainMenu { highlighted: usize },
+  DeathScreen,
 }

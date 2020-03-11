@@ -1,3 +1,4 @@
+use crate::death_screen_action::DeathScreenAction;
 use crate::inventory_action::InventoryAction;
 use crate::main_menu_action::MainMenuAction;
 use crate::map_action::MapAction;
@@ -63,10 +64,7 @@ pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<&Point>) -> 
   }
 }
 
-pub fn map_input_to_main_menu_action(
-  ctx: &mut Rltk,
-  highlighted: usize,
-) -> MainMenuAction {
+pub fn map_input_to_main_menu_action(ctx: &mut Rltk, highlighted: usize) -> MainMenuAction {
   match ctx.key {
     None => MainMenuAction::NoAction,
     Some(key) => match key {
@@ -77,6 +75,16 @@ pub fn map_input_to_main_menu_action(
         option: highlighted,
       },
       _ => MainMenuAction::NoAction,
+    },
+  }
+}
+
+pub fn map_input_to_death_screen_action(ctx: &mut Rltk) -> DeathScreenAction {
+  match ctx.key {
+    None => DeathScreenAction::NoAction,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => DeathScreenAction::Exit,
+      _ => DeathScreenAction::NoAction,
     },
   }
 }
