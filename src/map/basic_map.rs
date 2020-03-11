@@ -16,6 +16,7 @@ pub struct Map {
   pub depth: i32,
   pub stairs_down: Option<Point>,
   pub stairs_up: Option<Point>,
+  pub exit: Option<Point>,
   #[serde(skip_serializing, skip_deserializing)]
   pub tile_content: Vec<Vec<Entity>>,
 }
@@ -88,6 +89,13 @@ impl Map {
     }
   }
 
+  pub fn add_exit(&mut self) {
+    let exit_position = self.rooms[0].center();
+    let exit_idx = self.xy_idx(exit_position.0, exit_position.1);
+    self.tiles[exit_idx as usize] = TileType::Exit;
+    self.exit = Some(Point::new(exit_position.0, exit_position.1));
+  }
+
   pub fn add_down_stairs(&mut self) {
     let stairs_position = self.rooms[self.rooms.len() - 1].center();
     let stairs_idx = self.xy_idx(stairs_position.0, stairs_position.1);
@@ -114,6 +122,7 @@ impl Map {
       tile_content: vec![vec![]; MAP_COUNT],
       stairs_down: None,
       stairs_up: None,
+      exit: None,
       depth,
     };
 

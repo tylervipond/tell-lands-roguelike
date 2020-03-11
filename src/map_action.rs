@@ -13,5 +13,6 @@ pub enum MapAction {
   NoAction,
   GoDownStairs,
   GoUpStairs,
-  Exit
+  Exit,
+  LeaveDungeon,
 }

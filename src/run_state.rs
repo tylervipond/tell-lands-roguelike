@@ -11,4 +11,5 @@ pub enum RunState {
   ShowTargeting { range: i32, item: Entity },
   MainMenu { highlighted: usize },
   DeathScreen,
+  ExitGameMenu { highlighted: usize },
 }

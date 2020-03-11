@@ -1,6 +1,7 @@
 use crate::death_screen_action::DeathScreenAction;
 use crate::inventory_action::InventoryAction;
 use crate::main_menu_action::MainMenuAction;
+use crate::exit_game_menu_action::ExitGameMenuAction;
 use crate::map_action::MapAction;
 use crate::targeting_action::TargetingAction;
 use rltk::{Point, Rltk, VirtualKeyCode};
@@ -24,6 +25,7 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::R => MapAction::ShowDropMenu,
       VirtualKeyCode::Period => MapAction::GoDownStairs,
       VirtualKeyCode::Comma => MapAction::GoUpStairs,
+      VirtualKeyCode::L => MapAction::LeaveDungeon,
       _ => MapAction::NoAction,
     },
   }
@@ -85,6 +87,21 @@ pub fn map_input_to_death_screen_action(ctx: &mut Rltk) -> DeathScreenAction {
     Some(key) => match key {
       VirtualKeyCode::Escape => DeathScreenAction::Exit,
       _ => DeathScreenAction::NoAction,
+    },
+  }
+}
+
+pub fn map_input_to_exit_game_action(ctx: &mut Rltk, highlighted: usize) -> ExitGameMenuAction {
+  match ctx.key {
+    None => ExitGameMenuAction::NoAction,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => ExitGameMenuAction::Exit,
+      VirtualKeyCode::Up => ExitGameMenuAction::MoveHighlightUp,
+      VirtualKeyCode::Down => ExitGameMenuAction::MoveHighlightDown,
+      VirtualKeyCode::Return => ExitGameMenuAction::Select {
+        option: highlighted,
+      },
+      _ => ExitGameMenuAction::NoAction,
     },
   }
 }

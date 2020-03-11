@@ -143,7 +143,7 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
 }
 
 pub fn show_inventory(ctx: &mut Rltk, inventory: Vec<String>, title: &str) {
-  let inventory_count = inventory.iter().count() as i32;
+  let inventory_count = inventory.len() as i32;
   let y = 25 - (inventory_count / 2);
   draw_white_on_black_box(ctx, 15, y - 2, 31, inventory_count + 3);
   print_yellow_on_black(ctx, 18, y - 2, title);
@@ -215,4 +215,24 @@ pub fn show_death_screen(ctx: &mut Rltk) {
   let text = "You Died";
   let copy_horizontal_offset = get_offset_from_center(sizes::CHAR_COUNT_HORIZONTAL, text.len());
   print_white_on_black(ctx, copy_horizontal_offset as i32, 5, text);
+}
+
+pub fn show_exit_game_menu(ctx: &mut Rltk, menu: &Vec<String>, highighted: usize) {
+  let menu_count = menu.len() as i32;
+  let box_y = 25 - (menu_count / 2) as i32;
+  let longest_text = menu.iter().max_by(|x,y| x.chars().count().cmp(&y.chars().count())).unwrap();
+  let longest_text_length = longest_text.chars().count() as i32;
+  let box_width = longest_text_length + 4;
+  let box_x = (GUI_WIDTH - box_width) / 2;
+  let text_x = box_x + 2;
+  draw_white_on_black_box(ctx, box_x, box_y - 2, box_width, menu_count + 3);
+  print_yellow_on_black(ctx, box_x + 1, box_y + menu_count + 1, "Escape to cancel");
+  for (i, name) in menu.iter().enumerate() {
+    let new_y = box_y + i as i32;
+    if i == highighted {
+      print_yellow_on_black(ctx, text_x, new_y, name);
+    } else {
+      print_white_on_black(ctx, text_x, new_y, name);
+    }
+  }
 }
