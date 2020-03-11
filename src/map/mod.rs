@@ -78,6 +78,7 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
         TileType::Wall => get_wall_tile(map, x as i32, y as i32),
         TileType::DownStairs => rltk::to_cp437('>'),
         TileType::UpStairs => rltk::to_cp437('<'),
+        TileType::Exit => 219,
       };
       let foreground_color = match map.visible_tiles[i] {
         true => rltk::GREEN,

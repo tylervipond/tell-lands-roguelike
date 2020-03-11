@@ -5,5 +5,6 @@ pub enum TileType {
   Wall,
   Floor,
   DownStairs,
-  UpStairs
+  UpStairs,
+  Exit,
 }

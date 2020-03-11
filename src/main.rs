@@ -8,6 +8,7 @@ extern crate serde;
 mod components;
 mod death_screen_action;
 mod dungeon;
+mod exit_game_menu_action;
 mod game_log;
 mod gui;
 mod input;
@@ -41,9 +42,10 @@ use components::{
 };
 use death_screen_action::DeathScreenAction;
 use dungeon::dungeon::Dungeon;
+use exit_game_menu_action::ExitGameMenuAction;
 use input::{
-    map_input_to_death_screen_action, map_input_to_inventory_action, map_input_to_main_menu_action,
-    map_input_to_map_action, map_input_to_targeting_action,
+    map_input_to_death_screen_action, map_input_to_exit_game_action, map_input_to_inventory_action,
+    map_input_to_main_menu_action, map_input_to_map_action, map_input_to_targeting_action,
 };
 use inventory_action::InventoryAction;
 use main_menu_action::MainMenuAction;
@@ -121,6 +123,19 @@ fn draw_screen(ecs: &mut World, ctx: &mut Rltk) {
     gui::draw_tooltip(ecs, ctx);
 }
 
+fn player_can_leave_dungeon(ecs: &mut World) -> bool {
+    let player_ent = ecs.fetch::<Entity>();
+    let dungeon_level = ecs.read_storage::<DungeonLevel>();
+    let player_level = dungeon_level.get(*player_ent).unwrap();
+    let mut dungeon = ecs.fetch_mut::<Dungeon>();
+    let map = dungeon.get_map(player_level.level).unwrap();
+    if let Some(exit_point) = map.exit {
+        let player_point = ecs.fetch::<Point>();
+        return player_point.x == exit_point.x && player_point.y == exit_point.y;
+    }
+    false
+}
+
 fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<Position>().clear();
     ecs.write_storage::<Renderable>().clear();
@@ -155,7 +170,7 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<EntityMoved>().clear();
     ecs.write_storage::<SingleActivation>().clear();
     ecs.write_storage::<Triggered>().clear();
-    ecs.remove::<SimpleMarkerAllocator::<Saveable>>();
+    ecs.remove::<SimpleMarkerAllocator<Saveable>>();
     ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = Dungeon::generate(1, 10);
     let map = dungeon.get_map(9).unwrap();
@@ -237,6 +252,13 @@ impl GameState for State {
                     MapAction::NoAction => RunState::AwaitingInput,
                     MapAction::ShowInventoryMenu => RunState::InventoryMenu,
                     MapAction::ShowDropMenu => RunState::DropItemMenu,
+                    MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.ecs) {
+                        true => RunState::ExitGameMenu { highlighted: 0 },
+                        false => {
+                            let mut log = self.ecs.fetch_mut::<game_log::GameLog>();
+                            log.entries.push("You must first locate the exit to leave the dungeon".to_string());
+                            RunState::AwaitingInput}
+                    },
                     _ => {
                         player_action(&mut self.ecs, action);
                         RunState::PlayerTurn
@@ -318,6 +340,39 @@ impl GameState for State {
                             .expect("Unable To Insert Drop Item Intent");
                         RunState::PlayerTurn
                     }
+                }
+            }
+            RunState::ExitGameMenu { highlighted } => {
+                update_particles(&mut self.ecs, ctx);
+                draw_screen(&mut self.ecs, ctx);
+                let menu = vec![
+                    "Yes, exit the dungeon".to_string(),
+                    "No, remain in the dungeon".to_string(),
+                ];
+                gui::show_exit_game_menu(ctx, &menu, highlighted);
+                let action = map_input_to_exit_game_action(ctx, highlighted);
+                match action {
+                    ExitGameMenuAction::Exit => RunState::AwaitingInput,
+                    ExitGameMenuAction::NoAction => RunState::ExitGameMenu { highlighted },
+                    ExitGameMenuAction::MoveHighlightDown => RunState::ExitGameMenu {
+                        highlighted: match highlighted + 1 > menu.len() {
+                            true => 0,
+                            false => highlighted + 1,
+                        },
+                    },
+                    ExitGameMenuAction::MoveHighlightUp => RunState::ExitGameMenu {
+                        highlighted: match highlighted == 0 {
+                            true => menu.len(),
+                            false => highlighted - 1,
+                        },
+                    },
+                    ExitGameMenuAction::Select { option } => match option {
+                        0 => {
+                            persistence::delete_save();
+                            RunState::MainMenu { highlighted: 0 }
+                        }
+                        _ => RunState::AwaitingInput,
+                    },
                 }
             }
             RunState::ShowTargeting { range, item } => {

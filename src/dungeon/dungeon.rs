@@ -16,8 +16,11 @@ impl Dungeon {
   pub fn generate(bottom_floor: i32, top_floor: i32) -> Self {
     let maps = (bottom_floor..top_floor).fold(HashMap::new(), |mut acc, floor_number| {
       let mut map = Map::create_basic_map(floor_number);
+      
       if floor_number != top_floor - 1 {
         map.add_up_stairs();
+      } else {
+        map.add_exit();
       }
       if floor_number != bottom_floor {
         map.add_down_stairs();
