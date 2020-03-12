@@ -6,12 +6,15 @@ use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 extern crate specs_derive;
 extern crate serde;
 mod components;
+mod credits_screen_action;
 mod death_screen_action;
 mod dungeon;
 mod exit_game_menu_action;
+mod failure_screen_action;
 mod game_log;
 mod gui;
 mod input;
+mod intro_screen_action;
 mod inventory;
 mod inventory_action;
 mod main_menu_action;
@@ -25,6 +28,7 @@ mod run_state;
 mod services;
 mod sizes;
 mod spawner;
+mod success_screen_action;
 mod systems;
 mod targeting_action;
 mod utils;
@@ -33,27 +37,33 @@ use components::{
     confused::Confused, confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
     entity_moved::EntityMoved, entry_trigger::EntryTrigger, hidden::Hidden,
     in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
-    name::Name, particle_lifetime::ParticleLifetime, player::Player, position::Position,
-    potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable,
-    saveable::Saveable, serialization_helper::SerializationHelper,
+    name::Name, objective::Objective, particle_lifetime::ParticleLifetime, player::Player,
+    position::Position, potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged,
+    renderable::Renderable, saveable::Saveable, serialization_helper::SerializationHelper,
     single_activation::SingleActivation, suffer_damage::SufferDamage, triggered::Triggered,
     viewshed::Viewshed, wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
     wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
+use credits_screen_action::CreditsScreenAction;
 use death_screen_action::DeathScreenAction;
 use dungeon::dungeon::Dungeon;
 use exit_game_menu_action::ExitGameMenuAction;
+use failure_screen_action::FailureScreenAction;
 use input::{
-    map_input_to_death_screen_action, map_input_to_exit_game_action, map_input_to_inventory_action,
-    map_input_to_main_menu_action, map_input_to_map_action, map_input_to_targeting_action,
+    map_input_to_credits_screen_action, map_input_to_death_screen_action,
+    map_input_to_exit_game_action, map_input_to_failure_screen_action,
+    map_input_to_intro_screen_action, map_input_to_inventory_action, map_input_to_main_menu_action,
+    map_input_to_map_action, map_input_to_success_screen_action, map_input_to_targeting_action,
 };
+use intro_screen_action::IntroScreenAction;
 use inventory_action::InventoryAction;
 use main_menu_action::MainMenuAction;
 use main_menu_option::MainMenuOption;
-use map::{draw_map, Map};
+use map::draw_map;
 use map_action::MapAction;
 use player::{get_player_inventory_list, player_action};
 use run_state::RunState;
+use success_screen_action::SuccessScreenAction;
 use systems::{
     blood_spawn_system::BloodSpawnSystem, damage_system::DamageSystem,
     item_collection_system::ItemCollectionSystem, item_drop_system::ItemDropSystem,
@@ -76,7 +86,7 @@ fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
     let map = dungeon.maps.get(&player_level.level).unwrap();
     let mut sorted_renderables = (&positions, &renderables, &levels, !&hidden)
         .join()
-        .filter(|(p, r, l, _h)| {
+        .filter(|(p, _r, l, _h)| {
             return l.level == player_level.level
                 && map.visible_tiles[map.xy_idx(p.x, p.y) as usize];
         })
@@ -136,6 +146,18 @@ fn player_can_leave_dungeon(ecs: &mut World) -> bool {
     false
 }
 
+fn has_objective_in_backpack(ecs: &World) -> bool {
+    let player_ent = ecs.fetch::<Entity>();
+    let backpacks = ecs.read_storage::<InBackpack>();
+    let objectives = ecs.read_storage::<Objective>();
+    for (_objective, backpack) in (&objectives, &backpacks).join() {
+        if backpack.owner == *player_ent {
+            return true;
+        }
+    }
+    false
+}
+
 fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<Position>().clear();
     ecs.write_storage::<Renderable>().clear();
@@ -170,6 +192,7 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<EntityMoved>().clear();
     ecs.write_storage::<SingleActivation>().clear();
     ecs.write_storage::<Triggered>().clear();
+    ecs.write_storage::<Objective>().clear();
     ecs.remove::<SimpleMarkerAllocator<Saveable>>();
     ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = Dungeon::generate(1, 10);
@@ -185,6 +208,17 @@ fn initialize_new_game(ecs: &mut World) {
             spawner::spawn_entities_for_room(ecs, &room, *i);
         }
     });
+    let mut rng = ecs.get_mut::<RandomNumberGenerator>().unwrap();
+    let objective_floor = utils::get_random_between_numbers(rng, 1, 9);
+    let map = dungeon.get_map(objective_floor).unwrap();
+    let room = utils::get_random_between_numbers(rng, 0, (map.rooms.len() - 1) as i32);
+    let (x, y) = map
+        .rooms
+        .get(room as usize)
+        .unwrap()
+        .get_random_coord(&mut rng);
+    spawner::spawn_objective(ecs, map.xy_idx(x, y), objective_floor);
+
     ecs.remove::<Dungeon>();
     ecs.insert(dungeon);
     ecs.remove::<game_log::GameLog>();
@@ -256,8 +290,11 @@ impl GameState for State {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
                             let mut log = self.ecs.fetch_mut::<game_log::GameLog>();
-                            log.entries.push("You must first locate the exit to leave the dungeon".to_string());
-                            RunState::AwaitingInput}
+                            log.entries.push(
+                                "You must first locate the exit to leave the dungeon".to_string(),
+                            );
+                            RunState::AwaitingInput
+                        }
                     },
                     _ => {
                         player_action(&mut self.ecs, action);
@@ -369,7 +406,10 @@ impl GameState for State {
                     ExitGameMenuAction::Select { option } => match option {
                         0 => {
                             persistence::delete_save();
-                            RunState::MainMenu { highlighted: 0 }
+                            match has_objective_in_backpack(&self.ecs) {
+                                true => RunState::SuccessScreen,
+                                false => RunState::FailureScreen,
+                            }
                         }
                         _ => RunState::AwaitingInput,
                     },
@@ -403,6 +443,16 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::IntroScreen => {
+                ctx.cls();
+                gui::show_intro_screen(ctx);
+                let action = map_input_to_intro_screen_action(ctx);
+                match action {
+                    IntroScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
+                    IntroScreenAction::Continue => RunState::PreRun,
+                    IntroScreenAction::NoAction => RunState::IntroScreen,
+                }
+            }
             RunState::DeathScreen => {
                 ctx.cls();
                 gui::show_death_screen(ctx);
@@ -410,6 +460,33 @@ impl GameState for State {
                 match action {
                     DeathScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
                     DeathScreenAction::NoAction => RunState::DeathScreen,
+                }
+            }
+            RunState::SuccessScreen => {
+                ctx.cls();
+                gui::show_success_screen(ctx);
+                let action = map_input_to_success_screen_action(ctx);
+                match action {
+                    SuccessScreenAction::Exit => RunState::CreditsScreen,
+                    SuccessScreenAction::NoAction => RunState::SuccessScreen,
+                }
+            }
+            RunState::FailureScreen => {
+                ctx.cls();
+                gui::show_failure_screen(ctx);
+                let action = map_input_to_failure_screen_action(ctx);
+                match action {
+                    FailureScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
+                    FailureScreenAction::NoAction => RunState::FailureScreen,
+                }
+            }
+            RunState::CreditsScreen => {
+                ctx.cls();
+                gui::show_credits_screen(ctx);
+                let action = map_input_to_credits_screen_action(ctx);
+                match action {
+                    CreditsScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
+                    CreditsScreenAction::NoAction => RunState::CreditsScreen,
                 }
             }
             RunState::MainMenu { highlighted } => {
@@ -456,7 +533,7 @@ impl GameState for State {
                     MainMenuAction::Select { option } => match option {
                         0 => {
                             initialize_new_game(&mut self.ecs);
-                            RunState::PreRun
+                            RunState::IntroScreen
                         }
                         1 => {
                             persistence::load_game(&mut self.ecs);
@@ -511,6 +588,7 @@ fn main() {
     gs.ecs.register::<EntityMoved>();
     gs.ecs.register::<SingleActivation>();
     gs.ecs.register::<Triggered>();
+    gs.ecs.register::<Objective>();
     let rng = RandomNumberGenerator::new();
     gs.ecs.insert(rng);
     gs.ecs.insert(RunState::MainMenu { highlighted: 0 });

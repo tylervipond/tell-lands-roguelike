@@ -14,6 +14,7 @@ pub mod inflicts_damage;
 pub mod item;
 pub mod monster;
 pub mod name;
+pub mod objective;
 pub mod particle_lifetime;
 pub mod player;
 pub mod position;

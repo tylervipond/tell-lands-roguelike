@@ -211,16 +211,22 @@ pub fn show_main_menu(ctx: &mut Rltk, menu: &Vec<MainMenuOption>, highighted: us
     .for_each(|(i, o)| print_main_menu_option(ctx, o, highighted == i, (i + 1) * 2));
 }
 
-pub fn show_death_screen(ctx: &mut Rltk) {
-  let text = "You Died";
+fn print_centered(ctx: &mut Rltk, y: i32, text: &str) {
   let copy_horizontal_offset = get_offset_from_center(sizes::CHAR_COUNT_HORIZONTAL, text.len());
-  print_white_on_black(ctx, copy_horizontal_offset as i32, 5, text);
+  print_white_on_black(ctx, copy_horizontal_offset as i32, y, text);
+}
+
+pub fn show_death_screen(ctx: &mut Rltk) {
+  print_centered(ctx, 5, "You Died");
 }
 
 pub fn show_exit_game_menu(ctx: &mut Rltk, menu: &Vec<String>, highighted: usize) {
   let menu_count = menu.len() as i32;
   let box_y = 25 - (menu_count / 2) as i32;
-  let longest_text = menu.iter().max_by(|x,y| x.chars().count().cmp(&y.chars().count())).unwrap();
+  let longest_text = menu
+    .iter()
+    .max_by(|x, y| x.chars().count().cmp(&y.chars().count()))
+    .unwrap();
   let longest_text_length = longest_text.chars().count() as i32;
   let box_width = longest_text_length + 4;
   let box_x = (GUI_WIDTH - box_width) / 2;
@@ -235,4 +241,53 @@ pub fn show_exit_game_menu(ctx: &mut Rltk, menu: &Vec<String>, highighted: usize
       print_white_on_black(ctx, text_x, new_y, name);
     }
   }
+}
+
+pub fn split_to_lines(text: &str, line_width: u32) -> Vec<String> {
+  let words = text.split_whitespace();
+  words.fold(Vec::<String>::new(), |mut acc, word| {
+    if let Some(last) = acc.last_mut() {
+      if last.len() + word.len() + 1 < line_width as usize {
+        last.push_str(" ");
+        last.push_str(word);
+      } else {
+        acc.push(String::from(word));
+      }
+    } else {
+      acc.push(String::from(word));
+    }
+    acc
+  })
+}
+
+fn print_text_word_wrapped(ctx: &mut Rltk, x: i32, y: i32, width: u32, text: &str) {
+  let lines = split_to_lines(text, width);
+  for (i, line) in lines.iter().enumerate() {
+    print_white_on_black(ctx, x, i as i32 + y, line);
+  }
+}
+
+pub fn show_intro_screen(ctx: &mut Rltk) {
+  // perhaps this should go into a
+  let text = "\"The time has come, my adventuring days are over.The last adventure falls to you, my apprentice.
+  It is said that within the halls of the ancient underground fortress below our feet lies the a treasure of great power,
+  an ancient talisman. Legends say that this talisman protects against time. I suppose it is more than clear why an
+  old man such as myself would seek such a thing. In this final act as my apprentice, you are to descend into the
+  ancient fortress, retrieve the Talisman, and return it to me, so that I may ward off time.\"";
+  print_text_word_wrapped(ctx, 2, 2, MESSAGES_WIDTH as u32, text);
+}
+
+pub fn show_failure_screen(ctx: &mut Rltk) {
+  let text = "\"You have failed me. I am doomed to grow old and die. I have no successor.\"";
+  print_text_word_wrapped(ctx, 2, 2, MESSAGES_WIDTH as u32, text);
+}
+
+pub fn show_success_screen(ctx: &mut Rltk) {
+  let text = "\"Finally, the talisman is within my grasp, you have passed your final challenge as my apprentice. What magnificent adventures await you\"";
+  print_text_word_wrapped(ctx, 2, 2, MESSAGES_WIDTH as u32, text);
+}
+
+pub fn show_credits_screen(ctx: &mut Rltk) {
+  print_centered(ctx, 5, "Created By");
+  print_centered(ctx, 6, "Tyler Vipond");
 }

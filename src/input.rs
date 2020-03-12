@@ -1,8 +1,12 @@
+use crate::credits_screen_action::CreditsScreenAction;
 use crate::death_screen_action::DeathScreenAction;
+use crate::exit_game_menu_action::ExitGameMenuAction;
+use crate::failure_screen_action::FailureScreenAction;
+use crate::intro_screen_action::IntroScreenAction;
 use crate::inventory_action::InventoryAction;
 use crate::main_menu_action::MainMenuAction;
-use crate::exit_game_menu_action::ExitGameMenuAction;
 use crate::map_action::MapAction;
+use crate::success_screen_action::SuccessScreenAction;
 use crate::targeting_action::TargetingAction;
 use rltk::{Point, Rltk, VirtualKeyCode};
 use specs::Entity;
@@ -84,10 +88,7 @@ pub fn map_input_to_main_menu_action(ctx: &mut Rltk, highlighted: usize) -> Main
 pub fn map_input_to_death_screen_action(ctx: &mut Rltk) -> DeathScreenAction {
   match ctx.key {
     None => DeathScreenAction::NoAction,
-    Some(key) => match key {
-      VirtualKeyCode::Escape => DeathScreenAction::Exit,
-      _ => DeathScreenAction::NoAction,
-    },
+    Some(_key) => DeathScreenAction::Exit,
   }
 }
 
@@ -103,5 +104,37 @@ pub fn map_input_to_exit_game_action(ctx: &mut Rltk, highlighted: usize) -> Exit
       },
       _ => ExitGameMenuAction::NoAction,
     },
+  }
+}
+
+pub fn map_input_to_intro_screen_action(ctx: &mut Rltk) -> IntroScreenAction {
+  match ctx.key {
+    None => IntroScreenAction::NoAction,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => IntroScreenAction::Exit,
+      VirtualKeyCode::Return => IntroScreenAction::Continue,
+      _ => IntroScreenAction::NoAction,
+    },
+  }
+}
+
+pub fn map_input_to_success_screen_action(ctx: &mut Rltk) -> SuccessScreenAction {
+  match ctx.key {
+    None => SuccessScreenAction::NoAction,
+    Some(_key) => SuccessScreenAction::Exit,
+  }
+}
+
+pub fn map_input_to_failure_screen_action(ctx: &mut Rltk) -> FailureScreenAction {
+  match ctx.key {
+    None => FailureScreenAction::NoAction,
+    Some(_key) => FailureScreenAction::Exit,
+  }
+}
+
+pub fn map_input_to_credits_screen_action(ctx: &mut Rltk) -> CreditsScreenAction {
+  match ctx.key {
+    None => CreditsScreenAction::NoAction,
+    Some(_key) => CreditsScreenAction::Exit,
   }
 }
