@@ -2,7 +2,7 @@ use crate::components::{
   area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
   confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
   entry_trigger::EntryTrigger, hidden::Hidden, inflicts_damage::InflictsDamage, item::Item,
-  monster::Monster, name::Name, player::Player, position::Position,
+  monster::Monster, name::Name, objective::Objective, player::Player, position::Position,
   provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
   single_activation::SingleActivation, viewshed::Viewshed,
 };
@@ -85,6 +85,22 @@ pub fn spawn_monster<S: ToString>(
       defense: 1,
       power: 4,
     })
+    .build()
+}
+
+pub fn spawn_objective(ecs: &mut World, idx: i32, level: i32) -> Entity {
+  created_marked_entity_with_position(ecs, idx, level)
+    .with(Name {
+      name: "The Talisman".to_string(),
+    })
+    .with(Renderable {
+      glyph: 241,
+      fg: RGB::named(rltk::LIGHT_SALMON),
+      bg: RGB::named(rltk::BLACK),
+      layer: 1,
+    })
+    .with(Item {})
+    .with(Objective {})
     .build()
 }
 
