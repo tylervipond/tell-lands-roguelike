@@ -69,9 +69,11 @@ use systems::{
     item_collection_system::ItemCollectionSystem, item_drop_system::ItemDropSystem,
     map_indexing_system::MapIndexingSystem, melee_combat_system::MeleeCombatSystem,
     monster_ai_system::MonsterAI, particle_spawn_system::ParticleSpawnSystem,
+    remove_particle_effects_system::RemoveParticleEffectsSystem,
     remove_triggered_traps_system::RemoveTriggeredTrapsSystem,
     reveal_traps_system::RevealTrapsSystem, trigger_system::TriggerSystem,
-    use_item_system::UseItemSystem, visibility_system::VisibilitySystem,
+    update_particle_effects_system::UpdateParticleEffectsSystem, use_item_system::UseItemSystem,
+    visibility_system::VisibilitySystem,
 };
 use targeting_action::TargetingAction;
 
@@ -95,34 +97,6 @@ fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
     for (pos, render, _l, _h) in sorted_renderables.iter() {
         ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
     }
-}
-
-fn update_particle_lifetimes(ecs: &mut World, ctx: &mut Rltk) {
-    let mut particles = ecs.write_storage::<ParticleLifetime>();
-    let entities = ecs.entities();
-    for (_ent, mut lifetime) in (&entities, &mut particles).join() {
-        lifetime.duration -= ctx.frame_time_ms;
-    }
-}
-
-fn cull_dead_particles(ecs: &World) -> Vec<Entity> {
-    let particles = ecs.write_storage::<ParticleLifetime>();
-    let entities = ecs.entities();
-    let dead_particles: Vec<Entity> = (&entities, &particles)
-        .join()
-        .filter(|(_ent, lt)| lt.duration < 0.0)
-        .map(|(ent, _lt)| ent)
-        .collect();
-    dead_particles
-}
-
-// the only reason this isn't a system is because it currently wants ctx. but it only wants ctx for the elapsed time,
-// which could be put into a resource. probably refactor this later.
-fn update_particles(ecs: &mut World, ctx: &mut Rltk) {
-    update_particle_lifetimes(ecs, ctx);
-    let dead_particles = cull_dead_particles(ecs);
-    ecs.delete_entities(&dead_particles.as_slice())
-        .expect("couldn't delete particles");
 }
 
 fn draw_screen(ecs: &mut World, ctx: &mut Rltk) {
@@ -232,7 +206,13 @@ pub struct State {
 }
 
 impl State {
-    fn run_systems(&mut self) {
+    fn run_systems(&mut self, ctx: &mut Rltk) {
+        let mut update_particles = UpdateParticleEffectsSystem {
+            elapsed_time: ctx.frame_time_ms,
+        };
+        update_particles.run_now(&self.ecs);
+        let mut remove_particles = RemoveParticleEffectsSystem {};
+        remove_particles.run_now(&self.ecs);
         let mut vis = VisibilitySystem {};
         vis.run_now(&self.ecs);
         let mut mob = MonsterAI {};
@@ -268,15 +248,14 @@ impl GameState for State {
         let old_runstate = { *(self.ecs.fetch::<RunState>()) };
         let new_runstate = match old_runstate {
             RunState::PreRun => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
-                self.run_systems();
+                self.run_systems(ctx);
                 DamageSystem::delete_the_dead(&mut self.ecs);
                 RunState::AwaitingInput
             }
             RunState::AwaitingInput => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
+                self.run_systems(ctx);
                 let action = map_input_to_map_action(ctx);
                 match action {
                     MapAction::Exit => {
@@ -303,16 +282,14 @@ impl GameState for State {
                 }
             }
             RunState::PlayerTurn => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
-                self.run_systems();
+                self.run_systems(ctx);
                 DamageSystem::delete_the_dead(&mut self.ecs);
                 RunState::MonsterTurn
             }
             RunState::MonsterTurn => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
-                self.run_systems();
+                self.run_systems(ctx);
                 DamageSystem::delete_the_dead(&mut self.ecs);
                 let combat_stats = self.ecs.read_storage::<CombatStats>();
                 let player_ent = self.ecs.fetch::<Entity>();
@@ -326,7 +303,6 @@ impl GameState for State {
                 }
             }
             RunState::InventoryMenu => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
                 let inventory = get_player_inventory_list(&mut self.ecs);
                 let (mut inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
@@ -360,7 +336,6 @@ impl GameState for State {
                 }
             }
             RunState::DropItemMenu => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
                 let inventory = get_player_inventory_list(&mut self.ecs);
                 let (mut inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
@@ -380,7 +355,6 @@ impl GameState for State {
                 }
             }
             RunState::ExitGameMenu { highlighted } => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
                 let menu = vec![
                     "Yes, exit the dungeon".to_string(),
@@ -416,7 +390,6 @@ impl GameState for State {
                 }
             }
             RunState::ShowTargeting { range, item } => {
-                update_particles(&mut self.ecs, ctx);
                 draw_screen(&mut self.ecs, ctx);
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.ecs, range);
                 gui::show_valid_targeting_area(ctx, &visible_tiles);
