@@ -1,5 +1,5 @@
 rltk::add_wasm_support!();
-use rltk::{Console, GameState, Point, RandomNumberGenerator, Rltk};
+use rltk::{Console, GameState, Point, RandomNumberGenerator, Rltk, RltkBuilder};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 #[macro_use]
@@ -595,11 +595,6 @@ fn main() {
     gs.ecs
         .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
     gs.ecs.insert(services::blood_spawner::BloodSpawner::new());
-    let context = Rltk::init_simple8x8(
-        sizes::CHAR_COUNT_HORIZONTAL as u32,
-        sizes::CHAR_COUNT_VERTICAL as u32,
-        "Tell-Lands",
-        "resources",
-    );
+    let context = RltkBuilder::simple80x50().with_title("Apprentice").build();
     rltk::main_loop(context, gs);
 }

@@ -5,7 +5,7 @@ authors = ["Tyler Vipond <tylervipond@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rltk = { version = "0.6.2", features = ["serde"] }
+rltk = { version = "0.7", features = ["serde"] }
 specs = { version = "0.15.0", features = ["serde"] }
 specs-derive = "0.4.0"
 serde = { version = "1.0.93", features = ["derive"] }
