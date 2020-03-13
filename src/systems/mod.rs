@@ -11,3 +11,5 @@ pub mod trigger_system;
 pub mod use_item_system;
 pub mod visibility_system;
 pub mod reveal_traps_system;
+pub mod update_particle_effects_system;
+pub mod remove_particle_effects_system;
