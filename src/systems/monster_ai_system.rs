@@ -3,7 +3,7 @@ use crate::components::{
   position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
 };
 use crate::dungeon::dungeon::Dungeon;
-use crate::RunState;
+use crate::run_state::RunState;
 use rltk::{a_star_search, DistanceAlg::Pythagoras, Point};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
