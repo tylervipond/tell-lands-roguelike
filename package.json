@@ -1,0 +1,29 @@
+{
+  "name": "tell-lands-roguelike",
+  "version": "0.0.1",
+  "description": "This roguelike is being developed using [this tutorial](http://bfnightly.bracketproductions.com/rustbook/chapter_0.html) as a starting point.",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --mode=production",
+    "serve": "webpack-dev-server --mode=development"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tylervipond/apprentice.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tylervipond/apprentice/issues"
+  },
+  "homepage": "https://github.com/tylervipond/apprentice#readme",
+  "devDependencies": {
+    "@wasm-tool/wasm-pack-plugin": "^1.2.0",
+    "clean-webpack-plugin": "^3.0.0",
+    "html-webpack-plugin": "^3.2.0",
+    "text-encoding": "^0.7.0",
+    "webpack": "^4.42.0",
+    "webpack-cli": "^3.3.11",
+    "webpack-dev-server": "^3.10.3"
+  }
+}
