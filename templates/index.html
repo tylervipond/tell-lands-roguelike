@@ -3,10 +3,52 @@
 <head>
     <title>Apprentice</title>
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+    <style>
+        *,
+        *::after,
+        *::before {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        .container {
+            position: relative;
+            background-color: green;
+            max-width: 133.3333vh;
+            max-height: 100vh;
+            margin: 0 auto;
+        }
+
+        .container::after {
+            content: ' ';
+            display: block;
+            padding: 0 0 75%;
+        }
+
+        .wrapper {
+            position: absolute;
+            top: 0;
+            right: 0;
+            left: 0;
+            bottom: 0;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 </head>
 
 <body>
-    <canvas id="canvas" width="640" height="480"></canvas>
+    <div class="container">
+        <div class="wrapper">
+            <canvas id="canvas" width="640" height="480"></canvas>
+        </div>
+    </div>
 </body>
 
 </html>
