@@ -464,11 +464,18 @@ impl GameState for State {
             }
             RunState::MainMenu { highlighted } => {
                 let has_save_game = persistence::has_save_game();
-                let menu = vec![
-                    MainMenuOption::new("New Game", false),
-                    MainMenuOption::new("Continue", !has_save_game),
-                    MainMenuOption::new("Quit", false),
-                ];
+                let menu = if cfg!(target_arch = "wasm32") {
+                    vec![
+                        MainMenuOption::new("New Game", false),
+                        MainMenuOption::new("Continue", !has_save_game),
+                    ]
+                } else {
+                    vec![
+                        MainMenuOption::new("New Game", false),
+                        MainMenuOption::new("Continue", !has_save_game),
+                        MainMenuOption::new("Quit", false),
+                    ]
+                };
 
                 ctx.cls();
                 gui::show_main_menu(ctx, &menu, highlighted);
