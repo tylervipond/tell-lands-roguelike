@@ -1,0 +1,77 @@
+<html>
+  <head>
+    <title>Apprentice</title>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+    <style>
+      *,
+      *::after,
+      *::before {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      canvas {
+        display: block;
+        margin: 0 auto;
+      }
+
+      .title {
+        text-align: center;
+        margin: 1rem;
+        font-family:'Courier New', Courier, monospace;
+        text-transform: uppercase;
+      }
+
+      .controls-list {
+        max-width: 640px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .controls-list dd {
+        text-align: right;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1 class="title">Apprentice</h1>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <dl class="controls-list">
+      <dt>move up</dt>
+      <dd>w</dd>
+      <dt>move down</dt>
+      <dd>x</dd>
+      <dt>move left</dt>
+      <dd>a</dd>
+      <dt>move right</dt>
+      <dd>d</dd>
+      <dt>move up left</dt>
+      <dd>q</dd>
+      <dt>move up right</dt>
+      <dd>e</dd>
+      <dt>move down left</dt>
+      <dd>z</dd>
+      <dt>move down right</dt>
+      <dd>c</dd>
+      <dt>wait</dt>
+      <dd>s</dd>
+      <dt>pick up item</dt>
+      <dd>f</dd>
+      <dt>view inventory</dt>
+      <dd>i</dd>
+      <dt>drop item</dt>
+      <dd>r</dd>
+      <dt>go down stairs</dt>
+      <dd>.</dd>
+      <dt>go up stairs</dt>
+      <dd>,</dd>
+      <dt>exit dungeon</dt>
+      <dd>l</dd>
+    </dl>
+  <script type="text/javascript" src="index.js"></script></body>
+</html>
