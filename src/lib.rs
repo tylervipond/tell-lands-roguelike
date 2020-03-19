@@ -132,6 +132,36 @@ fn has_objective_in_backpack(ecs: &World) -> bool {
     false
 }
 
+fn select_next_menu_index(menu: &Vec<MainMenuOption>, highlighted: usize) -> usize {
+    if menu.iter().filter(|o| !o.disabled).count() == 1 {
+        return 0;
+    }
+    let next_index = if highlighted + 1 < menu.len() {
+        highlighted + 1
+    } else {
+        0
+    };
+    match menu.get(next_index).unwrap().disabled {
+        true => select_next_menu_index(menu, next_index),
+        false => next_index,
+    }
+}
+
+fn select_previous_menu_index(menu: &Vec<MainMenuOption>, highlighted: usize) -> usize {
+    if menu.iter().filter(|o| !o.disabled).count() == 1 {
+        return 0;
+    }
+    let previous_index = if highlighted > 0 {
+        highlighted - 1
+    } else {
+        menu.len() -1
+    };
+    match menu.get(previous_index).unwrap().disabled {
+        true => select_previous_menu_index(menu, previous_index),
+        false => previous_index
+    }
+}
+
 fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<Position>().clear();
     ecs.write_storage::<Renderable>().clear();
@@ -484,31 +514,10 @@ impl GameState for State {
                     MainMenuAction::Exit => RunState::MainMenu { highlighted },
                     MainMenuAction::NoAction => RunState::MainMenu { highlighted },
                     MainMenuAction::MoveHighlightDown => RunState::MainMenu {
-                        highlighted: match menu.get(highlighted + 1) {
-                            Some(o) => match o.disabled {
-                                true => match highlighted < menu.len() - 1 {
-                                    true => highlighted + 2,
-                                    false => 0,
-                                },
-                                false => highlighted + 1,
-                            },
-                            None => 0,
-                        },
+                        highlighted: select_next_menu_index(&menu, highlighted),
                     },
                     MainMenuAction::MoveHighlightUp => RunState::MainMenu {
-                        highlighted: match highlighted {
-                            0 => menu.len() - 1,
-                            _ => match menu.get(highlighted - 1) {
-                                Some(o) => match o.disabled {
-                                    true => match highlighted > 1 {
-                                        true => highlighted - 2,
-                                        false => menu.len() - 1,
-                                    },
-                                    false => highlighted - 1,
-                                },
-                                None => menu.len() - 1,
-                            },
-                        },
+                        highlighted: select_previous_menu_index(&menu, highlighted),
                     },
                     MainMenuAction::Select { option } => match option {
                         0 => {
