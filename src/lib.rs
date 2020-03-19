@@ -171,7 +171,7 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.insert(dungeon);
     ecs.remove::<game_log::GameLog>();
     ecs.insert(game_log::GameLog {
-        entries: vec!["Welcome to Tell-Lands".to_owned()],
+        entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
     });
 }
 
@@ -563,6 +563,10 @@ pub fn start() {
     gs.ecs.register::<SingleActivation>();
     gs.ecs.register::<Triggered>();
     gs.ecs.register::<Objective>();
+    gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
+    gs.ecs.insert(game_log::GameLog {
+        entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
+    }); // This needs to get moved to a continue game function I think... 
     let rng = RandomNumberGenerator::new();
     gs.ecs.insert(rng);
     gs.ecs.insert(RunState::MainMenu { highlighted: 0 });
