@@ -8,11 +8,6 @@ pub struct Dungeon {
 }
 
 impl Dungeon {
-  pub fn new() -> Self {
-    Self {
-      maps: HashMap::new(),
-    }
-  }
   pub fn generate(bottom_floor: i32, top_floor: i32) -> Self {
     let maps = (bottom_floor..top_floor).fold(HashMap::new(), |mut acc, floor_number| {
       let mut map = Map::create_basic_map(floor_number);
