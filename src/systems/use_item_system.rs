@@ -122,9 +122,6 @@ impl<'a> System<'a> for UseItemSystem {
           }
         }
         if let Some(damages) = damages {
-          // if let Some(damage_to_suffer) = suffer_damage.get_mut_or_default(target) {
-          //   damage_to_suffer.amount += damages.amount;
-          // }
           suffer_damage.get_mut_or_default(target).unwrap().amount += damages.amount;
           particle_spawner.request(
             pos.x,

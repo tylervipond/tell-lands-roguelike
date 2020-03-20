@@ -16,7 +16,7 @@ pub const MAP_HEIGHT: usize = 43;
 pub const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
 
 pub fn xy_idx(x: i32, y: i32) -> i32 {
-  (y * MAP_WIDTH as i32 + x)
+  y * MAP_WIDTH as i32 + x
 }
 
 pub fn idx_xy(idx: i32) -> (i32, i32) {
@@ -25,14 +25,13 @@ pub fn idx_xy(idx: i32) -> (i32, i32) {
 
 pub fn is_revealed_and_wall(map: &Map, x: i32, y: i32) -> bool {
   let map_idx = map.xy_idx(x, y) as usize;
-  return map.tiles[map_idx] == TileType::Wall && map.revealed_tiles[map_idx];
+  match map.tiles.get(map_idx) {
+    Some(tile) => *tile == TileType::Wall && map.revealed_tiles[map_idx],
+    None => false,
+  }
 }
 
 pub fn get_wall_tile(map: &Map, x: i32, y: i32) -> u8 {
-  if x < 1 || x > map.width - 2 || y < 1 || y > map.height - 2 {
-    return 35;
-  }
-
   let mut mask: u8 = 0;
   if is_revealed_and_wall(map, x, y - 1) {
     mask += 1;
