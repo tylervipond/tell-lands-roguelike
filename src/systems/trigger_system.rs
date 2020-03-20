@@ -1,7 +1,7 @@
 use crate::components::{
     dungeon_level::DungeonLevel, entity_moved::EntityMoved, entry_trigger::EntryTrigger,
     hidden::Hidden, inflicts_damage::InflictsDamage, name::Name, position::Position,
-    single_activation::SingleActivation, suffer_damage::SufferDamage, triggered::Triggered,
+    suffer_damage::SufferDamage, triggered::Triggered,
 };
 use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
@@ -76,7 +76,9 @@ impl<'a> System<'a> for TriggerSystem {
                         }
                     }
                     hidden.remove(*maybe_triggered);
-                    triggered.insert(*maybe_triggered, Triggered {}).expect("could not insert triggered for trap");
+                    triggered
+                        .insert(*maybe_triggered, Triggered {})
+                        .expect("could not insert triggered for trap");
                 }
             }
         }

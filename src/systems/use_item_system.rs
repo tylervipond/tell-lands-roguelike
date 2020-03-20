@@ -7,7 +7,7 @@ use crate::components::{
 use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
 use crate::services::particle_effect_spawner::ParticleEffectSpawner;
-use rltk::{to_cp437, BLACK, GREEN, MAGENTA, ORANGE, RED, RGB};
+use rltk::{to_cp437, BLACK, MAGENTA, ORANGE, RED, RGB};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage, storage::GenericWriteStorage};
 
 pub struct UseItemSystem {}

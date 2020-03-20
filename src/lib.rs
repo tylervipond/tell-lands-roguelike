@@ -15,7 +15,6 @@ mod game_log;
 mod gui;
 mod input;
 mod intro_screen_action;
-mod inventory;
 mod inventory_action;
 mod main_menu_action;
 mod main_menu_option;
