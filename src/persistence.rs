@@ -118,7 +118,9 @@ pub fn save_game(ecs: &mut World) {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn save_game(_ecs: &mut World) {}
+pub fn save_game(_ecs: &mut World) {
+  
+}
 
 fn deserialize_from_save_file(ecs: &mut World) {
   let data = read_to_string(SAVE_FILE_PATH).unwrap();
