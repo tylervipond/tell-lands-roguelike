@@ -96,11 +96,12 @@ impl<'a> System<'a> for UseItemSystem {
       let damages = inflicts_damage.get(to_use.item);
       let confuses = causes_confusion.get(to_use.item);
       for target in targets {
-        let mut stats = combat_stats.get_mut(target).unwrap();
         let pos = positions.get(target).unwrap();
         let level = dungeon_levels.get(target).unwrap();
         if let Some(heals) = heals {
-          stats.hp = i32::min(stats.max_hp, stats.hp + heals.amount);
+          if let Some(stats) = combat_stats.get_mut(target) {
+            stats.hp = i32::min(stats.max_hp, stats.hp + heals.amount);
+          }
           particle_spawner.request(
             pos.x,
             pos.y,
@@ -122,7 +123,9 @@ impl<'a> System<'a> for UseItemSystem {
           }
         }
         if let Some(damages) = damages {
-          suffer_damage.get_mut_or_default(target).unwrap().amount += damages.amount;
+          if let Some(suffer_damage) = suffer_damage.get_mut_or_default(target) {
+            suffer_damage.amount += damages.amount;
+          }
           particle_spawner.request(
             pos.x,
             pos.y,
@@ -133,15 +136,16 @@ impl<'a> System<'a> for UseItemSystem {
             level.level,
           );
           if entity == *player_entity {
-            let mob_name = names.get(target).unwrap();
-            let item_name = names.get(to_use.item).unwrap();
-            game_log.entries.insert(
-              0,
-              format!(
-                "you use {} on {} causing {} damage",
-                item_name.name, mob_name.name, damages.amount
-              ),
-            )
+            if let Some(mob_name) = names.get(target) {
+              let item_name = names.get(to_use.item).unwrap();
+              game_log.entries.insert(
+                0,
+                format!(
+                  "you use {} on {} causing {} damage",
+                  item_name.name, mob_name.name, damages.amount
+                ),
+              )
+            }
           }
         }
         if let Some(confuses) = confuses {
