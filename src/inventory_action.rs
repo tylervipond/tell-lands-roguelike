@@ -1,7 +1,7 @@
-use specs::Entity;
-
 pub enum InventoryAction {
   NoAction,
   Exit,
-  Selected(Entity)
+  Select { option: usize },
+  MoveHighlightDown,
+  MoveHighlightUp,
 }

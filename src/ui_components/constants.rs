@@ -1,0 +1,1 @@
+pub const INTERNAL_PADDING: u8 = 2;
