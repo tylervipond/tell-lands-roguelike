@@ -9,7 +9,6 @@ use crate::map_action::MapAction;
 use crate::success_screen_action::SuccessScreenAction;
 use crate::targeting_action::TargetingAction;
 use rltk::{Point, Rltk, VirtualKeyCode};
-use specs::Entity;
 
 pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
   match ctx.key {
@@ -36,21 +35,17 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
   }
 }
 
-pub fn map_input_to_inventory_action(
-  ctx: &mut Rltk,
-  inventory: &mut Vec<Entity>,
-) -> InventoryAction {
+pub fn map_input_to_inventory_action(ctx: &mut Rltk, highlighted: usize) -> InventoryAction {
   match ctx.key {
     None => InventoryAction::NoAction,
     Some(key) => match key {
+      VirtualKeyCode::Up => InventoryAction::MoveHighlightUp,
+      VirtualKeyCode::Down => InventoryAction::MoveHighlightDown,
+      VirtualKeyCode::Return => InventoryAction::Select {
+        option: highlighted,
+      },
       VirtualKeyCode::Escape => InventoryAction::Exit,
-      _ => {
-        let selection = rltk::letter_to_option(key);
-        if selection > -1 && selection < inventory.len() as i32 {
-          return InventoryAction::Selected(inventory.remove(selection as usize));
-        }
-        return InventoryAction::NoAction;
-      }
+      _ => InventoryAction::NoAction,
     },
   }
 }

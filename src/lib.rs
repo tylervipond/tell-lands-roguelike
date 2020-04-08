@@ -1,4 +1,4 @@
-use rltk::{Console, GameState, Point, RandomNumberGenerator, Rltk, RltkBuilder};
+use rltk::{GameState, Point, RandomNumberGenerator, Rltk, RltkBuilder};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 use wasm_bindgen::prelude::*;
@@ -12,24 +12,24 @@ mod dungeon;
 mod exit_game_menu_action;
 mod failure_screen_action;
 mod game_log;
-mod gui;
 mod input;
 mod intro_screen_action;
 mod inventory_action;
 mod main_menu_action;
-mod main_menu_option;
 mod map;
 mod map_action;
+mod menu_option;
 mod persistence;
 mod player;
 mod ranged;
 mod run_state;
+mod screens;
 mod services;
-mod sizes;
 mod spawner;
 mod success_screen_action;
 mod systems;
 mod targeting_action;
+mod ui_components;
 mod utils;
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
@@ -57,11 +57,16 @@ use input::{
 use intro_screen_action::IntroScreenAction;
 use inventory_action::InventoryAction;
 use main_menu_action::MainMenuAction;
-use main_menu_option::MainMenuOption;
-use map::draw_map;
 use map_action::MapAction;
+use menu_option::{MenuOption, MenuOptionState};
 use player::{get_player_inventory_list, player_action};
 use run_state::RunState;
+use screens::{
+    screen_credits::ScreenCredits, screen_death::ScreenDeath, screen_failure::ScreenFailure,
+    screen_intro::ScreenIntro, screen_main_menu::ScreenMainMenu,
+    screen_map_generic::ScreenMapGeneric, screen_map_menu::ScreenMapMenu,
+    screen_map_targeting::ScreenMapTargeting, screen_success::ScreenSuccess,
+};
 use success_screen_action::SuccessScreenAction;
 use systems::{
     blood_spawn_system::BloodSpawnSystem, damage_system::DamageSystem,
@@ -75,36 +80,6 @@ use systems::{
     visibility_system::VisibilitySystem,
 };
 use targeting_action::TargetingAction;
-
-fn draw_renderables_to_map(ecs: &World, ctx: &mut Rltk) {
-    let positions = ecs.read_storage::<Position>();
-    let renderables = ecs.read_storage::<Renderable>();
-    let levels = ecs.read_storage::<DungeonLevel>();
-    let hidden = ecs.read_storage::<Hidden>();
-    let dungeon = ecs.fetch::<Dungeon>();
-    let player_ent = ecs.fetch::<Entity>();
-    let player_level = levels.get(*player_ent).unwrap();
-    let map = dungeon.maps.get(&player_level.level).unwrap();
-    let mut sorted_renderables = (&positions, &renderables, &levels, !&hidden)
-        .join()
-        .filter(|(p, _r, l, _h)| {
-            return l.level == player_level.level
-                && map.visible_tiles[map.xy_idx(p.x, p.y) as usize];
-        })
-        .collect::<Vec<_>>();
-    sorted_renderables.sort_unstable_by(|a, b| b.1.layer.cmp(&a.1.layer));
-    for (pos, render, _l, _h) in sorted_renderables.iter() {
-        ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
-    }
-}
-
-fn draw_screen(ecs: &mut World, ctx: &mut Rltk) {
-    ctx.cls();
-    draw_map(ecs, ctx);
-    draw_renderables_to_map(ecs, ctx);
-    gui::draw_ui(ecs, ctx);
-    gui::draw_tooltip(ecs, ctx);
-}
 
 fn player_can_leave_dungeon(ecs: &mut World) -> bool {
     let player_ent = ecs.fetch::<Entity>();
@@ -129,36 +104,6 @@ fn has_objective_in_backpack(ecs: &World) -> bool {
         }
     }
     false
-}
-
-fn select_next_menu_index(menu: &Vec<MainMenuOption>, highlighted: usize) -> usize {
-    if menu.iter().filter(|o| !o.disabled).count() == 1 {
-        return 0;
-    }
-    let next_index = if highlighted + 1 < menu.len() {
-        highlighted + 1
-    } else {
-        0
-    };
-    match menu.get(next_index).unwrap().disabled {
-        true => select_next_menu_index(menu, next_index),
-        false => next_index,
-    }
-}
-
-fn select_previous_menu_index(menu: &Vec<MainMenuOption>, highlighted: usize) -> usize {
-    if menu.iter().filter(|o| !o.disabled).count() == 1 {
-        return 0;
-    }
-    let previous_index = if highlighted > 0 {
-        highlighted - 1
-    } else {
-        menu.len() -1
-    };
-    match menu.get(previous_index).unwrap().disabled {
-        true => select_previous_menu_index(menu, previous_index),
-        false => previous_index
-    }
 }
 
 fn initialize_new_game(ecs: &mut World) {
@@ -277,13 +222,13 @@ impl GameState for State {
         let old_runstate = { *(self.ecs.fetch::<RunState>()) };
         let new_runstate = match old_runstate {
             RunState::PreRun => {
-                draw_screen(&mut self.ecs, ctx);
+                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
                 self.run_systems(ctx);
                 DamageSystem::delete_the_dead(&mut self.ecs);
                 RunState::AwaitingInput
             }
             RunState::AwaitingInput => {
-                draw_screen(&mut self.ecs, ctx);
+                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
                 self.run_systems(ctx);
                 let action = map_input_to_map_action(ctx);
                 match action {
@@ -292,8 +237,8 @@ impl GameState for State {
                         RunState::MainMenu { highlighted: 0 }
                     }
                     MapAction::NoAction => RunState::AwaitingInput,
-                    MapAction::ShowInventoryMenu => RunState::InventoryMenu,
-                    MapAction::ShowDropMenu => RunState::DropItemMenu,
+                    MapAction::ShowInventoryMenu => RunState::InventoryMenu { highlighted: 0 },
+                    MapAction::ShowDropMenu => RunState::DropItemMenu { highlighted: 0 },
                     MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.ecs) {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
@@ -311,13 +256,13 @@ impl GameState for State {
                 }
             }
             RunState::PlayerTurn => {
-                draw_screen(&mut self.ecs, ctx);
+                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
                 self.run_systems(ctx);
                 DamageSystem::delete_the_dead(&mut self.ecs);
                 RunState::MonsterTurn
             }
             RunState::MonsterTurn => {
-                draw_screen(&mut self.ecs, ctx);
+                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
                 self.run_systems(ctx);
                 DamageSystem::delete_the_dead(&mut self.ecs);
                 let combat_stats = self.ecs.read_storage::<CombatStats>();
@@ -331,22 +276,39 @@ impl GameState for State {
                     _ => RunState::AwaitingInput,
                 }
             }
-            RunState::InventoryMenu => {
-                draw_screen(&mut self.ecs, ctx);
+            RunState::InventoryMenu { highlighted } => {
                 let inventory = get_player_inventory_list(&mut self.ecs);
-                let (mut inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
+                let (inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
-                gui::show_inventory(ctx, inventory_names, "Use Item");
-                let action = map_input_to_inventory_action(ctx, &mut inventory_entities);
+                let menu: Vec<MenuOption> = inventory_names
+                    .iter()
+                    .enumerate()
+                    .map(|(index, text)| {
+                        let state = match highlighted == index {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        };
+                        MenuOption::new(text, state)
+                    })
+                    .collect();
+                ScreenMapMenu::new(&menu, "Use Item", "Escape to Cancel").draw(ctx, &mut self.ecs);
+                let action = map_input_to_inventory_action(ctx, highlighted);
                 match action {
-                    InventoryAction::NoAction => RunState::InventoryMenu,
+                    InventoryAction::NoAction => RunState::InventoryMenu { highlighted },
                     InventoryAction::Exit => RunState::AwaitingInput,
-                    InventoryAction::Selected(ent) => {
+                    InventoryAction::MoveHighlightDown => RunState::InventoryMenu {
+                        highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                    },
+                    InventoryAction::MoveHighlightUp => RunState::InventoryMenu {
+                        highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                    },
+                    InventoryAction::Select { option } => {
+                        let ent = inventory_entities.get(option).expect("got");
                         let ranged = self.ecs.read_storage::<Ranged>();
-                        if let Some(ranged_props) = ranged.get(ent) {
+                        if let Some(ranged_props) = ranged.get(*ent) {
                             RunState::ShowTargeting {
                                 range: ranged_props.range,
-                                item: ent,
+                                item: *ent,
                             }
                         } else {
                             let mut intent = self.ecs.write_storage::<WantsToUse>();
@@ -354,7 +316,7 @@ impl GameState for State {
                                 .insert(
                                     *self.ecs.fetch::<Entity>(),
                                     WantsToUse {
-                                        item: ent,
+                                        item: *ent,
                                         target: None,
                                     },
                                 )
@@ -364,47 +326,65 @@ impl GameState for State {
                     }
                 }
             }
-            RunState::DropItemMenu => {
-                draw_screen(&mut self.ecs, ctx);
+            RunState::DropItemMenu { highlighted } => {
                 let inventory = get_player_inventory_list(&mut self.ecs);
-                let (mut inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
+                let (inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
-                gui::show_inventory(ctx, inventory_names, "Drop Item");
-                let action = map_input_to_inventory_action(ctx, &mut inventory_entities);
+                let menu: Vec<MenuOption> = inventory_names
+                    .iter()
+                    .enumerate()
+                    .map(|(index, text)| {
+                        let state = match highlighted == index {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        };
+                        MenuOption::new(text, state)
+                    })
+                    .collect();
+                ScreenMapMenu::new(&menu, "Drop Item", "Escape to Cancel").draw(ctx, &mut self.ecs);
+                let action = map_input_to_inventory_action(ctx, highlighted);
                 match action {
-                    InventoryAction::NoAction => RunState::DropItemMenu,
+                    InventoryAction::NoAction => RunState::DropItemMenu { highlighted },
                     InventoryAction::Exit => RunState::AwaitingInput,
-                    InventoryAction::Selected(ent) => {
+                    InventoryAction::MoveHighlightDown => RunState::DropItemMenu {
+                        highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                    },
+                    InventoryAction::MoveHighlightUp => RunState::DropItemMenu {
+                        highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                    },
+                    InventoryAction::Select { option } => {
+                        let ent = inventory_entities.get(option).expect("got");
                         let mut intent = self.ecs.write_storage::<WantsToDropItem>();
                         intent
-                            .insert(*self.ecs.fetch::<Entity>(), WantsToDropItem { item: ent })
+                            .insert(*self.ecs.fetch::<Entity>(), WantsToDropItem { item: *ent })
                             .expect("Unable To Insert Drop Item Intent");
                         RunState::PlayerTurn
                     }
                 }
             }
             RunState::ExitGameMenu { highlighted } => {
-                draw_screen(&mut self.ecs, ctx);
-                let menu = vec![
-                    "Yes, exit the dungeon".to_string(),
-                    "No, remain in the dungeon".to_string(),
-                ];
-                gui::show_exit_game_menu(ctx, &menu, highlighted);
+                let menu: Vec<MenuOption> = ["Yes, exit the dungeon", "No, remain in the dungeon"]
+                    .iter()
+                    .enumerate()
+                    .map(|(index, text)| {
+                        let state = match highlighted == index {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        };
+                        MenuOption::new(text, state)
+                    })
+                    .collect();
+                ScreenMapMenu::new(&menu, "Exit Dungeon?", "Escape to Cancel")
+                    .draw(ctx, &mut self.ecs);
                 let action = map_input_to_exit_game_action(ctx, highlighted);
                 match action {
                     ExitGameMenuAction::Exit => RunState::AwaitingInput,
                     ExitGameMenuAction::NoAction => RunState::ExitGameMenu { highlighted },
                     ExitGameMenuAction::MoveHighlightDown => RunState::ExitGameMenu {
-                        highlighted: match highlighted + 1 > menu.len() {
-                            true => 0,
-                            false => highlighted + 1,
-                        },
+                        highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                     },
                     ExitGameMenuAction::MoveHighlightUp => RunState::ExitGameMenu {
-                        highlighted: match highlighted == 0 {
-                            true => menu.len(),
-                            false => highlighted - 1,
-                        },
+                        highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                     },
                     ExitGameMenuAction::Select { option } => match option {
                         0 => {
@@ -419,13 +399,9 @@ impl GameState for State {
                 }
             }
             RunState::ShowTargeting { range, item } => {
-                draw_screen(&mut self.ecs, ctx);
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.ecs, range);
-                gui::show_valid_targeting_area(ctx, &visible_tiles);
                 let target = ranged::get_target(ctx, &visible_tiles);
-                if let Some(point) = target {
-                    gui::show_current_target(ctx, point);
-                }
+                ScreenMapTargeting::new(range, target).draw(ctx, &mut self.ecs);
                 let action = map_input_to_targeting_action(ctx, target);
                 match action {
                     TargetingAction::NoAction => RunState::ShowTargeting { range, item },
@@ -446,8 +422,7 @@ impl GameState for State {
                 }
             }
             RunState::IntroScreen => {
-                ctx.cls();
-                gui::show_intro_screen(ctx);
+                ScreenIntro::new().draw(ctx);
                 let action = map_input_to_intro_screen_action(ctx);
                 match action {
                     IntroScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
@@ -456,8 +431,7 @@ impl GameState for State {
                 }
             }
             RunState::DeathScreen => {
-                ctx.cls();
-                gui::show_death_screen(ctx);
+                ScreenDeath::new().draw(ctx);
                 let action = map_input_to_death_screen_action(ctx);
                 match action {
                     DeathScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
@@ -465,8 +439,7 @@ impl GameState for State {
                 }
             }
             RunState::SuccessScreen => {
-                ctx.cls();
-                gui::show_success_screen(ctx);
+                ScreenSuccess::new().draw(ctx);
                 let action = map_input_to_success_screen_action(ctx);
                 match action {
                     SuccessScreenAction::Exit => RunState::CreditsScreen,
@@ -474,8 +447,7 @@ impl GameState for State {
                 }
             }
             RunState::FailureScreen => {
-                ctx.cls();
-                gui::show_failure_screen(ctx);
+                ScreenFailure::new().draw(ctx);
                 let action = map_input_to_failure_screen_action(ctx);
                 match action {
                     FailureScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
@@ -483,8 +455,7 @@ impl GameState for State {
                 }
             }
             RunState::CreditsScreen => {
-                ctx.cls();
-                gui::show_credits_screen(ctx);
+                ScreenCredits::new().draw(ctx);
                 let action = map_input_to_credits_screen_action(ctx);
                 match action {
                     CreditsScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
@@ -493,30 +464,44 @@ impl GameState for State {
             }
             RunState::MainMenu { highlighted } => {
                 let has_save_game = persistence::has_save_game();
+                let continue_state = match has_save_game {
+                    true => match highlighted == 1 {
+                        true => MenuOptionState::Highlighted,
+                        false => MenuOptionState::Normal,
+                    },
+                    false => MenuOptionState::Disabled,
+                };
+                let new_game_state = match highlighted == 0 {
+                    true => MenuOptionState::Highlighted,
+                    false => MenuOptionState::Normal,
+                };
                 let menu = if cfg!(target_arch = "wasm32") {
                     vec![
-                        MainMenuOption::new("New Game", false),
-                        MainMenuOption::new("Continue", !has_save_game),
+                        MenuOption::new("New Game", new_game_state),
+                        MenuOption::new("Continue", continue_state),
                     ]
                 } else {
+                    let quit_state = match highlighted == 2 {
+                        true => MenuOptionState::Highlighted,
+                        false => MenuOptionState::Normal,
+                    };
                     vec![
-                        MainMenuOption::new("New Game", false),
-                        MainMenuOption::new("Continue", !has_save_game),
-                        MainMenuOption::new("Quit", false),
+                        MenuOption::new("New Game", new_game_state),
+                        MenuOption::new("Continue", continue_state),
+                        MenuOption::new("Quit", quit_state),
                     ]
                 };
 
-                ctx.cls();
-                gui::show_main_menu(ctx, &menu, highlighted);
+                ScreenMainMenu::new(&menu).draw(ctx);
                 let action = map_input_to_main_menu_action(ctx, highlighted);
                 match action {
                     MainMenuAction::Exit => RunState::MainMenu { highlighted },
                     MainMenuAction::NoAction => RunState::MainMenu { highlighted },
                     MainMenuAction::MoveHighlightDown => RunState::MainMenu {
-                        highlighted: select_next_menu_index(&menu, highlighted),
+                        highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                     },
                     MainMenuAction::MoveHighlightUp => RunState::MainMenu {
-                        highlighted: select_previous_menu_index(&menu, highlighted),
+                        highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                     },
                     MainMenuAction::Select { option } => match option {
                         0 => {
