@@ -58,7 +58,7 @@ pub fn spawn_player(ecs: &mut World, x: i32, y: i32, level: i32) -> Entity {
 pub fn spawn_monster<S: ToString>(
   ecs: &mut World,
   idx: i32,
-  glyph: u8,
+  glyph: u16,
   name: S,
   level: i32,
 ) -> Entity {

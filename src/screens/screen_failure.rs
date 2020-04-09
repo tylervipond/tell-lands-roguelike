@@ -1,5 +1,5 @@
 use crate::ui_components::ui_paragraph::UIParagraph;
-use rltk::{Console, Rltk};
+use rltk::Rltk;
 
 pub struct ScreenFailure {}
 

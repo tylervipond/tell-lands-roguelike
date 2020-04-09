@@ -1,5 +1,5 @@
 use crate::ui_components::{ui_box::UIBox, ui_text_line::UITextLine};
-use rltk::{Console, Rltk, BLACK, RED, RGB, WHITE, YELLOW};
+use rltk::{Rltk, BLACK, RED, RGB, WHITE, YELLOW};
 
 const GUI_LEFT: i32 = 0;
 const GUI_TOP: i32 = 43;

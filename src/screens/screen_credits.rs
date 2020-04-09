@@ -1,5 +1,5 @@
 use crate::ui_components::ui_text_line_centered::UITextLineCentered;
-use rltk::{Console, Rltk, BLACK, WHITE};
+use rltk::{Rltk, BLACK, WHITE};
 
 pub struct ScreenCredits {}
 

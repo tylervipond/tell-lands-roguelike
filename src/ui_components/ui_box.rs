@@ -1,4 +1,4 @@
-use rltk::{Rltk, Console, RGB};
+use rltk::{Rltk, RGB};
 pub struct UIBox {
     x: i32,
     y: i32,

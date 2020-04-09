@@ -8,7 +8,7 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct Renderable {
-  pub glyph: u8,
+  pub glyph: u16,
   pub fg: RGB,
   pub bg: RGB,
   pub layer: i32,

@@ -8,7 +8,7 @@ use crate::components::{
 use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
 use crate::ranged;
-use rltk::{Console, Point, Rltk, BLUE, CYAN, RGB};
+use rltk::{Point, Rltk, BLUE, CYAN, RGB};
 use specs::{Entity, Join, World, WorldExt};
 
 pub struct ScreenMapTargeting<'a> {

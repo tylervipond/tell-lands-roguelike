@@ -26,10 +26,13 @@ use specs::{
   world::Builder,
   Entity, World, WorldExt,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::{read_to_string, remove_file, File};
 use std::io::Write;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::str;
+#[cfg(target_arch = "wasm32")]
 use web_sys::Storage;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -251,6 +254,7 @@ pub fn save_game(ecs: &mut World) {
   save_game_with_writer(ecs, writer);
 }
 
+#[cfg(target_arch = "wasm32")]
 fn get_local_storage() -> Storage {
   let window = web_sys::window().expect("no global `window` exists");
   window.local_storage().unwrap().expect("no local storage")
@@ -258,7 +262,7 @@ fn get_local_storage() -> Storage {
 
 #[cfg(target_arch = "wasm32")]
 pub fn save_game(ecs: &mut World) {
-  let mut writer = Vec::<u8>::new();
+  let writer = Vec::<u8>::new();
   let serializer = save_game_with_writer(ecs, writer);
   let storage = get_local_storage();
   storage

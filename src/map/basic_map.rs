@@ -1,5 +1,5 @@
 use crate::map::{idx_xy, rect::Rect, xy_idx, TileType, MAP_COUNT, MAP_HEIGHT, MAP_WIDTH};
-use rltk::{Algorithm2D, BaseMap, DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
+use rltk::{Algorithm2D, BaseMap, DistanceAlg::Pythagoras, Point, RandomNumberGenerator, SmallVec};
 use serde::{Deserialize, Serialize};
 use specs::Entity;
 use std::cmp::{max, min};
@@ -169,8 +169,8 @@ impl BaseMap for Map {
     self.tiles[idx as usize] == TileType::Wall
   }
 
-  fn get_available_exits(&self, idx: usize) -> Vec<(usize, f32)> {
-    let mut exits: Vec<(usize, f32)> = vec![];
+  fn get_available_exits(&self, idx: usize) -> SmallVec<[(usize, f32); 10]> {
+    let mut exits = SmallVec::new();
     let (x, y) = self.idx_xy(idx as i32);
     if self.is_exit_valid(x - 1, y) {
       exits.push((idx - 1, 1.0))
