@@ -54,6 +54,7 @@ dependencies = [
  "specs",
  "specs-derive",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
