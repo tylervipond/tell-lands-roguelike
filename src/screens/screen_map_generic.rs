@@ -6,7 +6,7 @@ use crate::components::{
 };
 use crate::dungeon::dungeon::Dungeon;
 use crate::game_log::GameLog;
-use rltk::{Console, Rltk};
+use rltk::Rltk;
 use specs::{Entity, Join, World, WorldExt};
 
 pub struct ScreenMapGeneric {}
@@ -30,17 +30,21 @@ impl ScreenMapGeneric {
         let (mouse_x, mouse_y) = ctx.mouse_pos();
         let dungeon = world.fetch::<Dungeon>();
         let map = dungeon.maps.get(&player_level.level).unwrap();
-        let tool_tip_lines =  match map.visible_tiles[map.xy_idx(mouse_x, mouse_y) as usize] {
-            true => (&names, &positions, &levels, !&hidden)
-            .join()
-            .fold(vec![], |mut acc, (name, position, level, _)| {
-                if level.level == player_level.level && position.x == mouse_x && position.y == mouse_y {
-                    acc.push(name.name.to_owned());
-                }
-                acc
-            }),
+        let tool_tip_lines = match map.visible_tiles[map.xy_idx(mouse_x, mouse_y) as usize] {
+            true => (&names, &positions, &levels, !&hidden).join().fold(
+                vec![],
+                |mut acc, (name, position, level, _)| {
+                    if level.level == player_level.level
+                        && position.x == mouse_x
+                        && position.y == mouse_y
+                    {
+                        acc.push(name.name.to_owned());
+                    }
+                    acc
+                },
+            ),
             false => Vec::new(),
-        };            
+        };
         let renderables = world.read_storage::<Renderable>();
 
         let mut renderables = (&positions, &renderables, &levels, !&hidden)

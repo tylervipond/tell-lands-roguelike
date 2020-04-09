@@ -1,4 +1,4 @@
-use rltk::{Console, Rltk, MAGENTA, RGB};
+use rltk::{Rltk, MAGENTA, RGB};
 
 pub struct UIMousePos {
     x: i32,

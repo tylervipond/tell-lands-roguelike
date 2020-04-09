@@ -1,4 +1,4 @@
-use rltk::{Rltk, Console, RGB};
+use rltk::{Rltk, RGB};
 
 pub struct UITextLine<'a> {
     x: i32,

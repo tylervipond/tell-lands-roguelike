@@ -1,6 +1,6 @@
 use crate::menu_option::MenuOption;
 use crate::ui_components::ui_menu_item_group_centered::UIMenuItemGroupCentered;
-use rltk::{Console, Rltk};
+use rltk::Rltk;
 
 pub struct ScreenMainMenu<'a> {
     menu_options: &'a Vec<MenuOption<'a>>,

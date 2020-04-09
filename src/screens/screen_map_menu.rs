@@ -2,7 +2,7 @@ use super::constants::{MAP_HEIGHT, MAP_WIDTH};
 use super::screen_map_generic::ScreenMapGeneric;
 use crate::menu_option::MenuOption;
 use crate::ui_components::ui_dynamic_menu::UIDynamicMenu;
-use rltk::{Console, Rltk};
+use rltk::Rltk;
 use specs::World;
 
 pub struct ScreenMapMenu<'a> {

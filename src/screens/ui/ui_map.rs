@@ -1,6 +1,6 @@
 use crate::map::{tile_type::TileType, Map};
 use crate::screens::constants::MAP_WIDTH;
-use rltk::{Console, Rltk, RGB};
+use rltk::{Rltk, RGB};
 
 pub struct RenderData {
     pub x: i32,
@@ -8,7 +8,7 @@ pub struct RenderData {
     pub fg: RGB,
     pub bg: RGB,
     pub layer: i32,
-    pub glyph: u8,
+    pub glyph: u16,
 }
 
 pub fn is_revealed_and_wall(map: &Map, x: i32, y: i32) -> bool {
@@ -19,7 +19,7 @@ pub fn is_revealed_and_wall(map: &Map, x: i32, y: i32) -> bool {
     }
 }
 
-pub fn get_wall_tile(map: &Map, x: i32, y: i32) -> u8 {
+pub fn get_wall_tile(map: &Map, x: i32, y: i32) -> u16 {
     let mut mask: u8 = 0;
     if is_revealed_and_wall(map, x, y - 1) {
         mask += 1;

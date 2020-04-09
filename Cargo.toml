@@ -17,7 +17,7 @@ path = "src/main.rs"
 lto = true
 
 [dependencies]
-rltk = { version = "0.7", features = ["serde"] }
+rltk = { version = "0.8.0", features = ["serde"] }
 specs = { version = "0.15.0", features = ["serde"] }
 specs-derive = "0.4.0"
 serde = { version = "1.0.93", features = ["derive"] }

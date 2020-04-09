@@ -573,6 +573,6 @@ pub fn start() {
     gs.ecs
         .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
     gs.ecs.insert(services::blood_spawner::BloodSpawner::new());
-    let context = RltkBuilder::simple80x50().with_title("Apprentice").build();
-    rltk::main_loop(context, gs);
+    let context = RltkBuilder::simple80x50().with_title("Apprentice").build().expect("failed to create context");
+    rltk::main_loop(context, gs).expect("failed to start apprentice");
 }
