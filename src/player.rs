@@ -3,8 +3,7 @@ use crate::components::{
   in_backpack::InBackpack, item::Item, name::Name, player::Player, position::Position,
   viewshed::Viewshed, wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
 };
-use crate::dungeon::dungeon::Dungeon;
-use crate::map::basic_map::Map;
+use crate::dungeon::{dungeon::Dungeon, level::Level, operations::xy_idx};
 use crate::{game_log::GameLog, map_action::MapAction};
 use rltk::Point;
 use specs::{Entity, Join, World, WorldExt};
@@ -28,14 +27,14 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
   let dungeon_levels = ecs.read_storage::<DungeonLevel>();
 
   let player_level = dungeon_levels.get(*player_ent).unwrap();
-  let map = dungeon.get_map(player_level.level).unwrap();
+  let map = dungeon.get_level(player_level.level).unwrap();
 
   for (entity, _player, pos, viewshed) in
     (&entities, &mut players, &mut positions, &mut viewsheds).join()
   {
     let x = pos.x + delta_x;
     let y = pos.y + delta_y;
-    let destination_index = map.xy_idx(x, y);
+    let destination_index = xy_idx(&map, x, y);
 
     for potential_target in map.tile_content[destination_index as usize].iter() {
       let target = combat_stats.get(*potential_target);
@@ -111,15 +110,15 @@ fn points_match(point_a: &Point, point_b: &Point) -> bool {
   point_a.x == point_b.x && point_a.y == point_b.y
 }
 
-fn can_go_up(current_map: &Map, player_point: &Point) -> bool {
-  if let Some(stairs_up_coords) = current_map.stairs_up {
+fn can_go_up(current_level: &Level, player_point: &Point) -> bool {
+  if let Some(stairs_up_coords) = current_level.stairs_up {
     return points_match(&stairs_up_coords, player_point);
   }
   return false;
 }
 
-fn can_go_down(current_map: &Map, player_point: &Point) -> bool {
-  if let Some(stairs_down_coords) = current_map.stairs_down {
+fn can_go_down(current_level: &Level, player_point: &Point) -> bool {
+  if let Some(stairs_down_coords) = current_level.stairs_down {
     return points_match(&stairs_down_coords, player_point);
   }
   return false;
@@ -131,12 +130,12 @@ fn try_go_down_stairs(ecs: &mut World) {
   let player_entity = ecs.fetch::<Entity>();
   let mut player_level = levels.get_mut(*player_entity).unwrap();
   let mut dungeon = ecs.fetch_mut::<Dungeon>();
-  let current_map = dungeon.get_map(player_level.level).unwrap();
-  if !can_go_down(current_map, &player_point) {
+  let current_level = dungeon.get_level(player_level.level).unwrap();
+  if !can_go_down(current_level, &player_point) {
     return;
   }
   let next_level_number = player_level.level - 1;
-  let next_map = dungeon.get_map(next_level_number);
+  let next_map = dungeon.get_level(next_level_number);
   if let Some(next_map) = next_map {
     let stairs_up_coords = next_map.stairs_up.unwrap();
     let mut positions = ecs.write_storage::<Position>();
@@ -158,12 +157,12 @@ fn try_go_up_stairs(ecs: &mut World) {
   let player_entity = ecs.fetch::<Entity>();
   let mut player_level = levels.get_mut(*player_entity).unwrap();
   let mut dungeon = ecs.fetch_mut::<Dungeon>();
-  let current_map = dungeon.get_map(player_level.level).unwrap();
-  if !can_go_up(current_map, &player_point) {
+  let current_level = dungeon.get_level(player_level.level).unwrap();
+  if !can_go_up(current_level, &player_point) {
     return;
   }
   let next_level_number = player_level.level + 1;
-  let next_map = dungeon.get_map(next_level_number);
+  let next_map = dungeon.get_level(next_level_number);
   if let Some(next_map) = next_map {
     let stairs_down_coords = next_map.stairs_down.unwrap();
     let mut positions = ecs.write_storage::<Position>();

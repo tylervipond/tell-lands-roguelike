@@ -4,7 +4,7 @@ use crate::components::{
     combat_stats::CombatStats, dungeon_level::DungeonLevel, hidden::Hidden, name::Name,
     position::Position, renderable::Renderable,
 };
-use crate::dungeon::dungeon::Dungeon;
+use crate::dungeon::{dungeon::Dungeon, operations::xy_idx};
 use crate::game_log::GameLog;
 use rltk::Rltk;
 use specs::{Entity, Join, World, WorldExt};
@@ -29,8 +29,8 @@ impl ScreenMapGeneric {
         let hidden = world.read_storage::<Hidden>();
         let (mouse_x, mouse_y) = ctx.mouse_pos();
         let dungeon = world.fetch::<Dungeon>();
-        let map = dungeon.maps.get(&player_level.level).unwrap();
-        let tool_tip_lines = match map.visible_tiles[map.xy_idx(mouse_x, mouse_y) as usize] {
+        let level = dungeon.levels.get(&player_level.level).unwrap();
+        let tool_tip_lines = match level.visible_tiles[xy_idx(&level, mouse_x, mouse_y) as usize] {
             true => (&names, &positions, &levels, !&hidden).join().fold(
                 vec![],
                 |mut acc, (name, position, level, _)| {
@@ -50,8 +50,8 @@ impl ScreenMapGeneric {
         let mut renderables = (&positions, &renderables, &levels, !&hidden)
             .join()
             .filter(|(p, _r, l, _h)| {
-                return l.level == player_level.level
-                    && map.visible_tiles[map.xy_idx(p.x, p.y) as usize];
+                let idx = xy_idx(&level, p.x, p.y) as usize;
+                return l.level == player_level.level && level.visible_tiles[idx];
             })
             .map(|(p, r, _l, _h)| RenderData {
                 x: p.x,
@@ -72,7 +72,7 @@ impl ScreenMapGeneric {
             player_level.level,
             player_stats.hp,
             player_stats.max_hp,
-            map,
+            level,
             &renderables,
         )
         .draw(ctx);

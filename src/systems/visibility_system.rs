@@ -4,7 +4,7 @@ use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect
 use crate::components::{
   dungeon_level::DungeonLevel, player::Player, position::Position, viewshed::Viewshed,
 };
-use crate::dungeon::dungeon::Dungeon;
+use crate::dungeon::{dungeon::Dungeon, operations::xy_idx};
 
 /**
  * Currently enemy AI won't take any actions if the player is not visible, so
@@ -23,23 +23,25 @@ impl<'a> System<'a> for VisibilitySystem {
     ReadStorage<'a, DungeonLevel>,
   );
   fn run(&mut self, data: Self::SystemData) {
-    let (mut dungeon, entities, mut viewshed, position, player, player_ent, levels) = data;
-    let player_level = levels.get(*player_ent).unwrap();
-    let map = dungeon.get_map(player_level.level).unwrap();
-    for (ent, viewshed, position, level) in (&entities, &mut viewshed, &position, &levels).join() {
-      if viewshed.dirty && level.level == player_level.level {
+    let (mut dungeon, entities, mut viewshed, position, player, player_ent, dungeon_levels) = data;
+    let player_level = dungeon_levels.get(*player_ent).unwrap();
+    let level = dungeon.get_level(player_level.level).unwrap();
+    for (ent, viewshed, position, dungeon_level) in
+      (&entities, &mut viewshed, &position, &dungeon_levels).join()
+    {
+      if viewshed.dirty && dungeon_level.level == player_level.level {
         viewshed.dirty = false;
         viewshed.visible_tiles.clear();
         viewshed.visible_tiles =
-          field_of_view(Point::new(position.x, position.y), viewshed.range, &*map);
+          field_of_view(Point::new(position.x, position.y), viewshed.range, &*level);
         if let Some(_p) = player.get(ent) {
-          for t in map.visible_tiles.iter_mut() {
+          for t in level.visible_tiles.iter_mut() {
             *t = false
           }
           for vis in viewshed.visible_tiles.iter() {
-            let idx = map.xy_idx(vis.x, vis.y) as usize;
-            map.revealed_tiles[idx] = true;
-            map.visible_tiles[idx] = true;
+            let idx = xy_idx(&level, vis.x, vis.y) as usize;
+            level.revealed_tiles[idx] = true;
+            level.visible_tiles[idx] = true;
           }
         }
       }
