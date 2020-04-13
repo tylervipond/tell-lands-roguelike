@@ -1,4 +1,3 @@
-use crate::utils::get_random_between_numbers;
 use rltk::RandomNumberGenerator;
 use serde::{Deserialize, Serialize};
 
@@ -20,17 +19,13 @@ impl Rect {
     }
   }
 
-  pub fn intersect(&self, other: &Rect) -> bool {
-    self.x1 <= other.x2 && self.x2 >= other.x1 && self.y1 <= other.y2 && self.y2 >= other.y1
-  }
-
   pub fn center(&self) -> (i32, i32) {
     ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
   }
 
   pub fn get_random_coord(&self, rng: &mut RandomNumberGenerator) -> (i32, i32) {
-    let x = get_random_between_numbers(rng, self.x1, self.x2);
-    let y = get_random_between_numbers(rng, self.y1, self.y2);
+    let x = rng.range(self.x1 + 1, self.x2);
+    let y = rng.range(self.y1 + 1, self.y2);
     (x, y)
   }
 }

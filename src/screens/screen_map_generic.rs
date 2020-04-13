@@ -30,20 +30,26 @@ impl ScreenMapGeneric {
         let (mouse_x, mouse_y) = ctx.mouse_pos();
         let dungeon = world.fetch::<Dungeon>();
         let level = dungeon.levels.get(&player_level.level).unwrap();
-        let tool_tip_lines = match level.visible_tiles[xy_idx(&level, mouse_x, mouse_y) as usize] {
-            true => (&names, &positions, &levels, !&hidden).join().fold(
-                vec![],
-                |mut acc, (name, position, level, _)| {
-                    if level.level == player_level.level
-                        && position.x == mouse_x
-                        && position.y == mouse_y
-                    {
-                        acc.push(name.name.to_owned());
-                    }
-                    acc
-                },
-            ),
-            false => Vec::new(),
+        let tool_tip_lines = match level
+            .visible_tiles
+            .get(xy_idx(&level, mouse_x, mouse_y) as usize)
+        {
+            Some(visible) => match visible {
+                true => (&names, &positions, &levels, !&hidden).join().fold(
+                    Vec::new(),
+                    |mut acc, (name, position, level, _)| {
+                        if level.level == player_level.level
+                            && position.x == mouse_x
+                            && position.y == mouse_y
+                        {
+                            acc.push(name.name.to_owned());
+                        }
+                        acc
+                    },
+                ),
+                false => Vec::new(),
+            },
+            None => Vec::new(),
         };
         let renderables = world.read_storage::<Renderable>();
 

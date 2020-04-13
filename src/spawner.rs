@@ -17,7 +17,7 @@ use specs::{
   Builder, Entity, EntityBuilder, World, WorldExt,
 };
 
-pub const MAX_MONSTERS_PER_ROOM: i32 = 4;
+pub const MAX_MONSTERS_PER_ROOM: i32 = 2;
 pub const MAX_ITEMS_PER_ROOM: i32 = 2;
 
 fn created_marked_entity_with_position<'a>(
@@ -225,7 +225,7 @@ pub fn spawn_monster_entities_for_room(ecs: &mut World, rect: &Rect, level: &Lev
   let mut monster_spawn_points: Vec<usize> = vec![];
   {
     let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    let num_monsters = rng.roll_dice(1, MAX_MONSTERS_PER_ROOM + 2) - 3;
+    let num_monsters = rng.range(0, MAX_MONSTERS_PER_ROOM);
     for _i in 0..num_monsters {
       let mut added = false;
       while !added {
