@@ -44,7 +44,8 @@ impl Level {
 
 impl BaseMap for Level {
     fn is_opaque(&self, idx: usize) -> bool {
-        self.tiles[idx as usize] == TileType::Wall
+        let tile = self.tiles[idx as usize];
+        tile == TileType::Wall || tile == TileType::Door
     }
     fn get_available_exits(&self, idx: usize) -> SmallVec<[(usize, f32); 10]> {
         let mut exits = SmallVec::new();

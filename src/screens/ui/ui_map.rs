@@ -70,6 +70,7 @@ impl<'a> UIMap<'a> {
                     TileType::Wall => get_wall_tile(&self.level, x as i32, y as i32),
                     TileType::DownStairs => rltk::to_cp437('>'),
                     TileType::UpStairs => rltk::to_cp437('<'),
+                    TileType::Door => rltk::to_cp437('D'),
                     TileType::Exit => 219,
                 };
                 let foreground_color = match self.level.visible_tiles[i] {
