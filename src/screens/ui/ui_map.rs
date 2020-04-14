@@ -1,4 +1,4 @@
-use crate::map::{tile_type::TileType, Map};
+use crate::dungeon::{level::Level, operations::xy_idx, tile_type::TileType};
 use crate::screens::constants::MAP_WIDTH;
 use rltk::{Rltk, RGB};
 
@@ -11,26 +11,26 @@ pub struct RenderData {
     pub glyph: u16,
 }
 
-pub fn is_revealed_and_wall(map: &Map, x: i32, y: i32) -> bool {
-    let map_idx = map.xy_idx(x, y) as usize;
-    match map.tiles.get(map_idx) {
-        Some(tile) => *tile == TileType::Wall && map.revealed_tiles[map_idx],
+pub fn is_revealed_and_wall(level: &Level, x: i32, y: i32) -> bool {
+    let idx = xy_idx(level, x, y) as usize;
+    match level.tiles.get(idx) {
+        Some(tile) => *tile == TileType::Wall && level.revealed_tiles[idx],
         None => false,
     }
 }
 
-pub fn get_wall_tile(map: &Map, x: i32, y: i32) -> u16 {
+pub fn get_wall_tile(level: &Level, x: i32, y: i32) -> u16 {
     let mut mask: u8 = 0;
-    if is_revealed_and_wall(map, x, y - 1) {
+    if is_revealed_and_wall(level, x, y - 1) {
         mask += 1;
     }
-    if is_revealed_and_wall(map, x, y + 1) {
+    if is_revealed_and_wall(level, x, y + 1) {
         mask += 2;
     }
-    if is_revealed_and_wall(map, x - 1, y) {
+    if is_revealed_and_wall(level, x - 1, y) {
         mask += 4;
     }
-    if is_revealed_and_wall(map, x + 1, y) {
+    if is_revealed_and_wall(level, x + 1, y) {
         mask += 8;
     }
     match mask {
@@ -51,28 +51,28 @@ pub fn get_wall_tile(map: &Map, x: i32, y: i32) -> u16 {
 }
 
 pub struct UIMap<'a> {
-    map: &'a Map,
+    level: &'a Level,
     renderables: &'a Vec<RenderData>,
 }
 
 impl<'a> UIMap<'a> {
-    pub fn new(map: &'a Map, renderables: &'a Vec<RenderData>) -> Self {
-        Self { map, renderables }
+    pub fn new(level: &'a Level, renderables: &'a Vec<RenderData>) -> Self {
+        Self { level, renderables }
     }
 
     pub fn draw(&mut self, ctx: &mut Rltk) {
-        for (i, tile) in self.map.tiles.iter().enumerate() {
-            if self.map.revealed_tiles[i] {
+        for (i, tile) in self.level.tiles.iter().enumerate() {
+            if self.level.revealed_tiles[i] {
                 let x = i % MAP_WIDTH as usize;
                 let y = (i - (i % MAP_WIDTH as usize)) / MAP_WIDTH as usize;
                 let character = match tile {
                     TileType::Floor => rltk::to_cp437('.'),
-                    TileType::Wall => get_wall_tile(&self.map, x as i32, y as i32),
+                    TileType::Wall => get_wall_tile(&self.level, x as i32, y as i32),
                     TileType::DownStairs => rltk::to_cp437('>'),
                     TileType::UpStairs => rltk::to_cp437('<'),
                     TileType::Exit => 219,
                 };
-                let foreground_color = match self.map.visible_tiles[i] {
+                let foreground_color = match self.level.visible_tiles[i] {
                     true => rltk::GREEN,
                     false => rltk::WHITE,
                 };

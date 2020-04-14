@@ -4,7 +4,7 @@ use super::{
     ui_mouse_pos::UIMousePos,
     ui_tooltip::{UIToolTip, UIToolTipPosition},
 };
-use crate::map::basic_map::Map;
+use crate::dungeon::level::Level;
 use rltk::Rltk;
 
 pub struct UIMapScreen<'a> {
@@ -15,7 +15,7 @@ pub struct UIMapScreen<'a> {
     depth: i32,
     hp: i32,
     max_hp: i32,
-    map: &'a Map,
+    level: &'a Level,
     renderables: &'a Vec<RenderData>,
 }
 
@@ -28,7 +28,7 @@ impl<'a> UIMapScreen<'a> {
         depth: i32,
         hp: i32,
         max_hp: i32,
-        map: &'a Map,
+        level: &'a Level,
         renderables: &'a Vec<RenderData>,
     ) -> Self {
         Self {
@@ -39,13 +39,13 @@ impl<'a> UIMapScreen<'a> {
             depth,
             hp,
             max_hp,
-            map,
+            level,
             renderables,
         }
     }
 
     pub fn draw(&self, ctx: &mut Rltk) {
-        UIMap::new(self.map, self.renderables).draw(ctx);
+        UIMap::new(self.level, self.renderables).draw(ctx);
         UIHud::new(self.depth, self.hp, self.max_hp, self.messages).draw(ctx);
         if !self.tool_tip_lines.is_empty() {
             let tool_tip_pos = match self.mouse_x > 40 {
@@ -57,7 +57,8 @@ impl<'a> UIMapScreen<'a> {
                 self.mouse_y,
                 tool_tip_pos,
                 self.tool_tip_lines,
-            ).draw(ctx);
+            )
+            .draw(ctx);
         }
         UIMousePos::new(self.mouse_x, self.mouse_y).draw(ctx);
     }

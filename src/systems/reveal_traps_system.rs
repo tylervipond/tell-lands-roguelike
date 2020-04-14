@@ -1,7 +1,7 @@
 use crate::components::{
     dungeon_level::DungeonLevel, hidden::Hidden, name::Name, viewshed::Viewshed,
 };
-use crate::dungeon::dungeon::Dungeon;
+use crate::dungeon::{dungeon::Dungeon, operations::entities_at_xy};
 use crate::game_log::GameLog;
 use rltk::RandomNumberGenerator;
 use specs::{Entity, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
@@ -32,12 +32,12 @@ impl<'a> System<'a> for RevealTrapsSystem {
             mut log,
         ) = data;
         let dungeon_level = dungeon_levels.get(*player_ent).unwrap();
-        let map = dungeon.get_map(dungeon_level.level).unwrap();
+        let level = dungeon.get_level(dungeon_level.level).unwrap();
         let player_viewshed = viewsheds.get(*player_ent).unwrap();
         player_viewshed
             .visible_tiles
             .iter()
-            .map(|p| map.entities_at_xy(p.x, p.y))
+            .map(|p| entities_at_xy(&level, p.x, p.y))
             .flatten()
             .for_each(|e| {
                 if let Some(_hidden) = hidden.get(e) {

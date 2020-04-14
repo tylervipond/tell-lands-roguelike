@@ -15,8 +15,7 @@ use crate::components::{
   wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
   wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
-use crate::dungeon::dungeon::Dungeon;
-use crate::map::MAP_COUNT;
+use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
   error::NoError,
   join::Join,
@@ -81,7 +80,6 @@ fn create_save_game_helpers(ecs: &mut World) {
     .build();
 }
 
-
 fn delete_helpers(ecs: &mut World) {
   let helper_ents: Vec<Entity> = {
     let helpers = ecs.read_storage::<SerializationHelper>();
@@ -92,7 +90,6 @@ fn delete_helpers(ecs: &mut World) {
     .delete_entities(helper_ents.as_slice())
     .expect("Delete Helpers Failed");
 }
-
 
 fn save_game_with_writer<T: Write>(ecs: &mut World, writer: T) -> serde_json::Serializer<T> {
   create_save_game_helpers(ecs);
@@ -193,8 +190,8 @@ fn get_dungeon(ecs: &mut World) -> Dungeon {
     .join()
     .map(|h| {
       let mut cloned_dungeon = h.dungeon.clone();
-      for (_i, mut map) in cloned_dungeon.maps.iter_mut() {
-        map.tile_content = vec![Vec::new(); MAP_COUNT];
+      for (_i, mut level) in cloned_dungeon.levels.iter_mut() {
+        level.tile_content = vec![Vec::new(); MAP_COUNT];
       }
       cloned_dungeon
     })

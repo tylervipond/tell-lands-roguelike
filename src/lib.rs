@@ -18,7 +18,6 @@ mod input;
 mod intro_screen_action;
 mod inventory_action;
 mod main_menu_action;
-mod map;
 mod map_action;
 mod menu_option;
 mod persistence;
@@ -49,7 +48,7 @@ use credits_screen_action::CreditsScreenAction;
 use death_screen_action::DeathScreenAction;
 #[cfg(debug_assertions)]
 use debug_menu_action::DebugMenuAction;
-use dungeon::dungeon::Dungeon;
+use dungeon::{dungeon::Dungeon, operations::xy_idx};
 use exit_game_menu_action::ExitGameMenuAction;
 use failure_screen_action::FailureScreenAction;
 #[cfg(debug_assertions)]
@@ -92,8 +91,8 @@ fn player_can_leave_dungeon(ecs: &mut World) -> bool {
     let dungeon_level = ecs.read_storage::<DungeonLevel>();
     let player_level = dungeon_level.get(*player_ent).unwrap();
     let mut dungeon = ecs.fetch_mut::<Dungeon>();
-    let map = dungeon.get_map(player_level.level).unwrap();
-    if let Some(exit_point) = map.exit {
+    let level = dungeon.get_level(player_level.level).unwrap();
+    if let Some(exit_point) = level.exit {
         let player_point = ecs.fetch::<Point>();
         return player_point.x == exit_point.x && player_point.y == exit_point.y;
     }
@@ -161,28 +160,25 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.remove::<SimpleMarkerAllocator<Saveable>>();
     ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = Dungeon::generate(1, 10);
-    let map = dungeon.get_map(9).unwrap();
-    let (player_x, player_y) = map.rooms[0].center();
+    let level = dungeon.get_level(9).unwrap();
+    let (player_x, player_y) = level.rooms[0].center();
     ecs.remove::<Point>();
     ecs.insert(Point::new(player_x, player_y));
     ecs.remove::<Entity>();
     let player_entity = spawner::spawn_player(ecs, player_x as i32, player_y as i32, 9);
     ecs.insert(player_entity);
-    dungeon.maps.iter().for_each(|(i, m)| {
-        for room in m.rooms.iter().skip(1) {
-            spawner::spawn_entities_for_room(ecs, &room, *i);
+    dungeon.levels.iter().for_each(|(_, l)| {
+        for room in l.rooms.iter().skip(1) {
+            spawner::spawn_entities_for_room(ecs, &room, &l);
         }
     });
     let mut rng = ecs.get_mut::<RandomNumberGenerator>().unwrap();
     let objective_floor = utils::get_random_between_numbers(rng, 1, 9);
-    let map = dungeon.get_map(objective_floor).unwrap();
-    let room = utils::get_random_between_numbers(rng, 0, (map.rooms.len() - 1) as i32);
-    let (x, y) = map
-        .rooms
-        .get(room as usize)
-        .unwrap()
-        .get_random_coord(&mut rng);
-    spawner::spawn_objective(ecs, map.xy_idx(x, y), objective_floor);
+    let level = dungeon.get_level(objective_floor).unwrap();
+    let room = utils::get_random_between_numbers(rng, 0, (level.rooms.len() - 1) as i32);
+    let room = level.rooms.get(room as usize).unwrap();
+    let (x, y) = room.get_random_coord(&mut rng);
+    spawner::spawn_objective(ecs, xy_idx(&level, x, y), level);
 
     ecs.remove::<Dungeon>();
     ecs.insert(dungeon);

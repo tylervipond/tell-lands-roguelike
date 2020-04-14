@@ -3,7 +3,7 @@ use crate::components::{
     hidden::Hidden, inflicts_damage::InflictsDamage, name::Name, position::Position,
     suffer_damage::SufferDamage, triggered::Triggered,
 };
-use crate::dungeon::dungeon::Dungeon;
+use crate::dungeon::{dungeon::Dungeon, operations::entities_at_xy};
 use crate::game_log::GameLog;
 use crate::services::particle_effect_spawner::ParticleEffectSpawner;
 use specs::{
@@ -49,10 +49,9 @@ impl<'a> System<'a> for TriggerSystem {
             ents,
         ) = data;
         let player_level = levels.get(*player_ent).unwrap();
-        let map = dungeon.get_map(player_level.level).unwrap();
+        let level = dungeon.get_level(player_level.level).unwrap();
         for (entity, mut _ent_moved, pos) in (&ents, &mut moved, &positions).join() {
-            for maybe_triggered in map
-                .entities_at_xy(pos.x, pos.y)
+            for maybe_triggered in entities_at_xy(&level, pos.x, pos.y)
                 .iter()
                 .filter(|e| *e != &entity)
             {
