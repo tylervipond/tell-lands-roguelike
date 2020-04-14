@@ -11,6 +11,8 @@ pub enum MapAction {
   PickupItem,
   ShowInventoryMenu,
   ShowDropMenu,
+  #[cfg(debug_assertions)]
+  ShowDebugMenu,
   NoAction,
   GoDownStairs,
   GoUpStairs,
