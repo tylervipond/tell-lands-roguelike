@@ -1,5 +1,6 @@
 use super::level::Level;
 use super::rect::Rect;
+use super::room::Room;
 use super::tile_type::TileType;
 use rltk::{DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
 use specs::Entity;
@@ -60,21 +61,21 @@ pub fn add_vertical_tunnel(level: &mut Level, x: i32, y1: i32, y2: i32) {
 }
 
 pub fn add_exit(level: &mut Level) {
-    let exit_position = level.rooms[0].center();
+    let exit_position = level.rooms[0].rect.center();
     let exit_idx = xy_idx(level, exit_position.0, exit_position.1);
     level.tiles[exit_idx as usize] = TileType::Exit;
     level.exit = Some(Point::new(exit_position.0, exit_position.1));
 }
 
 pub fn add_down_stairs(level: &mut Level) {
-    let stairs_position = level.rooms[level.rooms.len() - 1].center();
+    let stairs_position = level.rooms[level.rooms.len() - 1].rect.center();
     let stairs_idx = xy_idx(level, stairs_position.0, stairs_position.1);
     level.tiles[stairs_idx as usize] = TileType::DownStairs;
     level.stairs_down = Some(Point::new(stairs_position.0, stairs_position.1));
 }
 
 pub fn add_up_stairs(level: &mut Level) {
-    let stairs_position = level.rooms[0].center();
+    let stairs_position = level.rooms[0].rect.center();
     let stairs_idx = xy_idx(level, stairs_position.0, stairs_position.1);
     level.tiles[stairs_idx as usize] = TileType::UpStairs;
     level.stairs_up = Some(Point::new(stairs_position.0, stairs_position.1));
@@ -122,14 +123,14 @@ pub fn add_corridor(level: &mut Level, rng: &mut RandomNumberGenerator, from: Po
 pub fn add_nearest_neighbor_corridors(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let mut connected: HashMap<usize, Vec<(Point, Point)>> = HashMap::new();
     for (i, room) in level.rooms.iter().enumerate() {
-        let room_center_point = Point::from(room.center());
+        let room_center_point = Point::from(room.rect.center());
         let mut room_distance: Vec<(usize, f32, Point)> = level
             .rooms
             .iter()
             .enumerate()
             .filter(|(j, _)| &i != j && !connected.contains_key(&j))
             .map(|(j, other_room)| {
-                let other_room_center_point = Point::from(other_room.center());
+                let other_room_center_point = Point::from(other_room.rect.center());
                 let distance = Pythagoras.distance2d(room_center_point, other_room_center_point);
                 (j, distance, other_room_center_point)
             })
@@ -186,11 +187,15 @@ pub fn create_bsp_level(depth: i32) -> Level {
             rects.remove(idx as usize)
         })
         .collect();
+
     rooms.iter().for_each(|r| match rng.range(0, 6) {
         1 => add_circular_room(&mut level, r),
         _ => add_rectangular_room(&mut level, r),
     });
-    level.rooms = rooms;
+    level.rooms = (0..room_count)
+        .map(|i| Room::new(rooms[i as usize]))
+        .collect();
+
     add_nearest_neighbor_corridors(&mut level, &mut rng);
     level
 }

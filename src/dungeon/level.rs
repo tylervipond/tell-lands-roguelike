@@ -1,6 +1,6 @@
 use super::constants::{MAP_COUNT, MAP_HEIGHT, MAP_WIDTH};
 use super::operations::{idx_xy, is_exit_valid};
-use super::rect::Rect;
+use super::room::Room;
 use super::tile_type::TileType;
 use rltk::{Algorithm2D, BaseMap, DistanceAlg::Pythagoras, Point, SmallVec};
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ pub struct Level {
     pub height: i32,
     pub width: i32,
     pub tiles: Vec<TileType>,
-    pub rooms: Vec<Rect>,
+    pub rooms: Vec<Room>,
     pub revealed_tiles: Vec<bool>,
     pub visible_tiles: Vec<bool>,
     pub blocked: Vec<bool>,

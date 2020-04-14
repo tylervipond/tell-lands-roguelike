@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 #[macro_use]
 extern crate specs_derive;
 extern crate serde;
+mod artwork;
 mod components;
 mod credits_screen_action;
 mod death_screen_action;
@@ -24,7 +25,6 @@ mod persistence;
 mod player;
 mod ranged;
 mod run_state;
-mod artwork;
 mod screens;
 mod services;
 mod spawner;
@@ -36,7 +36,7 @@ mod utils;
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
     confused::Confused, confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
-    entity_moved::EntityMoved, entry_trigger::EntryTrigger, hidden::Hidden,
+    entity_moved::EntityMoved, entry_trigger::EntryTrigger, miscellaneous::Miscellaneous, hidden::Hidden,
     in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
     name::Name, objective::Objective, particle_lifetime::ParticleLifetime, player::Player,
     position::Position, potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged,
@@ -152,6 +152,7 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<SufferDamage>().clear();
     ecs.write_storage::<CombatStats>().clear();
     ecs.write_storage::<Item>().clear();
+    ecs.write_storage::<Miscellaneous>().clear();
     ecs.write_storage::<Potion>().clear();
     ecs.write_storage::<InBackpack>().clear();
     ecs.write_storage::<WantsToPickUpItem>().clear();
@@ -179,7 +180,7 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = Dungeon::generate(1, 10);
     let level = dungeon.get_level(9).unwrap();
-    let (player_x, player_y) = level.rooms[0].center();
+    let (player_x, player_y) = level.rooms[0].rect.center();
     ecs.remove::<Point>();
     ecs.insert(Point::new(player_x, player_y));
     ecs.remove::<Entity>();
@@ -195,8 +196,7 @@ fn initialize_new_game(ecs: &mut World) {
     let level = dungeon.get_level(objective_floor).unwrap();
     let room_idx = utils::get_random_between_numbers(rng, 0, (level.rooms.len() - 1) as i32);
     let room = level.rooms.get(room_idx as usize).unwrap();
-    spawner::spawn_objective_for_room(ecs, &room, &level);
-
+    spawner::spawn_objective_for_room(ecs, &room.rect, &level);
     ecs.remove::<Dungeon>();
     ecs.insert(dungeon);
     ecs.remove::<game_log::GameLog>();
@@ -402,7 +402,7 @@ impl GameState for State {
                                         RunState::PlayerTurn
                                     }
                                 }
-                            },
+                            }
                             None => RunState::InventoryMenu { highlighted, page },
                         }
                     }
@@ -694,6 +694,7 @@ pub fn start() {
     gs.ecs.register::<WantsToMelee>();
     gs.ecs.register::<SufferDamage>();
     gs.ecs.register::<CombatStats>();
+    gs.ecs.register::<Miscellaneous>();
     gs.ecs.register::<Item>();
     gs.ecs.register::<Potion>();
     gs.ecs.register::<InBackpack>();
