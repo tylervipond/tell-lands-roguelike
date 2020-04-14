@@ -10,6 +10,7 @@ use crate::dungeon::{
   level::Level,
   operations::{idx_xy, xy_idx},
   rect::Rect,
+  tile_type::TileType,
 };
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
 use specs::{
@@ -221,24 +222,34 @@ pub fn spawn_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
     .build()
 }
 
-pub fn spawn_monster_entities_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
-  let mut monster_spawn_points: Vec<usize> = vec![];
-  {
-    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    let num_monsters = rng.range(0, MAX_MONSTERS_PER_ROOM);
-    for _i in 0..num_monsters {
-      let mut added = false;
-      while !added {
-        let (x, y) = rect.get_random_coord(&mut rng);
-        let idx = xy_idx(&level, x, y) as usize;
-        if !monster_spawn_points.contains(&idx) {
-          monster_spawn_points.push(idx);
-          added = true;
-        }
+fn get_spawn_points(
+  rect: &Rect,
+  level: &Level,
+  rng: &mut RandomNumberGenerator,
+  count: i32,
+) -> Vec<u16> {
+  let mut spawn_points = vec![];
+  for _i in 0..count {
+    let mut added = false;
+    while !added {
+      let (x, y) = rect.get_random_coord(rng);
+      let idx = xy_idx(&level, x, y) as u16;
+      if !spawn_points.contains(&idx) && level.tiles[idx as usize] == TileType::Floor {
+        spawn_points.push(idx);
+        added = true;
       }
     }
   }
-  for idx in monster_spawn_points.iter() {
+  spawn_points
+}
+
+pub fn spawn_monster_entities_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
+  let spawn_points = {
+    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
+    let num_monsters = rng.range(0, MAX_MONSTERS_PER_ROOM);
+    get_spawn_points(rect, level, &mut rng, num_monsters)
+  };
+  for idx in spawn_points.iter() {
     spawn_random_monster(ecs, (*idx) as i32, level);
   }
 }
@@ -268,23 +279,12 @@ fn spawn_random_item(ecs: &mut World, idx: i32, level: &Level) {
 }
 
 pub fn spawn_item_entities_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
-  let mut item_spawn_points: Vec<usize> = vec![];
-  {
+  let spawn_points = {
     let mut rng = ecs.write_resource::<RandomNumberGenerator>();
     let num_items = rng.roll_dice(1, MAX_ITEMS_PER_ROOM + 2) - 3;
-    for _i in 0..num_items {
-      let mut added = false;
-      while !added {
-        let (x, y) = rect.get_random_coord(&mut rng);
-        let idx = xy_idx(&level, x, y) as usize;
-        if !item_spawn_points.contains(&idx) {
-          item_spawn_points.push(idx);
-          added = true;
-        }
-      }
-    }
-  }
-  for idx in item_spawn_points.iter() {
+    get_spawn_points(rect, level, &mut rng, num_items)
+  };
+  for idx in spawn_points.iter() {
     spawn_random_item(ecs, (*idx) as i32, level);
   }
 }

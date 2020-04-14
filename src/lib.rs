@@ -122,6 +122,17 @@ fn kill_all_monsters(ecs: &mut World) {
         .expect("couldn't delete ents");
 }
 
+#[cfg(debug_assertions)]
+fn reveal_map(ecs: &mut World) {
+    use dungeon::constants::MAP_COUNT;
+    let player_ent = ecs.fetch::<Entity>();
+    let dungeon_level = ecs.read_storage::<DungeonLevel>();
+    let player_level = dungeon_level.get(*player_ent).unwrap();
+    let mut dungeon = ecs.fetch_mut::<Dungeon>();
+    let mut level = dungeon.get_level(player_level.level).unwrap();
+    level.revealed_tiles = vec![true; MAP_COUNT]
+}
+
 fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<Position>().clear();
     ecs.write_storage::<Renderable>().clear();
@@ -536,13 +547,22 @@ impl GameState for State {
             }
             #[cfg(debug_assertions)]
             RunState::DebugMenu { highlighted } => {
-                let menu = [MenuOption::new(
-                    "Wrath of God",
-                    match highlighted == 0 {
-                        true => MenuOptionState::Highlighted,
-                        false => MenuOptionState::Normal,
-                    },
-                )]
+                let menu = [
+                    MenuOption::new(
+                        "Wrath of God",
+                        match highlighted == 0 {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        },
+                    ),
+                    MenuOption::new(
+                        "Gitaxian Probe",
+                        match highlighted == 1 {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        },
+                    ),
+                ]
                 .to_vec();
                 ScreenMapMenu::new(&menu, "Debug Menu", "Escape to Cancel")
                     .draw(ctx, &mut self.ecs);
@@ -563,6 +583,14 @@ impl GameState for State {
                                 .fetch_mut::<game_log::GameLog>()
                                 .entries
                                 .insert(0, "all monsters removed".to_owned());
+                            RunState::AwaitingInput
+                        },
+                        1 => {
+                            reveal_map(&mut self.ecs);
+                            self.ecs
+                                .fetch_mut::<game_log::GameLog>()
+                                .entries
+                                .insert(0, "map revealed".to_owned());
                             RunState::AwaitingInput
                         }
                         _ => RunState::DebugMenu { highlighted },

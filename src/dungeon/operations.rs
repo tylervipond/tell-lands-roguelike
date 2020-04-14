@@ -18,11 +18,25 @@ fn set_tile_to_floor(level: &mut Level, idx: usize) {
     level.tiles[idx] = TileType::Floor;
 }
 
-pub fn add_room_to_map(level: &mut Level, room: &Rect) {
+pub fn add_rectangular_room(level: &mut Level, room: &Rect) {
     for y in room.y1 + 1..room.y2 {
         for x in room.x1 + 1..room.x2 {
             let idx = xy_idx(level, x, y) as usize;
             set_tile_to_floor(level, idx);
+        }
+    }
+}
+
+pub fn add_circular_room(level: &mut Level, room: &Rect) {
+    let radius = i32::min(room.x2 - room.x1, room.y2 - room.y1) as f32 / 2.0;
+    let center_point = Point::from(room.center());
+    for y in room.y1 + 1..room.y2 {
+        for x in room.x1 + 1..room.x2 {
+            let distance = Pythagoras.distance2d(center_point, rltk::Point::new(x, y));
+            if distance < radius {
+                let idx = xy_idx(level, x, y);
+                set_tile_to_floor(level, idx as usize);
+            }
         }
     }
 }
@@ -141,7 +155,7 @@ pub fn create_bsp_level(depth: i32) -> Level {
     let mut level = Level::new(depth);
     let mut rng = RandomNumberGenerator::new();
     let mut rects = Vec::new();
-    rects.push(Rect::new(2, 2, level.width - 4, level.height - 4));
+    rects.push(Rect::new(1, 1, level.width - 3, level.height - 3));
     for _ in 0..100 {
         let random_index = rng.range(0, rects.len() as i32);
         let rect = rects[random_index as usize];
@@ -172,7 +186,10 @@ pub fn create_bsp_level(depth: i32) -> Level {
             rects.remove(idx as usize)
         })
         .collect();
-    rooms.iter().for_each(|r| add_room_to_map(&mut level, r));
+    rooms.iter().for_each(|r| match rng.range(0, 6) {
+        1 => add_circular_room(&mut level, r),
+        _ => add_rectangular_room(&mut level, r),
+    });
     level.rooms = rooms;
     add_nearest_neighbor_corridors(&mut level, &mut rng);
     level
