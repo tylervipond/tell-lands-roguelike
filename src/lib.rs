@@ -8,6 +8,8 @@ extern crate serde;
 mod components;
 mod credits_screen_action;
 mod death_screen_action;
+#[cfg(debug_assertions)]
+mod debug_menu_action;
 mod dungeon;
 mod exit_game_menu_action;
 mod failure_screen_action;
@@ -45,9 +47,13 @@ use components::{
 };
 use credits_screen_action::CreditsScreenAction;
 use death_screen_action::DeathScreenAction;
+#[cfg(debug_assertions)]
+use debug_menu_action::DebugMenuAction;
 use dungeon::dungeon::Dungeon;
 use exit_game_menu_action::ExitGameMenuAction;
 use failure_screen_action::FailureScreenAction;
+#[cfg(debug_assertions)]
+use input::map_input_to_debug_menu_action;
 use input::{
     map_input_to_credits_screen_action, map_input_to_death_screen_action,
     map_input_to_exit_game_action, map_input_to_failure_screen_action,
@@ -104,6 +110,17 @@ fn has_objective_in_backpack(ecs: &World) -> bool {
         }
     }
     false
+}
+
+#[cfg(debug_assertions)]
+fn kill_all_monsters(ecs: &mut World) {
+    let monster_ents: Vec<Entity> = {
+        let entities = ecs.entities();
+        let monsters = ecs.read_storage::<Monster>();
+        (&entities, &monsters).join().map(|(e, _)| e).collect()
+    };
+    ecs.delete_entities(&monster_ents)
+        .expect("couldn't delete ents");
 }
 
 fn initialize_new_game(ecs: &mut World) {
@@ -243,12 +260,15 @@ impl GameState for State {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
                             let mut log = self.ecs.fetch_mut::<game_log::GameLog>();
-                            log.entries.push(
+                            log.entries.insert(
+                                0,
                                 "You must first locate the exit to leave the dungeon".to_string(),
                             );
                             RunState::AwaitingInput
                         }
                     },
+                    #[cfg(debug_assertions)]
+                    MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
                     _ => {
                         player_action(&mut self.ecs, action);
                         RunState::PlayerTurn
@@ -518,6 +538,41 @@ impl GameState for State {
                     },
                 }
             }
+            #[cfg(debug_assertions)]
+            RunState::DebugMenu { highlighted } => {
+                let menu = [MenuOption::new(
+                    "Wrath of God",
+                    match highlighted == 0 {
+                        true => MenuOptionState::Highlighted,
+                        false => MenuOptionState::Normal,
+                    },
+                )]
+                .to_vec();
+                ScreenMapMenu::new(&menu, "Debug Menu", "Escape to Cancel")
+                    .draw(ctx, &mut self.ecs);
+                let action = map_input_to_debug_menu_action(ctx, highlighted);
+                match action {
+                    DebugMenuAction::Exit => RunState::DebugMenu { highlighted },
+                    DebugMenuAction::NoAction => RunState::DebugMenu { highlighted },
+                    DebugMenuAction::MoveHighlightDown => RunState::DebugMenu {
+                        highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                    },
+                    DebugMenuAction::MoveHighlightUp => RunState::DebugMenu {
+                        highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                    },
+                    DebugMenuAction::Select { option } => match option {
+                        0 => {
+                            kill_all_monsters(&mut self.ecs);
+                            self.ecs
+                                .fetch_mut::<game_log::GameLog>()
+                                .entries
+                                .insert(0, "all monsters removed".to_owned());
+                            RunState::AwaitingInput
+                        }
+                        _ => RunState::DebugMenu { highlighted },
+                    },
+                }
+            }
         };
         {
             let mut run_writer = self.ecs.write_resource::<RunState>();
@@ -566,13 +621,16 @@ pub fn start() {
     gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.ecs.insert(game_log::GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
-    }); // This needs to get moved to a continue game function I think... 
+    }); // This needs to get moved to a continue game function I think...
     let rng = RandomNumberGenerator::new();
     gs.ecs.insert(rng);
     gs.ecs.insert(RunState::MainMenu { highlighted: 0 });
     gs.ecs
         .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
     gs.ecs.insert(services::blood_spawner::BloodSpawner::new());
-    let context = RltkBuilder::simple80x50().with_title("Apprentice").build().expect("failed to create context");
+    let context = RltkBuilder::simple80x50()
+        .with_title("Apprentice")
+        .build()
+        .expect("failed to create context");
     rltk::main_loop(context, gs).expect("failed to start apprentice");
 }

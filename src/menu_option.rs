@@ -1,9 +1,11 @@
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MenuOptionState {
   Disabled,
   Highlighted,
   Normal,
 }
+
+#[derive(Clone, Debug)]
 pub struct MenuOption<'a> {
   pub text: &'a str,
   pub state: MenuOptionState,

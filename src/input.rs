@@ -1,5 +1,7 @@
 use crate::credits_screen_action::CreditsScreenAction;
 use crate::death_screen_action::DeathScreenAction;
+#[cfg(debug_assertions)]
+use crate::debug_menu_action::DebugMenuAction;
 use crate::exit_game_menu_action::ExitGameMenuAction;
 use crate::failure_screen_action::FailureScreenAction;
 use crate::intro_screen_action::IntroScreenAction;
@@ -27,6 +29,8 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::F => MapAction::PickupItem,
       VirtualKeyCode::I => MapAction::ShowInventoryMenu,
       VirtualKeyCode::R => MapAction::ShowDropMenu,
+      #[cfg(debug_assertions)]
+      VirtualKeyCode::Key8 => MapAction::ShowDebugMenu,
       VirtualKeyCode::Period => MapAction::GoDownStairs,
       VirtualKeyCode::Comma => MapAction::GoUpStairs,
       VirtualKeyCode::L => MapAction::LeaveDungeon,
@@ -132,5 +136,21 @@ pub fn map_input_to_credits_screen_action(ctx: &mut Rltk) -> CreditsScreenAction
   match ctx.key {
     None => CreditsScreenAction::NoAction,
     Some(_key) => CreditsScreenAction::Exit,
+  }
+}
+
+#[cfg(debug_assertions)]
+pub fn map_input_to_debug_menu_action(ctx: &mut Rltk, highlighted: usize) -> DebugMenuAction {
+  match ctx.key {
+    None => DebugMenuAction::NoAction,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => DebugMenuAction::Exit,
+      VirtualKeyCode::Up => DebugMenuAction::MoveHighlightUp,
+      VirtualKeyCode::Down => DebugMenuAction::MoveHighlightDown,
+      VirtualKeyCode::Return => DebugMenuAction::Select {
+        option: highlighted,
+      },
+      _ => DebugMenuAction::NoAction,
+    },
   }
 }
