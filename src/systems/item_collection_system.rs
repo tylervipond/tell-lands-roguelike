@@ -20,7 +20,7 @@ impl<'a> System<'a> for ItemCollectionSystem {
       positions.remove(pick_up.item);
       backpack.insert(pick_up.item, InBackpack {owner: pick_up.collected_by}).expect("failed to insert item in backpack");
       if pick_up.collected_by == *player_entity {
-        game_log.entries.insert(0, format!("you pick up the {}", names.get(pick_up.item).unwrap().name))
+        game_log.add(format!("you pick up the {}", names.get(pick_up.item).unwrap().name))
       }
     }
     wants_to_pick_up.clear();

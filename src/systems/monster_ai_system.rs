@@ -6,7 +6,6 @@ use crate::dungeon::{
   dungeon::Dungeon,
   operations::{idx_xy, xy_idx},
 };
-use crate::run_state::RunState;
 use rltk::{a_star_search, DistanceAlg::Pythagoras, Point};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
@@ -17,7 +16,6 @@ impl<'a> System<'a> for MonsterAI {
     WriteExpect<'a, Dungeon>,
     ReadExpect<'a, Point>,
     ReadExpect<'a, Entity>,
-    ReadExpect<'a, RunState>,
     Entities<'a>,
     WriteStorage<'a, Viewshed>,
     WriteStorage<'a, Position>,
@@ -34,7 +32,6 @@ impl<'a> System<'a> for MonsterAI {
       mut dungeon,
       player_position,
       player_entity,
-      runstate,
       entities,
       mut viewsheds,
       mut positions,
@@ -44,10 +41,6 @@ impl<'a> System<'a> for MonsterAI {
       levels,
       mut moved,
     ) = data;
-    if *runstate != RunState::MonsterTurn {
-      return;
-    }
-
     let player_level = levels.get(*player_entity).unwrap();
     let level = dungeon.get_level(player_level.level).unwrap();
 

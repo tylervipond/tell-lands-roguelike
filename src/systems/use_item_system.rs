@@ -118,14 +118,11 @@ impl<'a> System<'a> for UseItemSystem {
             dungeon_level.level,
           );
           if entity == *player_entity {
-            game_log.entries.insert(
-              0,
-              format!(
-                "You use the {}, healing {} hp.",
-                names.get(to_use.item).unwrap().name,
-                heals.amount
-              ),
-            );
+            game_log.add(format!(
+              "You use the {}, healing {} hp.",
+              names.get(to_use.item).unwrap().name,
+              heals.amount
+            ));
           }
         }
         if let Some(damages) = damages {
@@ -144,13 +141,10 @@ impl<'a> System<'a> for UseItemSystem {
           if entity == *player_entity {
             if let Some(mob_name) = names.get(target) {
               let item_name = names.get(to_use.item).unwrap();
-              game_log.entries.insert(
-                0,
-                format!(
-                  "you use {} on {} causing {} damage",
-                  item_name.name, mob_name.name, damages.amount
-                ),
-              )
+              game_log.add(format!(
+                "you use {} on {} causing {} damage",
+                item_name.name, mob_name.name, damages.amount
+              ));
             }
           }
         }
@@ -175,24 +169,18 @@ impl<'a> System<'a> for UseItemSystem {
           if entity == *player_entity {
             let mob_name = names.get(target).unwrap();
             let item_name = names.get(to_use.item).unwrap();
-            game_log.entries.insert(
-              0,
-              format!(
-                "you use {} on {}, confusing them.",
-                item_name.name, mob_name.name,
-              ),
-            )
+            game_log.add(format!(
+              "you use {} on {}, confusing them.",
+              item_name.name, mob_name.name,
+            ));
           }
           if target == *player_entity {
             let mob_name = names.get(entity).unwrap();
             let item_name = names.get(to_use.item).unwrap();
-            game_log.entries.insert(
-              0,
-              format!(
-                "{} uses {} on you, you are confused.",
-                item_name.name, mob_name.name,
-              ),
-            )
+            game_log.add(format!(
+              "{} uses {} on you, you are confused.",
+              item_name.name, mob_name.name,
+            ));
           }
         }
       }

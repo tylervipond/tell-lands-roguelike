@@ -58,7 +58,7 @@ impl<'a> System<'a> for TriggerSystem {
                 if let Some(_) = entry_triggers.get(*maybe_triggered) {
                     if let Some(triggered_name) = names.get(*maybe_triggered) {
                         if let Some(ent_name) = names.get(entity) {
-                            log.entries.push(format!(
+                            log.add(format!(
                                 "{} triggers {}",
                                 &ent_name.name, &triggered_name.name
                             ));

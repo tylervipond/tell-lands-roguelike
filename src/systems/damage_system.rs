@@ -24,9 +24,9 @@ impl DamageSystem {
         if stats.hp < 1 {
           let player = players.get(entity);
           match player {
-            Some(_) => log.entries.insert(0, "you are dead".to_string()),
+            Some(_) => log.add("you are dead".to_string()),
             None => {
-              log.entries.insert(0, format!("{} has died", name.name));
+              log.add(format!("{} has died", name.name));
               dead.push(entity);
             }
           }

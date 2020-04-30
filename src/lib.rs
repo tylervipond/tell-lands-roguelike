@@ -201,6 +201,7 @@ fn initialize_new_game(ecs: &mut World) {
 
 pub struct State {
     ecs: World,
+    run_state: RunState,
 }
 
 impl State {
@@ -213,8 +214,10 @@ impl State {
         remove_particles.run_now(&self.ecs);
         let mut vis = VisibilitySystem {};
         vis.run_now(&self.ecs);
-        let mut mob = MonsterAI {};
-        mob.run_now(&self.ecs);
+        if self.run_state == RunState::MonsterTurn {
+            let mut mob = MonsterAI {};
+            mob.run_now(&self.ecs);
+        }
         let mut mapindex = MapIndexingSystem {};
         mapindex.run_now(&self.ecs);
         let mut melee_combat = MeleeCombatSystem {};
@@ -231,8 +234,10 @@ impl State {
         drop.run_now(&self.ecs);
         let mut remove_triggered_single_activation_traps_system = RemoveTriggeredTrapsSystem {};
         remove_triggered_single_activation_traps_system.run_now(&self.ecs);
-        let mut reveal_traps = RevealTrapsSystem {};
-        reveal_traps.run_now(&self.ecs);
+        if self.run_state == RunState::PlayerTurn {
+            let mut reveal_traps = RevealTrapsSystem {};
+            reveal_traps.run_now(&self.ecs);
+        }
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.ecs);
         let mut particle_spawn_system = ParticleSpawnSystem {};
@@ -243,8 +248,7 @@ impl State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
-        let old_runstate = { *(self.ecs.fetch::<RunState>()) };
-        let new_runstate = match old_runstate {
+        self.run_state = match self.run_state {
             RunState::PreRun => {
                 ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
                 self.run_systems(ctx);
@@ -267,8 +271,7 @@ impl GameState for State {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
                             let mut log = self.ecs.fetch_mut::<game_log::GameLog>();
-                            log.entries.insert(
-                                0,
+                            log.add(
                                 "You must first locate the exit to leave the dungeon".to_string(),
                             );
                             RunState::AwaitingInput
@@ -584,7 +587,7 @@ impl GameState for State {
                                 .entries
                                 .insert(0, "all monsters removed".to_owned());
                             RunState::AwaitingInput
-                        },
+                        }
                         1 => {
                             reveal_map(&mut self.ecs);
                             self.ecs
@@ -598,16 +601,15 @@ impl GameState for State {
                 }
             }
         };
-        {
-            let mut run_writer = self.ecs.write_resource::<RunState>();
-            *run_writer = new_runstate
-        }
     }
 }
 
 #[wasm_bindgen]
 pub fn start() {
-    let mut gs = State { ecs: World::new() };
+    let mut gs = State {
+        ecs: World::new(),
+        run_state: RunState::MainMenu { highlighted: 0 },
+    };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
@@ -648,7 +650,6 @@ pub fn start() {
     }); // This needs to get moved to a continue game function I think...
     let rng = RandomNumberGenerator::new();
     gs.ecs.insert(rng);
-    gs.ecs.insert(RunState::MainMenu { highlighted: 0 });
     gs.ecs
         .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
     gs.ecs.insert(services::blood_spawner::BloodSpawner::new());
