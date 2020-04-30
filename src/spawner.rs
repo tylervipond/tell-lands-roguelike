@@ -97,7 +97,8 @@ pub fn spawn_monster<S: ToString>(
     .build()
 }
 
-pub fn spawn_objective(ecs: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_objective(ecs: &mut World, idx: i32, level: &Level) -> Entity {
+
   created_marked_entity_with_position(ecs, idx, level)
     .with(Name {
       name: "The Talisman".to_string(),
@@ -222,25 +223,27 @@ pub fn spawn_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
     .build()
 }
 
+fn get_spawn_point(rect: &Rect, level: &Level, rng: &mut RandomNumberGenerator) -> u16 {
+  let idx1 = xy_idx(&level, rect.x1, rect.y1);
+  let idx2 = xy_idx(&level, rect.x2, rect.y2);
+  let floor_tiles_in_rect: Vec<i32> = (idx1..idx2)
+    .filter(|idx| level.tiles[*idx as usize] == TileType::Floor)
+    .collect();
+  // this could throw if we somehow end up with a zero length vec for floor tiles,
+  // that would mean that our level generation has a problem.
+  let selected_index = rng.range(0, floor_tiles_in_rect.len());
+  floor_tiles_in_rect[selected_index] as u16
+}
+
 fn get_spawn_points(
   rect: &Rect,
   level: &Level,
   rng: &mut RandomNumberGenerator,
   count: i32,
 ) -> Vec<u16> {
-  let mut spawn_points = vec![];
-  for _i in 0..count {
-    let mut added = false;
-    while !added {
-      let (x, y) = rect.get_random_coord(rng);
-      let idx = xy_idx(&level, x, y) as u16;
-      if !spawn_points.contains(&idx) && level.tiles[idx as usize] == TileType::Floor {
-        spawn_points.push(idx);
-        added = true;
-      }
-    }
-  }
-  spawn_points
+  (0..count)
+    .map(|_| get_spawn_point(rect, level, rng))
+    .collect()
 }
 
 pub fn spawn_monster_entities_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
@@ -292,4 +295,12 @@ pub fn spawn_item_entities_for_room(ecs: &mut World, rect: &Rect, level: &Level)
 pub fn spawn_entities_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
   spawn_monster_entities_for_room(ecs, rect, level);
   spawn_item_entities_for_room(ecs, rect, level);
+}
+
+pub fn spawn_objective_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
+  let idx = {
+    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
+    get_spawn_point(rect,level, &mut rng)
+  };
+  spawn_objective(ecs, idx as i32, level);
 }

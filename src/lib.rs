@@ -48,7 +48,7 @@ use credits_screen_action::CreditsScreenAction;
 use death_screen_action::DeathScreenAction;
 #[cfg(debug_assertions)]
 use debug_menu_action::DebugMenuAction;
-use dungeon::{dungeon::Dungeon, operations::xy_idx};
+use dungeon::dungeon::Dungeon;
 use exit_game_menu_action::ExitGameMenuAction;
 use failure_screen_action::FailureScreenAction;
 #[cfg(debug_assertions)]
@@ -183,13 +183,12 @@ fn initialize_new_game(ecs: &mut World) {
             spawner::spawn_entities_for_room(ecs, &room, &l);
         }
     });
-    let mut rng = ecs.get_mut::<RandomNumberGenerator>().unwrap();
+    let rng = ecs.get_mut::<RandomNumberGenerator>().unwrap();
     let objective_floor = utils::get_random_between_numbers(rng, 1, 9);
     let level = dungeon.get_level(objective_floor).unwrap();
-    let room = utils::get_random_between_numbers(rng, 0, (level.rooms.len() - 1) as i32);
-    let room = level.rooms.get(room as usize).unwrap();
-    let (x, y) = room.get_random_coord(&mut rng);
-    spawner::spawn_objective(ecs, xy_idx(&level, x, y), level);
+    let room_idx = utils::get_random_between_numbers(rng, 0, (level.rooms.len() - 1) as i32);
+    let room = level.rooms.get(room_idx as usize).unwrap();
+    spawner::spawn_objective_for_room(ecs, &room, &level);
 
     ecs.remove::<Dungeon>();
     ecs.insert(dungeon);
@@ -584,7 +583,7 @@ impl GameState for State {
                                 .entries
                                 .insert(0, "all monsters removed".to_owned());
                             RunState::AwaitingInput
-                        },
+                        }
                         1 => {
                             reveal_map(&mut self.ecs);
                             self.ecs
