@@ -5,6 +5,7 @@ use super::{
     ui_tooltip::{UIToolTip, UIToolTipPosition},
 };
 use crate::dungeon::level::Level;
+use crate::screens::constants::SCREEN_WIDTH;
 use rltk::Rltk;
 
 pub struct UIMapScreen<'a> {
@@ -48,7 +49,7 @@ impl<'a> UIMapScreen<'a> {
         UIMap::new(self.level, self.renderables).draw(ctx);
         UIHud::new(self.depth, self.hp, self.max_hp, self.messages).draw(ctx);
         if !self.tool_tip_lines.is_empty() {
-            let tool_tip_pos = match self.mouse_x > 40 {
+            let tool_tip_pos = match self.mouse_x > (SCREEN_WIDTH / 2) as i32 {
                 true => UIToolTipPosition::Left,
                 false => UIToolTipPosition::Right,
             };

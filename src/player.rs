@@ -3,7 +3,12 @@ use crate::components::{
   in_backpack::InBackpack, item::Item, name::Name, player::Player, position::Position,
   viewshed::Viewshed, wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
 };
-use crate::dungeon::{dungeon::Dungeon, level::Level, operations::xy_idx};
+use crate::dungeon::{
+  constants::{MAP_HEIGHT, MAP_WIDTH},
+  dungeon::Dungeon,
+  level::Level,
+  operations::xy_idx,
+};
 use crate::{game_log::GameLog, map_action::MapAction};
 use rltk::Point;
 use specs::{Entity, Join, World, WorldExt};
@@ -51,8 +56,8 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
       }
     } // this block of code could be written in a better way.
     if !map.blocked[destination_index as usize] {
-      pos.x = min(79, max(0, x));
-      pos.y = min(49, max(0, y));
+      pos.x = min(MAP_WIDTH as i32 - 1, max(0, x));
+      pos.y = min(MAP_HEIGHT as i32 - 1, max(0, y));
       viewshed.dirty = true;
       ppos.x = pos.x;
       ppos.y = pos.y;

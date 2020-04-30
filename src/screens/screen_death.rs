@@ -1,3 +1,4 @@
+use super::constants::{SCREEN_PADDING, SCREEN_WIDTH};
 use crate::ui_components::ui_text_line_centered::UITextLineCentered;
 use rltk::{Rltk, BLACK, WHITE};
 
@@ -10,6 +11,14 @@ impl ScreenDeath {
 
     pub fn draw(&self, ctx: &mut Rltk) {
         ctx.cls();
-        UITextLineCentered::new(2, 5, 76, WHITE, BLACK, "You Died").draw(ctx);
+        UITextLineCentered::new(
+            SCREEN_PADDING as i32,
+            5,
+            (SCREEN_WIDTH - SCREEN_PADDING * 2) as u32,
+            WHITE,
+            BLACK,
+            "You Died",
+        )
+        .draw(ctx);
     }
 }

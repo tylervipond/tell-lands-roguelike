@@ -1,3 +1,3 @@
-pub const MAP_WIDTH: usize = 80;
-pub const MAP_HEIGHT: usize = 43;
-pub const MAP_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
+// note that these are seperate as they will at some point be unrelated to UI
+pub use crate::screens::constants::{MAP_HEIGHT, MAP_WIDTH};
+pub const MAP_COUNT: usize = MAP_HEIGHT as usize * MAP_WIDTH as usize;

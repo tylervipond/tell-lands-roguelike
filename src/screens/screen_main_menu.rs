@@ -1,3 +1,4 @@
+use super::constants::{SCREEN_PADDING, SCREEN_WIDTH};
 use crate::menu_option::MenuOption;
 use crate::ui_components::ui_menu_item_group_centered::UIMenuItemGroupCentered;
 use rltk::Rltk;
@@ -13,6 +14,12 @@ impl<'a> ScreenMainMenu<'a> {
 
     pub fn draw(&self, ctx: &mut Rltk) {
         ctx.cls();
-        UIMenuItemGroupCentered::new(2, 2, 76, self.menu_options).draw(ctx);
+        UIMenuItemGroupCentered::new(
+            SCREEN_PADDING as i32,
+            SCREEN_PADDING as i32,
+            (SCREEN_WIDTH - SCREEN_PADDING * 2) as u32,
+            self.menu_options,
+        )
+        .draw(ctx);
     }
 }

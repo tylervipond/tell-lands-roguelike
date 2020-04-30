@@ -1,3 +1,4 @@
+use super::constants::{SCREEN_PADDING, SCREEN_WIDTH};
 use crate::ui_components::ui_paragraph::UIParagraph;
 use rltk::Rltk;
 
@@ -15,6 +16,12 @@ impl ScreenIntro {
   an ancient talisman. Legends say that this talisman protects against time. I suppose it is more than clear why an
   old man such as myself would seek such a thing. In this final act as my apprentice, you are to descend into the
   ancient fortress, retrieve the Talisman, and return it to me, so that I may ward off time.\"";
-        UIParagraph::new(2, 2, 76, text).draw(ctx);
+        UIParagraph::new(
+            SCREEN_PADDING as i32,
+            SCREEN_PADDING as i32,
+            (SCREEN_WIDTH - SCREEN_PADDING * 2) as u32,
+            text,
+        )
+        .draw(ctx);
     }
 }
