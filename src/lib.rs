@@ -24,6 +24,7 @@ mod persistence;
 mod player;
 mod ranged;
 mod run_state;
+mod artwork;
 mod screens;
 mod services;
 mod spawner;
@@ -600,10 +601,10 @@ impl GameState for State {
                 match action {
                     MainMenuAction::Exit => RunState::MainMenu { highlighted },
                     MainMenuAction::NoAction => RunState::MainMenu { highlighted },
-                    MainMenuAction::MoveHighlightDown => RunState::MainMenu {
+                    MainMenuAction::MoveHighlightNext => RunState::MainMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                     },
-                    MainMenuAction::MoveHighlightUp => RunState::MainMenu {
+                    MainMenuAction::MoveHighlightPrevious => RunState::MainMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                     },
                     MainMenuAction::Select { option } => match option {
