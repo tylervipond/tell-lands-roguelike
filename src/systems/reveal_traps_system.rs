@@ -41,11 +41,9 @@ impl<'a> System<'a> for RevealTrapsSystem {
             .flatten()
             .for_each(|e| {
                 if let Some(_hidden) = hidden.get(e) {
-                    // roll dice
-                    // if roll
                     if rng.roll_dice(1, 24) == 1 {
                         if let Some(name) = names.get(e) {
-                            log.entries.push(format!("You spotted a {}.", name.name))
+                            log.add(format!("You spotted a {}.", name.name));
                         }
                         hidden.remove(e);
                     }
