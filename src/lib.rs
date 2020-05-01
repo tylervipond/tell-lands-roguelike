@@ -199,6 +199,20 @@ fn initialize_new_game(ecs: &mut World) {
     });
 }
 
+fn select_next_menu_page(page: usize, total_pages: usize) -> usize {
+    if page < total_pages {
+        return page + 1;
+    }
+    page
+}
+
+fn select_prev_menu_page(page: usize) -> usize {
+    if page > 0 {
+        return page - 1;
+    }
+    page
+}
+
 pub struct State {
     ecs: World,
 }
@@ -261,8 +275,14 @@ impl GameState for State {
                         RunState::MainMenu { highlighted: 0 }
                     }
                     MapAction::NoAction => RunState::AwaitingInput,
-                    MapAction::ShowInventoryMenu => RunState::InventoryMenu { highlighted: 0 },
-                    MapAction::ShowDropMenu => RunState::DropItemMenu { highlighted: 0 },
+                    MapAction::ShowInventoryMenu => RunState::InventoryMenu {
+                        highlighted: 0,
+                        page: 0,
+                    },
+                    MapAction::ShowDropMenu => RunState::DropItemMenu {
+                        highlighted: 0,
+                        page: 0,
+                    },
                     MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.ecs) {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
@@ -303,12 +323,17 @@ impl GameState for State {
                     _ => RunState::AwaitingInput,
                 }
             }
-            RunState::InventoryMenu { highlighted } => {
+            RunState::InventoryMenu { highlighted, page } => {
                 let inventory = get_player_inventory_list(&mut self.ecs);
+                let item_count = inventory.len();
+                let items_per_page: usize = 10;
+                let total_pages = item_count / items_per_page;
                 let (inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
                 let menu: Vec<MenuOption> = inventory_names
                     .iter()
+                    .skip(items_per_page * page as usize)
+                    .take(items_per_page)
                     .enumerate()
                     .map(|(index, text)| {
                         let state = match highlighted == index {
@@ -318,47 +343,73 @@ impl GameState for State {
                         MenuOption::new(text, state)
                     })
                     .collect();
-                ScreenMapMenu::new(&menu, "Use Item", "Escape to Cancel").draw(ctx, &mut self.ecs);
+                ScreenMapMenu::new(
+                    &menu,
+                    &format!("Use Item  < {}/{} >", page + 1, total_pages + 1),
+                    "Escape to Cancel",
+                )
+                .draw(ctx, &mut self.ecs);
                 let action = map_input_to_inventory_action(ctx, highlighted);
                 match action {
-                    InventoryAction::NoAction => RunState::InventoryMenu { highlighted },
+                    InventoryAction::NoAction => RunState::InventoryMenu { highlighted, page },
                     InventoryAction::Exit => RunState::AwaitingInput,
                     InventoryAction::MoveHighlightDown => RunState::InventoryMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                        page,
                     },
                     InventoryAction::MoveHighlightUp => RunState::InventoryMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                        page,
+                    },
+                    InventoryAction::NextPage => RunState::InventoryMenu {
+                        highlighted,
+                        page: select_next_menu_page(page, total_pages),
+                    },
+                    InventoryAction::PreviousPage => RunState::InventoryMenu {
+                        highlighted,
+                        page: select_prev_menu_page(page),
                     },
                     InventoryAction::Select { option } => {
-                        let ent = inventory_entities.get(option).expect("got");
-                        let ranged = self.ecs.read_storage::<Ranged>();
-                        if let Some(ranged_props) = ranged.get(*ent) {
-                            RunState::ShowTargeting {
-                                range: ranged_props.range,
-                                item: *ent,
-                            }
-                        } else {
-                            let mut intent = self.ecs.write_storage::<WantsToUse>();
-                            intent
-                                .insert(
-                                    *self.ecs.fetch::<Entity>(),
-                                    WantsToUse {
+                        match inventory_entities.get(page * items_per_page + option) {
+                            Some(ent) => {
+                                let ranged = self.ecs.read_storage::<Ranged>();
+                                let is_ranged = ranged.get(*ent);
+                                match is_ranged {
+                                    Some(ranged_props) => RunState::ShowTargeting {
+                                        range: ranged_props.range,
                                         item: *ent,
-                                        target: None,
                                     },
-                                )
-                                .expect("Unable To Insert Use Item Intent");
-                            RunState::PlayerTurn
+                                    None => {
+                                        let mut intent = self.ecs.write_storage::<WantsToUse>();
+                                        intent
+                                            .insert(
+                                                *self.ecs.fetch::<Entity>(),
+                                                WantsToUse {
+                                                    item: *ent,
+                                                    target: None,
+                                                },
+                                            )
+                                            .expect("Unable To Insert Use Item Intent");
+                                        RunState::PlayerTurn
+                                    }
+                                }
+                            },
+                            None => RunState::InventoryMenu { highlighted, page },
                         }
                     }
                 }
             }
-            RunState::DropItemMenu { highlighted } => {
+            RunState::DropItemMenu { highlighted, page } => {
                 let inventory = get_player_inventory_list(&mut self.ecs);
+                let item_count = inventory.len();
+                let items_per_page: usize = 10;
+                let total_pages = item_count / items_per_page;
                 let (inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
                 let menu: Vec<MenuOption> = inventory_names
                     .iter()
+                    .skip(items_per_page * page as usize)
+                    .take(items_per_page)
                     .enumerate()
                     .map(|(index, text)| {
                         let state = match highlighted == index {
@@ -368,19 +419,36 @@ impl GameState for State {
                         MenuOption::new(text, state)
                     })
                     .collect();
-                ScreenMapMenu::new(&menu, "Drop Item", "Escape to Cancel").draw(ctx, &mut self.ecs);
+                ScreenMapMenu::new(
+                    &menu,
+                    &format!("Drop Item  < {}/{} >", page + 1, total_pages + 1),
+                    "Escape to Cancel",
+                )
+                .draw(ctx, &mut self.ecs);
                 let action = map_input_to_inventory_action(ctx, highlighted);
                 match action {
-                    InventoryAction::NoAction => RunState::DropItemMenu { highlighted },
+                    InventoryAction::NoAction => RunState::DropItemMenu { highlighted, page },
                     InventoryAction::Exit => RunState::AwaitingInput,
                     InventoryAction::MoveHighlightDown => RunState::DropItemMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                        page,
                     },
                     InventoryAction::MoveHighlightUp => RunState::DropItemMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                        page,
+                    },
+                    InventoryAction::NextPage => RunState::DropItemMenu {
+                        highlighted,
+                        page: select_next_menu_page(page, total_pages),
+                    },
+                    InventoryAction::PreviousPage => RunState::DropItemMenu {
+                        highlighted,
+                        page: select_prev_menu_page(page),
                     },
                     InventoryAction::Select { option } => {
-                        let ent = inventory_entities.get(option).expect("got");
+                        let ent = inventory_entities
+                            .get(page * items_per_page + option)
+                            .expect("got");
                         let mut intent = self.ecs.write_storage::<WantsToDropItem>();
                         intent
                             .insert(*self.ecs.fetch::<Entity>(), WantsToDropItem { item: *ent })
@@ -584,7 +652,7 @@ impl GameState for State {
                                 .entries
                                 .insert(0, "all monsters removed".to_owned());
                             RunState::AwaitingInput
-                        },
+                        }
                         1 => {
                             reveal_map(&mut self.ecs);
                             self.ecs

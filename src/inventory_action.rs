@@ -4,4 +4,6 @@ pub enum InventoryAction {
   Select { option: usize },
   MoveHighlightDown,
   MoveHighlightUp,
+  NextPage,
+  PreviousPage,
 }

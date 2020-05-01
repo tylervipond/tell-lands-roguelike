@@ -45,6 +45,8 @@ pub fn map_input_to_inventory_action(ctx: &mut Rltk, highlighted: usize) -> Inve
     Some(key) => match key {
       VirtualKeyCode::Up => InventoryAction::MoveHighlightUp,
       VirtualKeyCode::Down => InventoryAction::MoveHighlightDown,
+      VirtualKeyCode::Left => InventoryAction::PreviousPage,
+      VirtualKeyCode::Right => InventoryAction::NextPage,
       VirtualKeyCode::Return => InventoryAction::Select {
         option: highlighted,
       },
