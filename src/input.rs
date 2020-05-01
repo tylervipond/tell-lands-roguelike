@@ -77,8 +77,8 @@ pub fn map_input_to_main_menu_action(ctx: &mut Rltk, highlighted: usize) -> Main
     None => MainMenuAction::NoAction,
     Some(key) => match key {
       VirtualKeyCode::Escape => MainMenuAction::Exit,
-      VirtualKeyCode::Up => MainMenuAction::MoveHighlightUp,
-      VirtualKeyCode::Down => MainMenuAction::MoveHighlightDown,
+      VirtualKeyCode::Left => MainMenuAction::MoveHighlightPrevious,
+      VirtualKeyCode::Right => MainMenuAction::MoveHighlightNext,
       VirtualKeyCode::Return => MainMenuAction::Select {
         option: highlighted,
       },

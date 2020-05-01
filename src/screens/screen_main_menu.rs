@@ -1,7 +1,10 @@
-use super::constants::{SCREEN_PADDING, SCREEN_WIDTH};
+use super::constants::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::artwork::INTRO_ARTWORK;
 use crate::menu_option::MenuOption;
-use crate::ui_components::ui_menu_item_group_centered::UIMenuItemGroupCentered;
-use rltk::Rltk;
+use crate::ui_components::{
+    ui_menu_item_group_horizontal::UIMenuItemGroupHorizontal, ui_text_line::UITextLine,
+};
+use rltk::{Rltk, BLACK, WHITE};
 
 pub struct ScreenMainMenu<'a> {
     menu_options: &'a Vec<MenuOption<'a>>,
@@ -14,12 +17,20 @@ impl<'a> ScreenMainMenu<'a> {
 
     pub fn draw(&self, ctx: &mut Rltk) {
         ctx.cls();
-        UIMenuItemGroupCentered::new(
-            SCREEN_PADDING as i32,
-            SCREEN_PADDING as i32,
-            (SCREEN_WIDTH - SCREEN_PADDING * 2) as u32,
-            self.menu_options,
-        )
-        .draw(ctx);
+        let half_screen_width = SCREEN_WIDTH / 2;
+        INTRO_ARTWORK.lines().enumerate().for_each(|(idx, line)| {
+            UITextLine::new(
+                (half_screen_width - line.chars().count() as u8 / 2) as i32,
+                idx as i32 + 1,
+                WHITE,
+                BLACK,
+                line,
+            )
+            .draw(ctx)
+        });
+        let menu_y = SCREEN_HEIGHT as i32 - 3;
+        let mut menu = UIMenuItemGroupHorizontal::new(0, menu_y, self.menu_options);
+        menu.x = SCREEN_WIDTH as i32 / 2 - menu.width as i32 / 2;
+        menu.draw(ctx);
     }
 }

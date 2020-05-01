@@ -1,7 +1,7 @@
 pub enum MainMenuAction {
   Select {option: usize},
-  MoveHighlightUp,
-  MoveHighlightDown,
+  MoveHighlightNext,
+  MoveHighlightPrevious,
   Exit,
   NoAction
 }
