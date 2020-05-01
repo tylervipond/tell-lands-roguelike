@@ -67,10 +67,16 @@ use menu_option::{MenuOption, MenuOptionState};
 use player::{get_player_inventory_list, player_action};
 use run_state::RunState;
 use screens::{
-    screen_credits::ScreenCredits, screen_death::ScreenDeath, screen_failure::ScreenFailure,
-    screen_intro::ScreenIntro, screen_main_menu::ScreenMainMenu,
-    screen_map_generic::ScreenMapGeneric, screen_map_menu::ScreenMapMenu,
-    screen_map_targeting::ScreenMapTargeting, screen_success::ScreenSuccess,
+    constants::{SCREEN_HEIGHT, SCREEN_WIDTH},
+    screen_credits::ScreenCredits,
+    screen_death::ScreenDeath,
+    screen_failure::ScreenFailure,
+    screen_intro::ScreenIntro,
+    screen_main_menu::ScreenMainMenu,
+    screen_map_generic::ScreenMapGeneric,
+    screen_map_menu::ScreenMapMenu,
+    screen_map_targeting::ScreenMapTargeting,
+    screen_success::ScreenSuccess,
 };
 use success_screen_action::SuccessScreenAction;
 use systems::{
@@ -720,7 +726,8 @@ pub fn start() {
     gs.ecs
         .insert(services::particle_effect_spawner::ParticleEffectSpawner::new());
     gs.ecs.insert(services::blood_spawner::BloodSpawner::new());
-    let context = RltkBuilder::simple80x50()
+    let context = RltkBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT)
+        .unwrap()
         .with_title("Apprentice")
         .build()
         .expect("failed to create context");
