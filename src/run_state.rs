@@ -7,8 +7,8 @@ pub enum RunState {
   PlayerTurn,
   MonsterTurn,
   ShowTargeting { range: i32, item: Entity },
-  InventoryMenu { highlighted: usize },
-  DropItemMenu { highlighted: usize },
+  InventoryMenu { highlighted: usize, page: usize },
+  DropItemMenu { highlighted: usize, page: usize },
   MainMenu { highlighted: usize },
   ExitGameMenu { highlighted: usize },
   #[cfg(debug_assertions)]
