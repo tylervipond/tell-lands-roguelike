@@ -2,9 +2,9 @@ use crate::components::{
   area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
   confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
   entry_trigger::EntryTrigger, hidden::Hidden, inflicts_damage::InflictsDamage, item::Item,
-  miscellaneous::Miscellaneous, monster::Monster, name::Name, objective::Objective, player::Player,
-  position::Position, provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable,
-  saveable::Saveable, single_activation::SingleActivation, viewshed::Viewshed,
+  monster::Monster, name::Name, objective::Objective, player::Player, position::Position,
+  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
+  single_activation::SingleActivation, viewshed::Viewshed,
 };
 use crate::dungeon::{
   level::Level,
@@ -374,7 +374,6 @@ pub fn spawn_barrel(ecs: &mut World, idx: i32, level: &Level) {
       layer: 1,
     })
     .with(BlocksTile {})
-    .with(Miscellaneous {})
     .build();
 }
 
@@ -390,7 +389,6 @@ pub fn spawn_treasure_chest(ecs: &mut World, idx: i32, level: &Level) {
       layer: 1,
     })
     .with(BlocksTile {})
-    .with(Miscellaneous {})
     .build();
 }
 
@@ -406,7 +404,6 @@ pub fn spawn_debris(ecs: &mut World, idx: i32, level: &Level) {
       layer: 1,
     })
     .with(BlocksTile {})
-    .with(Miscellaneous {})
     .build();
 }
 

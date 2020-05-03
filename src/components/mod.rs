@@ -12,7 +12,6 @@ pub mod hidden;
 pub mod in_backpack;
 pub mod inflicts_damage;
 pub mod item;
-pub mod miscellaneous;
 pub mod monster;
 pub mod name;
 pub mod objective;

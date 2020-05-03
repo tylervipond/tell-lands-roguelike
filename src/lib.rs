@@ -36,7 +36,7 @@ mod utils;
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
     confused::Confused, confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
-    entity_moved::EntityMoved, entry_trigger::EntryTrigger, miscellaneous::Miscellaneous, hidden::Hidden,
+    entity_moved::EntityMoved, entry_trigger::EntryTrigger, hidden::Hidden,
     in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
     name::Name, objective::Objective, particle_lifetime::ParticleLifetime, player::Player,
     position::Position, potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged,
@@ -152,7 +152,6 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<SufferDamage>().clear();
     ecs.write_storage::<CombatStats>().clear();
     ecs.write_storage::<Item>().clear();
-    ecs.write_storage::<Miscellaneous>().clear();
     ecs.write_storage::<Potion>().clear();
     ecs.write_storage::<InBackpack>().clear();
     ecs.write_storage::<WantsToPickUpItem>().clear();
@@ -694,7 +693,6 @@ pub fn start() {
     gs.ecs.register::<WantsToMelee>();
     gs.ecs.register::<SufferDamage>();
     gs.ecs.register::<CombatStats>();
-    gs.ecs.register::<Miscellaneous>();
     gs.ecs.register::<Item>();
     gs.ecs.register::<Potion>();
     gs.ecs.register::<InBackpack>();
