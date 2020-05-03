@@ -181,20 +181,18 @@ pub fn create_bsp_level(depth: i32) -> Level {
         }
     }
     let room_count = rng.range(2, rects.len() as i32);
-    let rooms: Vec<Rect> = (0..room_count)
+    let room_rects: Vec<Rect> = (0..room_count)
         .map(|_| {
             let idx = rng.range(0, rects.len() as i32);
             rects.remove(idx as usize)
         })
         .collect();
 
-    rooms.iter().for_each(|r| match rng.range(0, 6) {
+    room_rects.iter().for_each(|r| match rng.range(0, 6) {
         1 => add_circular_room(&mut level, r),
         _ => add_rectangular_room(&mut level, r),
     });
-    level.rooms = (0..room_count)
-        .map(|i| Room::new(rooms[i as usize]))
-        .collect();
+    level.rooms = room_rects.iter().map(|r| Room::new(*r)).collect();
 
     add_nearest_neighbor_corridors(&mut level, &mut rng);
     level
