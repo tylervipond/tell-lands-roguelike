@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Room {
   pub rect: Rect,
-  pub room_type: RoomType,
+  pub room_type: Option<RoomType>,
 }
 
 impl Room {
@@ -19,10 +19,10 @@ impl Room {
     let room = Room {
       rect,
       room_type: match roll {
-        1 => RoomType::TreasureRoom,
-        2 => RoomType::Collapsed,
-        3 => RoomType::StoreRoom,
-        _ => RoomType::Empty,
+        1 => Some(RoomType::TreasureRoom),
+        2 => Some(RoomType::Collapsed),
+        3 => Some(RoomType::StoreRoom),
+        _ => None,
       },
     };
     room

@@ -8,7 +8,7 @@ use crate::components::{
 };
 use crate::dungeon::{
   level::Level,
-  operations::{idx_xy, xy_idx},
+  operations::{idx_xy, tile_at_xy_is_wall, xy_idx},
   rect::Rect,
   room::Room,
   room_type::RoomType,
@@ -293,14 +293,42 @@ pub fn spawn_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
     .build()
 }
 
-fn get_spawn_point(rect: &Rect, level: &Level, rng: &mut RandomNumberGenerator) -> u16 {
-  let idx1 = xy_idx(&level, rect.x1, rect.y1);
-  let idx2 = xy_idx(&level, rect.x2, rect.y2);
-  let floor_tiles_in_rect: Vec<i32> = (idx1..idx2)
+fn get_floor_tiles_in_rect(rect: &Rect, level: &Level) -> Vec<i32> {
+  (rect.y1 + 1..rect.y2)
+    .map(|y| {
+      (rect.x1 + 1..rect.x2)
+        .map(|x| (x, y.clone()))
+        .collect::<Vec<(i32, i32)>>()
+    })
+    .flatten()
+    .map(|(x, y)| xy_idx(level, x, y))
     .filter(|idx| level.tiles[*idx as usize] == TileType::Floor)
+    .collect()
+}
+
+fn tile_is_wall_adjacent(idx: i32, level: &Level) -> bool {
+  let (x, y) = idx_xy(level, idx);
+  tile_at_xy_is_wall(level, x - 1, y)
+    || tile_at_xy_is_wall(level, x + 1, y)
+    || tile_at_xy_is_wall(level, x, y - 1)
+    || tile_at_xy_is_wall(level, x, y + 1)
+}
+
+fn get_random_wall_adjacent_spawn_point(
+  rect: &Rect,
+  level: &Level,
+  rng: &mut RandomNumberGenerator,
+) -> u16 {
+  let floor_tiles_in_rect_with_wall: Vec<i32> = get_floor_tiles_in_rect(rect, level)
+    .into_iter()
+    .filter(|idx| tile_is_wall_adjacent(*idx, level))
     .collect();
-  // this could throw if we somehow end up with a zero length vec for floor tiles,
-  // that would mean that our level generation has a problem.
+  let selected_index = rng.range(0, floor_tiles_in_rect_with_wall.len());
+  floor_tiles_in_rect_with_wall[selected_index] as u16
+}
+
+fn get_random_spawn_point(rect: &Rect, level: &Level, rng: &mut RandomNumberGenerator) -> u16 {
+  let floor_tiles_in_rect = get_floor_tiles_in_rect(rect, level);
   let selected_index = rng.range(0, floor_tiles_in_rect.len());
   floor_tiles_in_rect[selected_index] as u16
 }
@@ -312,7 +340,18 @@ fn get_spawn_points(
   count: i32,
 ) -> Vec<u16> {
   (0..count)
-    .map(|_| get_spawn_point(rect, level, rng))
+    .map(|_| get_random_spawn_point(rect, level, rng))
+    .collect()
+}
+
+fn get_wall_adjacent_spawn_points(
+  rect: &Rect,
+  level: &Level,
+  rng: &mut RandomNumberGenerator,
+  count: i32,
+) -> Vec<u16> {
+  (0..count)
+    .map(|_| get_random_wall_adjacent_spawn_point(rect, level, rng))
     .collect()
 }
 
@@ -407,37 +446,24 @@ pub fn spawn_debris(ecs: &mut World, idx: i32, level: &Level) {
     .build();
 }
 
-pub fn spawn_miscellaneous_entities_for_room(ecs: &mut World, room: &Room, level: &Level) {
-  let mut miscellaneous_spawn_points: Vec<usize> = vec![];
-  {
-    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    let num_miscellaneous = rng.roll_dice(1, MAX_MISC_PER_ROOM + 2) - 3;
-    for _i in 0..num_miscellaneous {
-      let mut added = false;
-      while !added {
-        let (x, y) = match room.room_type {
-          RoomType::TreasureRoom => room.rect.get_random_wall_adjacent_coord(&mut rng),
-          RoomType::StoreRoom => room.rect.get_random_wall_adjacent_coord(&mut rng),
-          RoomType::Collapsed => room.rect.get_random_coord(&mut rng),
-          RoomType::Empty => room.rect.get_random_coord(&mut rng),
-        };
-        let idx = xy_idx(&level, x, y) as usize;
-        if !miscellaneous_spawn_points.contains(&idx) {
-          miscellaneous_spawn_points.push(idx);
-          added = true;
+fn spawn_miscellaneous_entities_for_room(ecs: &mut World, room: &Room, level: &Level) {
+  if let Some(room_type) = room.room_type {
+    let spawn_points = {
+      let mut rng = ecs.write_resource::<RandomNumberGenerator>();
+      let num_miscellaneous = rng.roll_dice(1, MAX_MISC_PER_ROOM + 2) - 3;
+      match room_type {
+        RoomType::Collapsed => get_spawn_points(&room.rect, level, &mut rng, num_miscellaneous),
+        _ => get_wall_adjacent_spawn_points(&room.rect, level, &mut rng, num_miscellaneous),
+      }
+    };
+    for idx in spawn_points.iter() {
+      if !tile_is_blocked(ecs, (*idx) as i32, level) && tile_can_be_blocked(ecs, (*idx) as i32, level) {
+        match room_type {
+          RoomType::Collapsed => spawn_debris(ecs, (*idx) as i32, level),
+          RoomType::StoreRoom => spawn_barrel(ecs, (*idx) as i32, level),
+          RoomType::TreasureRoom => spawn_treasure_chest(ecs, (*idx) as i32, level),
         }
       }
-    }
-  }
-  for idx in miscellaneous_spawn_points.iter() {
-    if !tile_is_blocked(ecs, (*idx) as i32, level) && tile_can_be_blocked(ecs, (*idx) as i32, level)
-    {
-      match room.room_type {
-        RoomType::TreasureRoom => spawn_treasure_chest(ecs, (*idx) as i32, level),
-        RoomType::StoreRoom => spawn_barrel(ecs, (*idx) as i32, level),
-        RoomType::Collapsed => spawn_debris(ecs, (*idx) as i32, level),
-        RoomType::Empty => {}
-      };
     }
   }
 }
@@ -452,7 +478,7 @@ pub fn spawn_entities_for_room(ecs: &mut World, room: &Room, level: &Level) {
 pub fn spawn_objective_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
   let idx = {
     let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    get_spawn_point(rect, level, &mut rng)
+    get_random_spawn_point(rect, level, &mut rng)
   };
   spawn_objective(ecs, idx as i32, level);
 }

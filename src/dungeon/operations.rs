@@ -15,6 +15,14 @@ pub fn idx_xy(level: &Level, idx: i32) -> (i32, i32) {
     (idx % level.width as i32, idx / level.width as i32)
 }
 
+pub fn get_tile_at_xy(level: &Level, x: i32, y: i32) -> TileType {
+    level.tiles[xy_idx(level, x, y) as usize] 
+}
+
+pub fn tile_at_xy_is_wall(level: &Level, x: i32, y: i32) -> bool {
+    get_tile_at_xy(level, x, y) == TileType::Wall
+}
+
 fn set_tile_to_floor(level: &mut Level, idx: usize) {
     level.tiles[idx] = TileType::Floor;
 }
