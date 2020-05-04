@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 #[macro_use]
 extern crate specs_derive;
 extern crate serde;
+mod artwork;
 mod components;
 mod credits_screen_action;
 mod death_screen_action;
@@ -24,7 +25,6 @@ mod persistence;
 mod player;
 mod ranged;
 mod run_state;
-mod artwork;
 mod screens;
 mod services;
 mod spawner;
@@ -179,7 +179,7 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = Dungeon::generate(1, 10);
     let level = dungeon.get_level(9).unwrap();
-    let (player_x, player_y) = level.rooms[0].center();
+    let (player_x, player_y) = level.rooms[0].rect.center();
     ecs.remove::<Point>();
     ecs.insert(Point::new(player_x, player_y));
     ecs.remove::<Entity>();
@@ -195,8 +195,7 @@ fn initialize_new_game(ecs: &mut World) {
     let level = dungeon.get_level(objective_floor).unwrap();
     let room_idx = utils::get_random_between_numbers(rng, 0, (level.rooms.len() - 1) as i32);
     let room = level.rooms.get(room_idx as usize).unwrap();
-    spawner::spawn_objective_for_room(ecs, &room, &level);
-
+    spawner::spawn_objective_for_room(ecs, &room.rect, &level);
     ecs.remove::<Dungeon>();
     ecs.insert(dungeon);
     ecs.remove::<game_log::GameLog>();
@@ -402,7 +401,7 @@ impl GameState for State {
                                         RunState::PlayerTurn
                                     }
                                 }
-                            },
+                            }
                             None => RunState::InventoryMenu { highlighted, page },
                         }
                     }

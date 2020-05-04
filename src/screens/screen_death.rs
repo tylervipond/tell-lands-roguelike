@@ -1,4 +1,3 @@
-use super::constants::{SCREEN_PADDING, SCREEN_WIDTH};
 use crate::artwork::DEATH_ARTWORK;
 use crate::ui_components::ui_text_line::UITextLine;
 use rltk::{Rltk, BLACK, WHITE};
