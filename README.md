@@ -21,8 +21,8 @@
 ## Feature Roadmap
 This roguelike is being developed using [this tutorial](http://bfnightly.bracketproductions.com/rustbook/chapter_0.html) as a starting point.
 
-- [ ] Add Doors, better hall generation
-- [ ] Add Collapsed areas to maps
+- [x] Add Doors, better hall generation
+- [x] Add Collapsed areas to maps
 - [ ] Some maps should be altered by duergar invasion
 - [ ] Some maps should be altered by goblin invasion
 - [ ] Some maps should be altered by both
@@ -32,6 +32,7 @@ This roguelike is being developed using [this tutorial](http://bfnightly.bracket
 - [ ] update Goblin AI - Utility based AI system
 - [ ] enemies can follow around corners, search for target
 - [ ] player can hide in crates, barrels, armoires
+- [ ] sounds
 - [ ] add sneaking state
 - [ ] add prone state
 - [ ] add duergar enemies
