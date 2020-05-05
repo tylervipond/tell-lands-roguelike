@@ -567,6 +567,10 @@ impl GameState for State {
             }
             RunState::MainMenu { highlighted } => {
                 let has_save_game = persistence::has_save_game();
+                let new_game_state = match highlighted == 0 {
+                    true => MenuOptionState::Highlighted,
+                    false => MenuOptionState::Normal,
+                };
                 let continue_state = match has_save_game {
                     true => match highlighted == 1 {
                         true => MenuOptionState::Highlighted,
@@ -574,7 +578,7 @@ impl GameState for State {
                     },
                     false => MenuOptionState::Disabled,
                 };
-                let new_game_state = match highlighted == 0 {
+                let credits_state = match highlighted == 2 {
                     true => MenuOptionState::Highlighted,
                     false => MenuOptionState::Normal,
                 };
@@ -582,15 +586,17 @@ impl GameState for State {
                     vec![
                         MenuOption::new("New Game", new_game_state),
                         MenuOption::new("Continue", continue_state),
+                        MenuOption::new("Credits", credits_state),
                     ]
                 } else {
-                    let quit_state = match highlighted == 2 {
+                    let quit_state = match highlighted == 3 {
                         true => MenuOptionState::Highlighted,
                         false => MenuOptionState::Normal,
                     };
                     vec![
                         MenuOption::new("New Game", new_game_state),
                         MenuOption::new("Continue", continue_state),
+                        MenuOption::new("Credits", credits_state),
                         MenuOption::new("Quit", quit_state),
                     ]
                 };
@@ -616,7 +622,8 @@ impl GameState for State {
                             persistence::delete_save();
                             RunState::AwaitingInput
                         }
-                        2 => std::process::exit(0),
+                        2 => RunState::CreditsScreen,
+                        3 => std::process::exit(0),
                         _ => RunState::MainMenu { highlighted },
                     },
                 }

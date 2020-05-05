@@ -90,7 +90,11 @@ pub fn map_input_to_main_menu_action(ctx: &mut Rltk, highlighted: usize) -> Main
 pub fn map_input_to_death_screen_action(ctx: &mut Rltk) -> DeathScreenAction {
   match ctx.key {
     None => DeathScreenAction::NoAction,
-    Some(_key) => DeathScreenAction::Exit,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => DeathScreenAction::Exit,
+      VirtualKeyCode::Return => DeathScreenAction::Exit,
+      _ => DeathScreenAction::NoAction,
+    }
   }
 }
 
@@ -123,21 +127,33 @@ pub fn map_input_to_intro_screen_action(ctx: &mut Rltk) -> IntroScreenAction {
 pub fn map_input_to_success_screen_action(ctx: &mut Rltk) -> SuccessScreenAction {
   match ctx.key {
     None => SuccessScreenAction::NoAction,
-    Some(_key) => SuccessScreenAction::Exit,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => SuccessScreenAction::Exit,
+      VirtualKeyCode::Return => SuccessScreenAction::Exit,
+      _ => SuccessScreenAction::NoAction,
+    },
   }
 }
 
 pub fn map_input_to_failure_screen_action(ctx: &mut Rltk) -> FailureScreenAction {
   match ctx.key {
     None => FailureScreenAction::NoAction,
-    Some(_key) => FailureScreenAction::Exit,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => FailureScreenAction::Exit,
+      VirtualKeyCode::Return => FailureScreenAction::Exit,
+      _ => FailureScreenAction::NoAction,
+    },
   }
 }
 
 pub fn map_input_to_credits_screen_action(ctx: &mut Rltk) -> CreditsScreenAction {
   match ctx.key {
     None => CreditsScreenAction::NoAction,
-    Some(_key) => CreditsScreenAction::Exit,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => CreditsScreenAction::Exit,
+      VirtualKeyCode::Return => CreditsScreenAction::Exit,
+      _ => CreditsScreenAction::NoAction,
+    },
   }
 }
 
