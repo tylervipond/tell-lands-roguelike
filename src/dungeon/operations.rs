@@ -16,15 +16,19 @@ pub fn idx_xy(level: &Level, idx: i32) -> (i32, i32) {
 }
 
 pub fn get_tile_at_xy(level: &Level, x: i32, y: i32) -> TileType {
-    level.tiles[xy_idx(level, x, y) as usize] 
+    level.tiles[xy_idx(level, x, y) as usize]
 }
 
 pub fn tile_at_xy_is_wall(level: &Level, x: i32, y: i32) -> bool {
     get_tile_at_xy(level, x, y) == TileType::Wall
 }
 
-fn set_tile_to_floor(level: &mut Level, idx: usize) {
+pub fn set_tile_to_floor(level: &mut Level, idx: usize) {
     level.tiles[idx] = TileType::Floor;
+}
+
+fn set_tile_to_door(level: &mut Level, idx: usize) {
+    level.tiles[idx] = TileType::Door;
 }
 
 pub fn add_rectangular_room(level: &mut Level, room: &Rect) {
@@ -96,7 +100,7 @@ pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
 
 pub fn populate_blocked(level: &mut Level) {
     for (i, tile) in level.tiles.iter_mut().enumerate() {
-        level.blocked[i] = *tile == TileType::Wall;
+        level.blocked[i] = *tile == TileType::Wall || *tile == TileType::Door;
     }
 }
 
@@ -159,6 +163,38 @@ pub fn add_nearest_neighbor_corridors(level: &mut Level, rng: &mut RandomNumberG
     }
 }
 
+pub fn add_doors_to_rooms(level: &mut Level) {
+    let mut door_idxs: Vec<i32> = Vec::new();
+    for room in level.rooms.iter() {
+        for x in room.rect.x1..=room.rect.x2 {
+            for y in room.rect.y1..=room.rect.y2 {
+                // Checks the left and right walls of a room and adds a door if the tile is empty with a wall above & below
+                if x == room.rect.x1 || x == room.rect.x2 {
+                    if !tile_at_xy_is_wall(&level, x, y)
+                        && tile_at_xy_is_wall(&level, x, y - 1)
+                        && tile_at_xy_is_wall(&level, x, y + 1)
+                    {
+                        door_idxs.push(xy_idx(&level, x, y));
+                    }
+                }
+
+                // Checks the up and bottom walls of a room and adds a door if the tile is empty with a wall left & right
+                if y == room.rect.y1 || y == room.rect.y2 {
+                    if !tile_at_xy_is_wall(&level, x, y)
+                        && tile_at_xy_is_wall(&level, x - 1, y)
+                        && tile_at_xy_is_wall(&level, x + 1, y)
+                    {
+                        door_idxs.push(xy_idx(&level, x, y));
+                    }
+                }
+            }
+        }
+    }
+    for idx in door_idxs.iter() {
+        set_tile_to_door(level, *idx as usize);
+    }
+}
+
 pub fn create_bsp_level(depth: i32) -> Level {
     const MIN_ROOM_SIZE: i32 = 5;
     let mut level = Level::new(depth);
@@ -203,5 +239,6 @@ pub fn create_bsp_level(depth: i32) -> Level {
     level.rooms = room_rects.iter().map(|r| Room::new(*r)).collect();
 
     add_nearest_neighbor_corridors(&mut level, &mut rng);
+    add_doors_to_rooms(&mut level);
     level
 }

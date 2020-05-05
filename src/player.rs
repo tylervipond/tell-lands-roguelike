@@ -7,7 +7,8 @@ use crate::dungeon::{
   constants::{MAP_HEIGHT, MAP_WIDTH},
   dungeon::Dungeon,
   level::Level,
-  operations::xy_idx,
+  operations::{set_tile_to_floor, xy_idx},
+  tile_type::TileType,
 };
 use crate::{game_log::GameLog, map_action::MapAction};
 use rltk::Point;
@@ -28,12 +29,10 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
   let entities = ecs.entities();
   let mut ppos = ecs.write_resource::<Point>();
   let mut dungeon = ecs.fetch_mut::<Dungeon>();
-  let player_ent = ecs.fetch::<Entity>();
+  let player_entity = ecs.fetch::<Entity>();
   let dungeon_levels = ecs.read_storage::<DungeonLevel>();
-
-  let player_level = dungeon_levels.get(*player_ent).unwrap();
+  let player_level = dungeon_levels.get(*player_entity).unwrap();
   let map = dungeon.get_level(player_level.level).unwrap();
-
   for (entity, _player, pos, viewshed) in
     (&entities, &mut players, &mut positions, &mut viewsheds).join()
   {
@@ -107,6 +106,41 @@ fn try_pickup_item(ecs: &mut World) {
           },
         )
         .expect("Unable to insert want to pick up");
+    }
+  }
+}
+
+fn try_open_door(ecs: &mut World) {
+  let mut positions = ecs.write_storage::<Position>();
+  let mut players = ecs.write_storage::<Player>();
+  let mut viewsheds = ecs.write_storage::<Viewshed>();
+  let player_entity = ecs.fetch::<Entity>();
+  let mut dungeon = ecs.fetch_mut::<Dungeon>();
+  let dungeon_levels = ecs.read_storage::<DungeonLevel>();
+  let player_level = dungeon_levels.get(*player_entity).unwrap();
+  let mut map = dungeon.get_level(player_level.level).unwrap();
+  let mut gamelog = ecs.fetch_mut::<GameLog>();
+
+  for (_player, pos) in (&mut players, &mut positions).join() {
+    let mut door_opened = false;
+    for x in (pos.x - 1)..=(pos.x + 1) {
+      for y in (pos.y - 1)..=(pos.y + 1) {
+        let open_door_index = xy_idx(&map, x, y);
+
+        if map.tiles[open_door_index as usize] == TileType::Door {
+          set_tile_to_floor(&mut map, open_door_index as usize);
+          map.blocked[open_door_index as usize] = false;
+          door_opened = true;
+        }
+      }
+    }
+    if door_opened {
+      let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
+      player_viewshed.dirty = true;
+    } else {
+      gamelog
+        .entries
+        .insert(0, "there is no door nearby".to_string());
     }
   }
 }
@@ -205,6 +239,7 @@ pub fn player_action(ecs: &mut World, action: MapAction) {
     MapAction::MoveUpRight => try_move_player(1, -1, ecs),
     MapAction::MoveDownLeft => try_move_player(-1, 1, ecs),
     MapAction::MoveDownRight => try_move_player(1, 1, ecs),
+    MapAction::OpenDoor => try_open_door(ecs),
     MapAction::PickupItem => try_pickup_item(ecs),
     MapAction::GoDownStairs => try_go_down_stairs(ecs),
     MapAction::GoUpStairs => try_go_up_stairs(ecs),

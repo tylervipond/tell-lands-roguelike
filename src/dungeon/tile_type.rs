@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub enum TileType {
   Wall,
   Floor,
+  Door,
   DownStairs,
   UpStairs,
   Exit,
