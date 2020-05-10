@@ -21,4 +21,8 @@ impl Rect {
   pub fn center(&self) -> (i32, i32) {
     ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
   }
+
+  pub fn contains(&self, x: i32, y: i32) -> bool {
+    return self.x1 <= x && self.x2 >= x && self.y1 <= y && self.y2 >= y;
+  }
 }

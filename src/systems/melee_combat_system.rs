@@ -2,8 +2,7 @@ use crate::components::{
   combat_stats::CombatStats, dungeon_level::DungeonLevel, name::Name, position::Position,
   suffer_damage::SufferDamage, wants_to_melee::WantsToMelee,
 };
-use crate::game_log::GameLog;
-use crate::services::particle_effect_spawner::ParticleEffectSpawner;
+use crate::services::{GameLog, ParticleEffectSpawner};
 use specs::{
   storage::GenericWriteStorage, Entities, Join, ReadStorage, System, WriteExpect, WriteStorage,
 };

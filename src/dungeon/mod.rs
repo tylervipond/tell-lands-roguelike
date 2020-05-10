@@ -1,7 +1,8 @@
+pub mod level_builders;
 pub mod constants;
 pub mod dungeon;
 pub mod level;
-pub mod operations;
+pub mod level_utils;
 pub mod rect;
 pub mod room;
 pub mod room_type;

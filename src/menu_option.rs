@@ -22,7 +22,7 @@ pub fn select_next_menu_index(menu: &Vec<MenuOption>, highlighted: usize) -> usi
     .iter()
     .filter(|o| o.state != MenuOptionState::Disabled)
     .count()
-    == 1
+    <= 1
   {
     return 0;
   }
@@ -42,7 +42,7 @@ pub fn select_previous_menu_index(menu: &Vec<MenuOption>, highlighted: usize) ->
     .iter()
     .filter(|o| o.state != MenuOptionState::Disabled)
     .count()
-    == 1
+    <= 1
   {
     return 0;
   }

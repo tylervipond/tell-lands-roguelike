@@ -2,7 +2,7 @@ use crate::components::{
   dungeon_level::DungeonLevel, in_backpack::InBackpack, name::Name, position::Position,
   wants_to_drop_item::WantsToDropItem,
 };
-use crate::game_log::GameLog;
+use crate::services::GameLog;
 use specs::{Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 pub struct ItemDropSystem {}
@@ -27,7 +27,7 @@ impl<'a> System<'a> for ItemDropSystem {
       mut backpacks,
       mut levels,
     ) = data;
-    let mut entities_with_positions: Vec<(Entity, Position, i32)> =
+    let mut entities_with_positions: Vec<(Entity, Position, u8)> =
       (&wants_to_drop, &positions, &levels)
         .join()
         .map(|(to_drop, pos, level)| (to_drop.item, pos.clone(), level.level))

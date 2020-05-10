@@ -14,14 +14,14 @@ const MESSAGES_LEFT: i32 = HUD_LEFT + 1;
 const MESSAGE_COUNT: u8 = HUD_HEIGHT - 2;
 
 pub struct UIHud<'a> {
-    depth: i32,
+    depth: u8,
     hp: i32,
     max_hp: i32,
     messages: &'a Vec<String>,
 }
 
 impl<'a> UIHud<'a> {
-    pub fn new(depth: i32, hp: i32, max_hp: i32, messages: &'a Vec<String>) -> Self {
+    pub fn new(depth: u8, hp: i32, max_hp: i32, messages: &'a Vec<String>) -> Self {
         Self {
             depth,
             hp,

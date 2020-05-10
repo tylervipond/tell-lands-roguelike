@@ -1,72 +1,47 @@
 use crate::components::{
   area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
-  confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
-  entry_trigger::EntryTrigger, hidden::Hidden, inflicts_damage::InflictsDamage, item::Item,
-  monster::Monster, name::Name, objective::Objective, player::Player, position::Position,
-  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
-  single_activation::SingleActivation, viewshed::Viewshed,
+  confusion::Confusion, consumable::Consumable, contained::Contained, container::Container,
+  dungeon_level::DungeonLevel, entry_trigger::EntryTrigger, hidden::Hidden,
+  inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name, objective::Objective,
+  player::Player, position::Position, provides_healing::ProvidesHealing, ranged::Ranged,
+  renderable::Renderable, saveable::Saveable, single_activation::SingleActivation,
+  viewshed::Viewshed,
 };
-use crate::dungeon::{
-  level::Level,
-  operations::{idx_xy, tile_at_xy_is_wall, xy_idx},
-  rect::Rect,
-  room::Room,
-  room_type::RoomType,
-  tile_type::TileType,
-};
+use crate::dungeon::{level::Level, level_utils, rect::Rect, room::Room, room_type::RoomType};
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
 use specs::{
   saveload::{MarkedBuilder, SimpleMarker},
   Builder, Entity, EntityBuilder, Join, World, WorldExt,
 };
+use std::cmp;
 
 pub const MAX_MONSTERS_PER_ROOM: i32 = 2;
 pub const MAX_ITEMS_PER_ROOM: i32 = 2;
 pub const MAX_MISC_PER_ROOM: i32 = 10;
 
-pub fn get_cardinal_idx(idx: i32, level: &Level) -> (i32, i32, i32, i32) {
-  let (x, y) = idx_xy(level, idx);
-  let n = xy_idx(level, x, y - 1);
-  let e = xy_idx(level, x + 1, y);
-  let s = xy_idx(level, x, y + 1);
-  let w = xy_idx(level, x - 1, y);
-
-  return (n, e, s, w);
-}
-
-pub fn get_ordinal_idx(idx: i32, level: &Level) -> (i32, i32, i32, i32) {
-  let (x, y) = idx_xy(level, idx);
-  let ne = xy_idx(level, x + 1, y - 1);
-  let se = xy_idx(level, x + 1, y + 1);
-  let sw = xy_idx(level, x - 1, y + 1);
-  let nw = xy_idx(level, x - 1, y - 1);
-
-  return (ne, se, sw, nw);
-}
-
-pub fn path_is_blocked(ecs: &World, path_idx: (i32, i32, i32), level: &Level) -> bool {
+pub fn path_is_blocked(path_idx: (i32, i32, i32), level: &Level) -> bool {
   let (tile_1, tile_2, tile_3) = path_idx;
-  if tile_is_blocked(ecs, tile_1, level)
-    || tile_is_blocked(ecs, tile_2, level)
-    || tile_is_blocked(ecs, tile_3, level)
+  if level_utils::tile_is_blocked(tile_1, level)
+    || level_utils::tile_is_blocked(tile_2, level)
+    || level_utils::tile_is_blocked(tile_3, level)
   {
     return true;
   }
   return false;
 }
 
-pub fn tile_can_be_blocked(ecs: &World, idx: i32, level: &Level) -> bool {
-  let (n, e, s, w) = get_cardinal_idx(idx, level);
-  let (ne, se, sw, nw) = get_ordinal_idx(idx, level);
+pub fn tile_can_be_blocked(idx: i32, level: &Level) -> bool {
+  let (n, e, s, w) = level_utils::get_cardinal_idx(idx, level);
+  let (ne, se, sw, nw) = level_utils::get_ordinal_idx(idx, level);
 
-  if !tile_is_blocked(ecs, w, level) && !tile_is_blocked(ecs, e, level) {
-    if path_is_blocked(ecs, (nw, n, ne), level) || path_is_blocked(ecs, (sw, s, se), level) {
+  if !level_utils::tile_is_blocked(w, level) && !level_utils::tile_is_blocked(e, level) {
+    if path_is_blocked((nw, n, ne), level) || path_is_blocked((sw, s, se), level) {
       return false;
     }
   }
 
-  if !tile_is_blocked(ecs, n, level) && !tile_is_blocked(ecs, s, level) {
-    if path_is_blocked(ecs, (nw, w, sw), level) || path_is_blocked(ecs, (ne, e, se), level) {
+  if !level_utils::tile_is_blocked(n, level) && !level_utils::tile_is_blocked(s, level) {
+    if path_is_blocked((nw, w, sw), level) || path_is_blocked((ne, e, se), level) {
       return false;
     }
   }
@@ -74,30 +49,12 @@ pub fn tile_can_be_blocked(ecs: &World, idx: i32, level: &Level) -> bool {
   return true;
 }
 
-pub fn tile_is_blocked(ecs: &World, idx: i32, level: &Level) -> bool {
-  if level.tiles[idx as usize] == TileType::Wall {
-    return true;
-  }
-
-  let blocks_tile = ecs.read_storage::<BlocksTile>();
-  let positions = ecs.read_storage::<Position>();
-  let entities = ecs.entities();
-
-  for (_entity, _blocks_tile, pos) in (&entities, &blocks_tile, &positions).join() {
-    if xy_idx(level, pos.x, pos.y) == idx {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-fn created_marked_entity_with_position<'a>(
+fn create_marked_entity_with_position<'a>(
   ecs: &'a mut World,
   map_idx: i32,
   level: &'a Level,
 ) -> EntityBuilder<'a> {
-  let (x, y) = idx_xy(level, map_idx);
+  let (x, y) = level_utils::idx_xy(level, map_idx);
   ecs
     .create_entity()
     .with(Position { x, y })
@@ -105,7 +62,19 @@ fn created_marked_entity_with_position<'a>(
     .marked::<SimpleMarker<Saveable>>()
 }
 
-pub fn spawn_player(ecs: &mut World, x: i32, y: i32, level: i32) -> Entity {
+fn create_marked_entity_in_container<'a>(
+  ecs: &'a mut World,
+  container_entity: Entity,
+) -> EntityBuilder<'a> {
+  ecs
+    .create_entity()
+    .with(Contained {
+      container: container_entity,
+    })
+    .marked::<SimpleMarker<Saveable>>()
+}
+
+pub fn spawn_player(ecs: &mut World, x: i32, y: i32, level: u8) -> Entity {
   ecs
     .create_entity()
     .with(Position { x, y })
@@ -142,7 +111,7 @@ pub fn spawn_monster<S: ToString>(
   name: S,
   level: &Level,
 ) -> Entity {
-  created_marked_entity_with_position(ecs, idx, level)
+  create_marked_entity_with_position(ecs, idx, level)
     .with(Renderable {
       glyph,
       fg: RGB::named(rltk::RED),
@@ -169,7 +138,7 @@ pub fn spawn_monster<S: ToString>(
 }
 
 fn spawn_objective(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  created_marked_entity_with_position(ecs, idx, level)
+  create_marked_entity_with_position(ecs, idx, level)
     .with(Name {
       name: "The Talisman".to_string(),
     })
@@ -203,8 +172,8 @@ pub fn spawn_random_monster(ecs: &mut World, idx: i32, level: &Level) -> Entity 
   }
 }
 
-pub fn spawn_health_potion(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  created_marked_entity_with_position(ecs, idx, level)
+fn make_entity_health_potion<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+  builder
     .with(Name {
       name: "Health Potion".to_string(),
     })
@@ -217,11 +186,18 @@ pub fn spawn_health_potion(ecs: &mut World, idx: i32, level: &Level) -> Entity {
     .with(Item {})
     .with(Consumable {})
     .with(ProvidesHealing { amount: 8 })
-    .build()
 }
 
-pub fn spawn_magic_missile_scroll(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  created_marked_entity_with_position(ecs, idx, level)
+pub fn spawn_health_potion(world: &mut World, idx: i32, level: &Level) -> Entity {
+  make_entity_health_potion(create_marked_entity_with_position(world, idx, level)).build()
+}
+
+fn spawn_health_potion_in_container(world: &mut World, container_entity: Entity) -> Entity {
+  make_entity_health_potion(create_marked_entity_in_container(world, container_entity)).build()
+}
+
+fn make_entity_magic_missile_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+  builder
     .with(Name {
       name: "Scroll of Magic Missile".to_string(),
     })
@@ -235,11 +211,19 @@ pub fn spawn_magic_missile_scroll(ecs: &mut World, idx: i32, level: &Level) -> E
     .with(Consumable {})
     .with(Ranged { range: 6 })
     .with(InflictsDamage { amount: 8 })
+}
+
+fn spawn_magic_missile_scroll(world: &mut World, idx: i32, level: &Level) -> Entity {
+  make_entity_magic_missile_scroll(create_marked_entity_with_position(world, idx, level)).build()
+}
+
+fn spawn_magic_missile_scroll_in_container(world: &mut World, container_entity: Entity) -> Entity {
+  make_entity_magic_missile_scroll(create_marked_entity_in_container(world, container_entity))
     .build()
 }
 
-pub fn spawn_fireball_scroll(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  created_marked_entity_with_position(ecs, idx, level)
+fn make_entity_fireball_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+  builder
     .with(Name {
       name: "Scroll of Fireball".to_string(),
     })
@@ -254,11 +238,18 @@ pub fn spawn_fireball_scroll(ecs: &mut World, idx: i32, level: &Level) -> Entity
     .with(Ranged { range: 6 })
     .with(InflictsDamage { amount: 20 })
     .with(AreaOfEffect { radius: 3 })
-    .build()
 }
 
-pub fn spawn_confusion_scroll(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  created_marked_entity_with_position(ecs, idx, level)
+fn spawn_fireball_scroll(world: &mut World, idx: i32, level: &Level) -> Entity {
+  make_entity_fireball_scroll(create_marked_entity_with_position(world, idx, level)).build()
+}
+
+fn spawn_fireball_scroll_in_container(world: &mut World, container_entity: Entity) -> Entity {
+  make_entity_fireball_scroll(create_marked_entity_in_container(world, container_entity)).build()
+}
+
+fn make_entity_confusion_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+  builder
     .with(Name {
       name: "Scroll of Confusion".to_string(),
     })
@@ -272,11 +263,18 @@ pub fn spawn_confusion_scroll(ecs: &mut World, idx: i32, level: &Level) -> Entit
     .with(Consumable {})
     .with(Ranged { range: 6 })
     .with(Confusion { turns: 4 })
-    .build()
+}
+
+pub fn spawn_confusion_scroll(world: &mut World, idx: i32, level: &Level) -> Entity {
+  make_entity_confusion_scroll(create_marked_entity_with_position(world, idx, level)).build()
+}
+
+pub fn spawn_confusion_scroll_in_container(world: &mut World, container_entity: Entity) -> Entity {
+  make_entity_confusion_scroll(create_marked_entity_in_container(world, container_entity)).build()
 }
 
 pub fn spawn_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  created_marked_entity_with_position(ecs, idx, level)
+  create_marked_entity_with_position(ecs, idx, level)
     .with(Name {
       name: "Bear Trap".to_string(),
     })
@@ -293,84 +291,20 @@ pub fn spawn_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
     .build()
 }
 
-fn get_floor_tiles_in_rect(rect: &Rect, level: &Level) -> Vec<i32> {
-  (rect.y1 + 1..rect.y2)
-    .map(|y| {
-      (rect.x1 + 1..rect.x2)
-        .map(|x| (x, y.clone()))
-        .collect::<Vec<(i32, i32)>>()
-    })
-    .flatten()
-    .map(|(x, y)| xy_idx(level, x, y))
-    .filter(|idx| level.tiles[*idx as usize] == TileType::Floor)
-    .collect()
-}
-
-fn tile_is_wall_adjacent(idx: i32, level: &Level) -> bool {
-  let (x, y) = idx_xy(level, idx);
-  tile_at_xy_is_wall(level, x - 1, y)
-    || tile_at_xy_is_wall(level, x + 1, y)
-    || tile_at_xy_is_wall(level, x, y - 1)
-    || tile_at_xy_is_wall(level, x, y + 1)
-}
-
-fn get_random_wall_adjacent_spawn_point(
-  rect: &Rect,
-  level: &Level,
-  rng: &mut RandomNumberGenerator,
-) -> u16 {
-  let floor_tiles_in_rect_with_wall: Vec<i32> = get_floor_tiles_in_rect(rect, level)
-    .into_iter()
-    .filter(|idx| tile_is_wall_adjacent(*idx, level))
-    .collect();
-  let selected_index = rng.range(0, floor_tiles_in_rect_with_wall.len());
-  floor_tiles_in_rect_with_wall[selected_index] as u16
-}
-
-fn get_random_spawn_point(rect: &Rect, level: &Level, rng: &mut RandomNumberGenerator) -> u16 {
-  let floor_tiles_in_rect = get_floor_tiles_in_rect(rect, level);
-  let selected_index = rng.range(0, floor_tiles_in_rect.len());
-  floor_tiles_in_rect[selected_index] as u16
-}
-
-fn get_spawn_points(
-  rect: &Rect,
-  level: &Level,
-  rng: &mut RandomNumberGenerator,
-  count: i32,
-) -> Vec<u16> {
-  (0..count)
-    .map(|_| get_random_spawn_point(rect, level, rng))
-    .collect()
-}
-
-fn get_wall_adjacent_spawn_points(
-  rect: &Rect,
-  level: &Level,
-  rng: &mut RandomNumberGenerator,
-  count: i32,
-) -> Vec<u16> {
-  (0..count)
-    .map(|_| get_random_wall_adjacent_spawn_point(rect, level, rng))
-    .collect()
-}
-
-pub fn spawn_monster_entities_for_room(ecs: &mut World, room: &Room, level: &Level) {
+pub fn spawn_monster_entities_for_room(ecs: &mut World, room: &Room, level: &mut Level) {
   let spawn_points = {
     let mut rng = ecs.write_resource::<RandomNumberGenerator>();
     let num_monsters = rng.range(0, MAX_MONSTERS_PER_ROOM);
-    get_spawn_points(&room.rect, level, &mut rng, num_monsters)
+    level_utils::get_spawn_points(&room.rect, level, &mut rng, num_monsters)
   };
   for idx in spawn_points.iter() {
     spawn_random_monster(ecs, (*idx) as i32, level);
+    level.blocked[*idx as usize] = true;
   }
 }
 
 fn spawn_random_item(ecs: &mut World, idx: i32, level: &Level) {
-  let roll = {
-    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    rng.roll_dice(1, 6)
-  };
+  let roll = get_random_in_range(ecs, 1, 6);
   match roll {
     1 | 2 => {
       spawn_health_potion(ecs, idx, level);
@@ -390,19 +324,71 @@ fn spawn_random_item(ecs: &mut World, idx: i32, level: &Level) {
   }
 }
 
+fn spawn_random_item_in_container(world: &mut World, container_entity: Entity) {
+  let roll = get_random_in_range(world, 1, 5);
+  match roll {
+    1 | 2 => {
+      spawn_health_potion_in_container(world, container_entity);
+    }
+    3 => {
+      spawn_fireball_scroll_in_container(world, container_entity);
+    }
+    4 => {
+      spawn_confusion_scroll_in_container(world, container_entity);
+    }
+    _ => {
+      spawn_magic_missile_scroll_in_container(world, container_entity);
+    }
+  }
+}
+
+fn get_containers_in_room(ecs: &World, room: &Room) -> Vec<Entity> {
+  let containers = ecs.read_storage::<Container>();
+  let positions = ecs.read_storage::<Position>();
+  let entities = ecs.entities();
+  (&containers, &positions, &entities)
+    .join()
+    .filter(|(_c, p, _e)| room.rect.contains(p.x, p.y))
+    .map(|(_c, _p, e)| e)
+    .collect()
+}
+
+fn get_random_in_range(ecs: &mut World, min: i32, max: i32) -> i32 {
+  let mut rng = ecs.write_resource::<RandomNumberGenerator>();
+  rng.range(min, max + 1)
+}
+
 pub fn spawn_item_entities_for_room(ecs: &mut World, room: &Room, level: &Level) {
-  let spawn_points = {
-    let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    let num_items = rng.roll_dice(1, MAX_ITEMS_PER_ROOM + 2) - 3;
-    get_spawn_points(&room.rect, level, &mut rng, num_items)
+  let containers_in_room = get_containers_in_room(ecs, room);
+  let min_items = match room.room_type {
+    Some(RoomType::TreasureRoom) => 2,
+    _ => 0,
   };
-  for idx in spawn_points.iter() {
-    spawn_random_item(ecs, (*idx) as i32, level);
+  let num_items = get_random_in_range(ecs, min_items, MAX_ITEMS_PER_ROOM + 2) - 3;
+  if num_items > 0 {
+    // more than half of the items should be in containers if there are any.
+    let min_items_in_containers = num_items as f32 * 0.6;
+    let num_items_in_containers = cmp::min(
+      get_random_in_range(ecs, min_items_in_containers.ceil() as i32, num_items),
+      containers_in_room.len() as i32,
+    );
+    let num_items_not_in_containers = num_items - num_items_in_containers;
+    let spawn_points = {
+      let mut rng = ecs.write_resource::<RandomNumberGenerator>();
+      level_utils::get_spawn_points(&room.rect, level, &mut rng, num_items_not_in_containers)
+    };
+    for idx in spawn_points.iter() {
+      spawn_random_item(ecs, (*idx) as i32, level);
+    }
+    for _ in 0..num_items_in_containers {
+      let container_idx = get_random_in_range(ecs, 0, (containers_in_room.len() - 1) as i32);
+      spawn_random_item_in_container(ecs, containers_in_room[container_idx as usize]);
+    }
   }
 }
 
 pub fn spawn_barrel(ecs: &mut World, idx: i32, level: &Level) {
-  created_marked_entity_with_position(ecs, idx, level)
+  create_marked_entity_with_position(ecs, idx, level)
     .with(Name {
       name: "Barrel".to_string(),
     })
@@ -417,22 +403,23 @@ pub fn spawn_barrel(ecs: &mut World, idx: i32, level: &Level) {
 }
 
 pub fn spawn_treasure_chest(ecs: &mut World, idx: i32, level: &Level) {
-  created_marked_entity_with_position(ecs, idx, level)
+  create_marked_entity_with_position(ecs, idx, level)
     .with(Name {
       name: "Trasure Chest".to_string(),
     })
     .with(Renderable {
       glyph: to_cp437('T'),
-      fg: RGB::named(rltk::BROWN1),
+      fg: RGB::named(rltk::BROWN3),
       bg: RGB::named(rltk::BLACK),
       layer: 1,
     })
+    .with(Container {})
     .with(BlocksTile {})
     .build();
 }
 
 pub fn spawn_debris(ecs: &mut World, idx: i32, level: &Level) {
-  created_marked_entity_with_position(ecs, idx, level)
+  create_marked_entity_with_position(ecs, idx, level)
     .with(Name {
       name: "Debris".to_string(),
     })
@@ -446,39 +433,57 @@ pub fn spawn_debris(ecs: &mut World, idx: i32, level: &Level) {
     .build();
 }
 
-fn spawn_miscellaneous_entities_for_room(ecs: &mut World, room: &Room, level: &Level) {
+fn spawn_miscellaneous_entities_for_room(ecs: &mut World, room: &Room, level: &mut Level) {
   if let Some(room_type) = room.room_type {
     let spawn_points = {
       let mut rng = ecs.write_resource::<RandomNumberGenerator>();
       let num_miscellaneous = rng.roll_dice(1, MAX_MISC_PER_ROOM + 2) - 3;
       match room_type {
-        RoomType::Collapsed => get_spawn_points(&room.rect, level, &mut rng, num_miscellaneous),
-        _ => get_wall_adjacent_spawn_points(&room.rect, level, &mut rng, num_miscellaneous),
+        RoomType::Collapsed => {
+          level_utils::get_spawn_points(&room.rect, level, &mut rng, num_miscellaneous)
+        }
+        _ => level_utils::get_wall_adjacent_spawn_points(
+          &room.rect,
+          level,
+          &mut rng,
+          num_miscellaneous,
+        ),
       }
     };
     for idx in spawn_points.iter() {
-      if !tile_is_blocked(ecs, (*idx) as i32, level) && tile_can_be_blocked(ecs, (*idx) as i32, level) {
+      if !level_utils::tile_is_blocked((*idx) as i32, level)
+        && tile_can_be_blocked((*idx) as i32, level)
+      {
         match room_type {
           RoomType::Collapsed => spawn_debris(ecs, (*idx) as i32, level),
           RoomType::StoreRoom => spawn_barrel(ecs, (*idx) as i32, level),
           RoomType::TreasureRoom => spawn_treasure_chest(ecs, (*idx) as i32, level),
         }
       }
+      level.blocked[*idx as usize] = true;
     }
   }
 }
 
-pub fn spawn_entities_for_room(ecs: &mut World, room: &Room, level: &Level) {
+pub fn spawn_entities_for_room(ecs: &mut World, room: &Room, level: &mut Level) {
   // Miscellaneous must spawn before monsters/items are placed
   spawn_miscellaneous_entities_for_room(ecs, room, level);
   spawn_monster_entities_for_room(ecs, room, level);
   spawn_item_entities_for_room(ecs, room, level);
 }
 
+pub fn spawn_entities_for_level(world: &mut World, level: &mut Level) {
+  let count = level.rooms.len();
+  for i in (0..count).skip(1) {
+    let room = level.rooms[i].clone();
+    spawn_entities_for_room(world, &room, level);
+  }
+}
+
 pub fn spawn_objective_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
   let idx = {
     let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-    get_random_spawn_point(rect, level, &mut rng)
+    level_utils::get_random_spawn_point(rect, level, &mut rng)
   };
   spawn_objective(ecs, idx as i32, level);
 }

@@ -1,10 +1,10 @@
-use rltk::{field_of_view, Point};
+use rltk::Point;
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 use crate::components::{
   dungeon_level::DungeonLevel, player::Player, position::Position, viewshed::Viewshed,
 };
-use crate::dungeon::{dungeon::Dungeon, operations::xy_idx};
+use crate::dungeon::{dungeon::Dungeon, level_utils};
 
 /**
  * Currently enemy AI won't take any actions if the player is not visible, so
@@ -33,13 +33,13 @@ impl<'a> System<'a> for VisibilitySystem {
         viewshed.dirty = false;
         viewshed.visible_tiles.clear();
         viewshed.visible_tiles =
-          field_of_view(Point::new(position.x, position.y), viewshed.range, &*level);
+          rltk::field_of_view(Point::new(position.x, position.y), viewshed.range, &*level);
         if let Some(_p) = player.get(ent) {
           for t in level.visible_tiles.iter_mut() {
             *t = false
           }
           for vis in viewshed.visible_tiles.iter() {
-            let idx = xy_idx(&level, vis.x, vis.y) as usize;
+            let idx = level_utils::xy_idx(&level, vis.x, vis.y) as usize;
             level.revealed_tiles[idx] = true;
             level.visible_tiles[idx] = true;
           }

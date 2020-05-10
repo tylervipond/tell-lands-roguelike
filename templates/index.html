@@ -21,7 +21,7 @@
       .title {
         text-align: center;
         margin: 1rem;
-        font-family:'Courier New', Courier, monospace;
+        font-family: "Courier New", Courier, monospace;
         text-transform: uppercase;
       }
 
@@ -29,11 +29,23 @@
         max-width: 800px;
         margin: 0 auto;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
       }
 
       .controls-list dd {
         text-align: right;
+        margin: 0;
+        padding: 0.5rem 0.5rem 0.5rem 0;
+        
+      }
+
+      .controls-list dt {
+        padding: 0.5rem 0rem 0.5rem 0.5rem;
+      }
+
+      .controls-list dd:nth-of-type(odd),
+      .controls-list dt:nth-of-type(odd) {
+        background-color: lightgrey;
       }
     </style>
   </head>
@@ -68,6 +80,8 @@
       <dd>r</dd>
       <dt>open door</dt>
       <dd>g</dd>
+      <dt>open container</dt>
+      <dd>v</dd>
       <dt>go down stairs</dt>
       <dd>.</dd>
       <dt>go up stairs</dt>
