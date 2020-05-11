@@ -35,16 +35,17 @@ mod targeting_action;
 mod ui_components;
 mod utils;
 use components::{
-    area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, combat_stats::CombatStats,
-    confused::Confused, confusion::Confusion, consumable::Consumable, contained::Contained,
-    container::Container, dungeon_level::DungeonLevel, entity_moved::EntityMoved,
-    entry_trigger::EntryTrigger, hidden::Hidden, in_backpack::InBackpack,
-    inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name,
-    objective::Objective, particle_lifetime::ParticleLifetime, player::Player, position::Position,
-    potion::Potion, provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable,
-    saveable::Saveable, serialization_helper::SerializationHelper,
-    single_activation::SingleActivation, suffer_damage::SufferDamage, triggered::Triggered,
-    viewshed::Viewshed, wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
+    area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, causes_fire::CausesFire,
+    combat_stats::CombatStats, confused::Confused, confusion::Confusion, consumable::Consumable,
+    contained::Contained, container::Container, dungeon_level::DungeonLevel,
+    entity_moved::EntityMoved, entry_trigger::EntryTrigger, flammable::Flammable, hidden::Hidden,
+    in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
+    name::Name, objective::Objective, on_fire::OnFire, particle_lifetime::ParticleLifetime,
+    player::Player, position::Position, potion::Potion, provides_healing::ProvidesHealing,
+    ranged::Ranged, renderable::Renderable, saveable::Saveable,
+    serialization_helper::SerializationHelper, single_activation::SingleActivation,
+    suffer_damage::SufferDamage, triggered::Triggered, viewshed::Viewshed,
+    wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
     wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
 use credits_screen_action::CreditsScreenAction;
@@ -87,9 +88,11 @@ use services::{
 use success_screen_action::SuccessScreenAction;
 use systems::{
     blood_spawn_system::BloodSpawnSystem, damage_system::DamageSystem,
-    item_collection_system::ItemCollectionSystem, item_drop_system::ItemDropSystem,
-    map_indexing_system::MapIndexingSystem, melee_combat_system::MeleeCombatSystem,
-    monster_ai_system::MonsterAI, particle_spawn_system::ParticleSpawnSystem,
+    fire_burn_system::FireBurnSystem, fire_die_system::FireDieSystem,
+    fire_spread_system::FireSpreadSystem, item_collection_system::ItemCollectionSystem,
+    item_drop_system::ItemDropSystem, map_indexing_system::MapIndexingSystem,
+    melee_combat_system::MeleeCombatSystem, monster_ai_system::MonsterAI,
+    particle_spawn_system::ParticleSpawnSystem,
     remove_particle_effects_system::RemoveParticleEffectsSystem,
     remove_triggered_traps_system::RemoveTriggeredTrapsSystem,
     reveal_traps_system::RevealTrapsSystem, trigger_system::TriggerSystem,
@@ -211,6 +214,11 @@ fn initialize_new_game(ecs: &mut World) {
     ecs.write_storage::<SingleActivation>().clear();
     ecs.write_storage::<Triggered>().clear();
     ecs.write_storage::<Objective>().clear();
+    ecs.write_storage::<Contained>().clear();
+    ecs.write_storage::<Container>().clear();
+    ecs.write_storage::<Flammable>().clear();
+    ecs.write_storage::<OnFire>().clear();
+    ecs.write_storage::<CausesFire>().clear();
     ecs.remove::<SimpleMarkerAllocator<Saveable>>();
     ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = generate_dungeon(ecs, 10);
@@ -274,6 +282,14 @@ impl State {
         melee_combat.run_now(&self.ecs);
         let mut triggers = TriggerSystem {};
         triggers.run_now(&self.ecs);
+        if self.run_state == RunState::MonsterTurn {
+            let mut fire_burn_system = FireBurnSystem {};
+            fire_burn_system.run_now(&self.ecs);
+            let mut fire_spread_system = FireSpreadSystem {};
+            fire_spread_system.run_now(&self.ecs);
+            let mut fire_die_system = FireDieSystem {};
+            fire_die_system.run_now(&self.ecs);
+        }
         let mut damage = DamageSystem {};
         damage.run_now(&self.ecs);
         let mut pickup = ItemCollectionSystem {};
@@ -564,8 +580,9 @@ impl GameState for State {
             }
             RunState::ShowTargetingOpenContainer => {
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.ecs, 1);
-                let target = ranged::get_target(ctx, &visible_tiles,);
-                ScreenMapTargeting::new(1, target, Some("Select Container to Open".to_string())).draw(ctx, &mut self.ecs);
+                let target = ranged::get_target(ctx, &visible_tiles);
+                ScreenMapTargeting::new(1, target, Some("Select Container to Open".to_string()))
+                    .draw(ctx, &mut self.ecs);
                 let action = map_input_to_targeting_action(ctx, target);
                 match action {
                     TargetingAction::NoAction => RunState::ShowTargetingOpenContainer,
@@ -875,6 +892,9 @@ pub fn start() {
     gs.ecs.register::<Objective>();
     gs.ecs.register::<Contained>();
     gs.ecs.register::<Container>();
+    gs.ecs.register::<Flammable>();
+    gs.ecs.register::<OnFire>();
+    gs.ecs.register::<CausesFire>();
     gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.ecs.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],

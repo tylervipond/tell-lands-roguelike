@@ -1,11 +1,11 @@
 use crate::components::{
-  area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, combat_stats::CombatStats,
-  confusion::Confusion, consumable::Consumable, contained::Contained, container::Container,
-  dungeon_level::DungeonLevel, entry_trigger::EntryTrigger, hidden::Hidden,
-  inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name, objective::Objective,
-  player::Player, position::Position, provides_healing::ProvidesHealing, ranged::Ranged,
-  renderable::Renderable, saveable::Saveable, single_activation::SingleActivation,
-  viewshed::Viewshed,
+  area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, causes_fire::CausesFire,
+  combat_stats::CombatStats, confusion::Confusion, consumable::Consumable, contained::Contained,
+  container::Container, dungeon_level::DungeonLevel, entry_trigger::EntryTrigger,
+  flammable::Flammable, hidden::Hidden, inflicts_damage::InflictsDamage, item::Item,
+  monster::Monster, name::Name, objective::Objective, player::Player, position::Position,
+  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
+  single_activation::SingleActivation, viewshed::Viewshed,
 };
 use crate::dungeon::{level::Level, level_utils, rect::Rect, room::Room, room_type::RoomType};
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
@@ -237,6 +237,7 @@ fn make_entity_fireball_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<
     .with(Consumable {})
     .with(Ranged { range: 6 })
     .with(InflictsDamage { amount: 20 })
+    .with(CausesFire {})
     .with(AreaOfEffect { radius: 3 })
 }
 
@@ -398,6 +399,7 @@ pub fn spawn_barrel(ecs: &mut World, idx: i32, level: &Level) {
       bg: RGB::named(rltk::BLACK),
       layer: 1,
     })
+    .with(Flammable { turns_remaining: 8 })
     .with(BlocksTile {})
     .build();
 }
@@ -414,6 +416,7 @@ pub fn spawn_treasure_chest(ecs: &mut World, idx: i32, level: &Level) {
       layer: 1,
     })
     .with(Container {})
+    .with(Flammable { turns_remaining: 8 })
     .with(BlocksTile {})
     .build();
 }

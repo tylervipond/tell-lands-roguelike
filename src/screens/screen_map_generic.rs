@@ -1,8 +1,8 @@
-use super::ui::ui_map::RenderData;
 use super::ui::ui_map_screen::UIMapScreen;
+use super::utils::get_render_data;
 use crate::components::{
     combat_stats::CombatStats, dungeon_level::DungeonLevel, hidden::Hidden, name::Name,
-    position::Position, renderable::Renderable,
+    position::Position,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
@@ -51,24 +51,7 @@ impl ScreenMapGeneric {
             },
             None => Vec::new(),
         };
-        let renderables = world.read_storage::<Renderable>();
-
-        let mut renderables = (&positions, &renderables, &levels, !&hidden)
-            .join()
-            .filter(|(p, _r, l, _h)| {
-                let idx = level_utils::xy_idx(&level, p.x, p.y) as usize;
-                return l.level == player_level.level && level.visible_tiles[idx];
-            })
-            .map(|(p, r, _l, _h)| RenderData {
-                x: p.x,
-                y: p.y,
-                fg: r.fg,
-                bg: r.bg,
-                glyph: r.glyph,
-                layer: r.layer,
-            })
-            .collect::<Vec<RenderData>>();
-        renderables.sort_unstable_by(|a, b| b.layer.cmp(&a.layer));
+        let render_data = get_render_data(world);
         ctx.cls();
         UIMapScreen::new(
             mouse_x,
@@ -79,7 +62,7 @@ impl ScreenMapGeneric {
             player_stats.hp,
             player_stats.max_hp,
             level,
-            &renderables,
+            &render_data,
         )
         .draw(ctx);
     }
