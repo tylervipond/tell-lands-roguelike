@@ -1,21 +1,21 @@
 use crate::components::{
-  combat_stats::CombatStats, dungeon_level::DungeonLevel, entity_moved::EntityMoved,
-  in_backpack::InBackpack, item::Item, name::Name, player::Player, position::Position,
-  viewshed::Viewshed, wants_to_melee::WantsToMelee, wants_to_pick_up_item::WantsToPickUpItem,
+  combat_stats::CombatStats, dungeon_level::DungeonLevel, entity_moved::EntityMoved, item::Item,
+  player::Player, position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
+  wants_to_pick_up_item::WantsToPickUpItem,
 };
 use crate::dungeon::{
   constants::{MAP_HEIGHT, MAP_WIDTH},
   dungeon::Dungeon,
   level::Level,
-  operations::{set_tile_to_floor, xy_idx},
+  level_utils,
   tile_type::TileType,
 };
-use crate::{game_log::GameLog, map_action::MapAction};
+use crate::map_action::MapAction;
+use crate::services::game_log::GameLog;
+use crate::utils;
 use rltk::Point;
 use specs::{Entity, Join, World, WorldExt};
 use std::cmp::{max, min};
-
-pub type InventoryList = Vec<(Entity, String)>;
 
 // It's not really "try move player" though, it's more like "player act"
 // because the function does more than just move the player. Should probably
@@ -38,7 +38,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
   {
     let x = pos.x + delta_x;
     let y = pos.y + delta_y;
-    let destination_index = xy_idx(&map, x, y);
+    let destination_index = level_utils::xy_idx(&map, x, y);
 
     for potential_target in map.tile_content[destination_index as usize].iter() {
       let target = combat_stats.get(*potential_target);
@@ -113,31 +113,29 @@ fn try_pickup_item(ecs: &mut World) {
 fn try_open_door(ecs: &mut World) {
   let mut positions = ecs.write_storage::<Position>();
   let mut players = ecs.write_storage::<Player>();
-  let mut viewsheds = ecs.write_storage::<Viewshed>();
-  let player_entity = ecs.fetch::<Entity>();
   let mut dungeon = ecs.fetch_mut::<Dungeon>();
-  let dungeon_levels = ecs.read_storage::<DungeonLevel>();
-  let player_level = dungeon_levels.get(*player_entity).unwrap();
-  let mut map = dungeon.get_level(player_level.level).unwrap();
-  let mut gamelog = ecs.fetch_mut::<GameLog>();
-
+  let player_level = utils::get_current_level_from_world(ecs);
+  let mut map = dungeon.get_level(player_level).unwrap();
   for (_player, pos) in (&mut players, &mut positions).join() {
     let mut door_opened = false;
     for x in (pos.x - 1)..=(pos.x + 1) {
       for y in (pos.y - 1)..=(pos.y + 1) {
-        let open_door_index = xy_idx(&map, x, y);
+        let open_door_index = level_utils::xy_idx(&map, x, y);
 
         if map.tiles[open_door_index as usize] == TileType::Door {
-          set_tile_to_floor(&mut map, open_door_index as usize);
+          level_utils::set_tile_to_floor(&mut map, open_door_index as usize);
           map.blocked[open_door_index as usize] = false;
           door_opened = true;
         }
       }
     }
     if door_opened {
+      let player_entity = ecs.fetch::<Entity>();
+      let mut viewsheds = ecs.write_storage::<Viewshed>();
       let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
       player_viewshed.dirty = true;
     } else {
+      let mut gamelog = ecs.fetch_mut::<GameLog>();
       gamelog
         .entries
         .insert(0, "there is no door nearby".to_string());
@@ -215,18 +213,6 @@ fn try_go_up_stairs(ecs: &mut World) {
     let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
     player_viewshed.dirty = true;
   }
-}
-
-pub fn get_player_inventory_list(ecs: &mut World) -> InventoryList {
-  let player_entity = ecs.fetch::<Entity>();
-  let names = ecs.read_storage::<Name>();
-  let backpack = ecs.read_storage::<InBackpack>();
-  let entities = ecs.entities();
-  (&backpack, &entities, &names)
-    .join()
-    .filter(|i| i.0.owner == *player_entity)
-    .map(|i| (i.1, i.2.name.to_string()))
-    .collect()
 }
 
 pub fn player_action(ecs: &mut World, action: MapAction) {

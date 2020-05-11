@@ -4,13 +4,9 @@ use crate::components::{
   inflicts_damage::InflictsDamage, name::Name, position::Position,
   provides_healing::ProvidesHealing, suffer_damage::SufferDamage, wants_to_use::WantsToUse,
 };
-use crate::dungeon::{
-  dungeon::Dungeon,
-  operations::{entities_at_xy, point_not_in_map},
-};
-use crate::game_log::GameLog;
-use crate::services::particle_effect_spawner::ParticleEffectSpawner;
-use rltk::{to_cp437, BLACK, MAGENTA, ORANGE, RED, RGB};
+use crate::dungeon::{dungeon::Dungeon, level_utils};
+use crate::services::{GameLog, ParticleEffectSpawner};
+use rltk::{BLACK, MAGENTA, ORANGE, RED, RGB};
 use specs::{
   storage::GenericWriteStorage, Entities, Entity, Join, ReadExpect, ReadStorage, System,
   WriteExpect, WriteStorage,
@@ -64,11 +60,11 @@ impl<'a> System<'a> for UseItemSystem {
       let targets = match to_use.target {
         None => vec![*player_entity],
         Some(target) => match aoe.get(to_use.item) {
-          None => entities_at_xy(&level, target.x, target.y),
+          None => level_utils::entities_at_xy(&level, target.x, target.y),
           Some(area) => rltk::field_of_view(target, area.radius, &*level)
             .iter()
-            .filter(|p| !point_not_in_map(&level, p))
-            .map(|p| entities_at_xy(&level, p.x, p.y))
+            .filter(|p| !level_utils::point_not_in_map(&level, p))
+            .map(|p| level_utils::entities_at_xy(&level, p.x, p.y))
             .flatten()
             .collect(),
         },
@@ -82,14 +78,14 @@ impl<'a> System<'a> for UseItemSystem {
             let dungeon_level = dungeon_levels.get(entity).unwrap();
             rltk::field_of_view(target, area.radius, &*level)
               .iter()
-              .filter(|p| !point_not_in_map(&level, p))
+              .filter(|p| !level_utils::point_not_in_map(&level, p))
               .for_each(|p| {
                 particle_spawner.request(
                   p.x,
                   p.y,
                   RGB::named(ORANGE),
                   RGB::named(RED),
-                  to_cp437('░'),
+                  rltk::to_cp437('░'),
                   200.0,
                   dungeon_level.level,
                 )
@@ -113,7 +109,7 @@ impl<'a> System<'a> for UseItemSystem {
             pos.y,
             RGB::named(RED),
             RGB::named(BLACK),
-            to_cp437('♥'),
+            rltk::to_cp437('♥'),
             200.0,
             dungeon_level.level,
           );
@@ -134,7 +130,7 @@ impl<'a> System<'a> for UseItemSystem {
             pos.y,
             RGB::named(RED),
             RGB::named(BLACK),
-            to_cp437('‼'),
+            rltk::to_cp437('‼'),
             200.0,
             dungeon_level.level,
           );
@@ -162,7 +158,7 @@ impl<'a> System<'a> for UseItemSystem {
             pos.y,
             RGB::named(MAGENTA),
             RGB::named(BLACK),
-            to_cp437('?'),
+            rltk::to_cp437('?'),
             200.0,
             dungeon_level.level,
           );

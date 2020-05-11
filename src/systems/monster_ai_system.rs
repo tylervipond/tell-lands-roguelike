@@ -2,10 +2,7 @@ use crate::components::{
   confused::Confused, dungeon_level::DungeonLevel, entity_moved::EntityMoved, monster::Monster,
   position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
 };
-use crate::dungeon::{
-  dungeon::Dungeon,
-  operations::{idx_xy, xy_idx},
-};
+use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::{a_star_search, DistanceAlg::Pythagoras, Point};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
@@ -74,11 +71,11 @@ impl<'a> System<'a> for MonsterAI {
           )
           .expect("Unable to insert attack");
       } else if viewshed.visible_tiles.contains(&*player_position) {
-        let idx1 = xy_idx(&level, position.x, position.y) as usize;
-        let idx2 = xy_idx(&level, player_position.x, player_position.y) as usize;
+        let idx1 = level_utils::xy_idx(&level, position.x, position.y) as usize;
+        let idx2 = level_utils::xy_idx(&level, player_position.x, player_position.y) as usize;
         let path = a_star_search(idx1, idx2, &mut *level);
         if path.success && path.steps.len() > 1 {
-          let (x, y) = idx_xy(&level, path.steps[1] as i32);
+          let (x, y) = level_utils::idx_xy(&level, path.steps[1] as i32);
           position.x = x as i32;
           position.y = y as i32;
           viewshed.dirty = true;

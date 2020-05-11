@@ -2,8 +2,7 @@ use crate::components::{
   combat_stats::CombatStats, dungeon_level::DungeonLevel, name::Name, player::Player,
   position::Position, suffer_damage::SufferDamage,
 };
-use crate::game_log::GameLog;
-use crate::services::blood_spawner::BloodSpawner;
+use crate::services::{BloodSpawner, GameLog};
 use rltk::RGB;
 use specs::{
   Entities, Entity, Join, ReadStorage, System, World, WorldExt, WriteExpect, WriteStorage,

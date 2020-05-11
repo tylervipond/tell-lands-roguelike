@@ -1,4 +1,4 @@
-use crate::dungeon::{level::Level, operations::xy_idx, tile_type::TileType};
+use crate::dungeon::{level::Level, level_utils, tile_type::TileType};
 use crate::screens::constants::MAP_WIDTH;
 use rltk::{Rltk, RGB};
 
@@ -12,7 +12,7 @@ pub struct RenderData {
 }
 
 pub fn is_revealed_and_wall(level: &Level, x: i32, y: i32) -> bool {
-    let idx = xy_idx(level, x, y) as usize;
+    let idx = level_utils::xy_idx(level, x, y) as usize;
     match level.tiles.get(idx) {
         Some(tile) => *tile == TileType::Wall && level.revealed_tiles[idx],
         None => false,

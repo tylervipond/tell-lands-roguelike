@@ -7,5 +7,5 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct DungeonLevel {
-  pub level: i32,
+  pub level: u8,
 }

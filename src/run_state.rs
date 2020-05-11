@@ -6,13 +6,34 @@ pub enum RunState {
   PreRun,
   PlayerTurn,
   MonsterTurn,
-  ShowTargeting { range: i32, item: Entity },
-  InventoryMenu { highlighted: usize, page: usize },
-  DropItemMenu { highlighted: usize, page: usize },
-  MainMenu { highlighted: usize },
-  ExitGameMenu { highlighted: usize },
+  ShowTargeting {
+    range: i32,
+    item: Entity,
+  },
+  ShowTargetingOpenContainer,
+  OpenContainerMenu {
+    highlighted: usize,
+    page: usize,
+    container: Entity,
+  },
+  InventoryMenu {
+    highlighted: usize,
+    page: usize,
+  },
+  DropItemMenu {
+    highlighted: usize,
+    page: usize,
+  },
+  MainMenu {
+    highlighted: usize,
+  },
+  ExitGameMenu {
+    highlighted: usize,
+  },
   #[cfg(debug_assertions)]
-  DebugMenu { highlighted: usize },
+  DebugMenu {
+    highlighted: usize,
+  },
   DeathScreen,
   IntroScreen,
   FailureScreen,

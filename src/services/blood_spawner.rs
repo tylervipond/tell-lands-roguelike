@@ -6,7 +6,7 @@ pub struct BloodSpawnerRequest {
     pub fg: RGB,
     pub bg: RGB,
     pub glyph: u16,
-    pub level: i32,
+    pub level: u8,
 }
 
 pub struct BloodSpawner {
@@ -20,7 +20,7 @@ impl BloodSpawner {
         }
     }
 
-    pub fn request(&mut self, x: i32, y: i32, fg: RGB, bg: RGB, glyph: u16, level: i32) {
+    pub fn request(&mut self, x: i32, y: i32, fg: RGB, bg: RGB, glyph: u16, level: u8) {
         self.requests.push(BloodSpawnerRequest {
             x,
             y,

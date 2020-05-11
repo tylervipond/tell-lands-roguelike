@@ -7,7 +7,7 @@ pub struct ParticleEffectSpawnerRequest {
     pub bg: RGB,
     pub glyph: u16,
     pub lifetime: f32,
-    pub level: i32,
+    pub level: u8,
 }
 
 pub struct ParticleEffectSpawner {
@@ -29,7 +29,7 @@ impl ParticleEffectSpawner {
         bg: RGB,
         glyph: u16,
         lifetime: f32,
-        level: i32,
+        level: u8,
     ) {
         self.requests.push(ParticleEffectSpawnerRequest {
             x,
@@ -42,7 +42,7 @@ impl ParticleEffectSpawner {
         })
     }
 
-    pub fn request_attack_particle(&mut self, x: i32, y: i32, level: i32) {
+    pub fn request_attack_particle(&mut self, x: i32, y: i32, level: u8) {
         self.request(
             x,
             y,

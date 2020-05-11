@@ -25,6 +25,7 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::E => MapAction::MoveUpRight,
       VirtualKeyCode::Z => MapAction::MoveDownLeft,
       VirtualKeyCode::C => MapAction::MoveDownRight,
+      VirtualKeyCode::V => MapAction::SearchContainer,
       VirtualKeyCode::S => MapAction::StayStill,
       VirtualKeyCode::G => MapAction::OpenDoor,
       VirtualKeyCode::F => MapAction::PickupItem,
