@@ -1,16 +1,14 @@
 use super::ui::ui_hud::UIHud;
-use super::ui::ui_map::{RenderData, UIMap};
+use super::ui::ui_map::UIMap;
 use super::ui::ui_mouse_pos::UIMousePos;
-use crate::components::{
-    combat_stats::CombatStats, dungeon_level::DungeonLevel, hidden::Hidden, position::Position,
-    renderable::Renderable,
-};
-use crate::dungeon::{dungeon::Dungeon, level_utils};
+use super::utils::get_render_data;
+use crate::components::{combat_stats::CombatStats, dungeon_level::DungeonLevel};
+use crate::dungeon::dungeon::Dungeon;
 use crate::ranged;
 use crate::services::GameLog;
 use crate::ui_components::ui_text_line::UITextLine;
 use rltk::{Point, Rltk, BLACK, BLUE, CYAN, RGB, YELLOW};
-use specs::{Entity, Join, World, WorldExt};
+use specs::{Entity, World, WorldExt};
 
 pub struct ScreenMapTargeting<'a> {
     range: i32,
@@ -30,29 +28,13 @@ impl<'a> ScreenMapTargeting<'a> {
         let combat_stats = world.read_storage::<CombatStats>();
         let player_stats = combat_stats.get(*player_ent).unwrap();
 
-        let positions = world.read_storage::<Position>();
-        let hidden = world.read_storage::<Hidden>();
         let (mouse_x, mouse_y) = ctx.mouse_pos();
-        let renderables = world.read_storage::<Renderable>();
         let dungeon = world.fetch::<Dungeon>();
         let level = dungeon.levels.get(&player_level.level).unwrap();
-        let renderables = (&positions, &renderables, &levels, !&hidden)
-            .join()
-            .filter(|(p, _r, l, _h)| {
-                let idx = level_utils::xy_idx(&level, p.x, p.y) as usize;
-                return l.level == player_level.level && level.visible_tiles[idx];
-            })
-            .map(|(p, r, _l, _h)| RenderData {
-                x: p.x,
-                y: p.y,
-                fg: r.fg,
-                bg: r.bg,
-                glyph: r.glyph,
-                layer: r.layer,
-            })
-            .collect::<Vec<RenderData>>();
+        let render_data = get_render_data(world);
+
         ctx.cls();
-        UIMap::new(level, &renderables).draw(ctx);
+        UIMap::new(level, &render_data).draw(ctx);
         UIHud::new(
             player_level.level,
             player_stats.hp,
