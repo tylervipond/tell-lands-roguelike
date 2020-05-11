@@ -19,6 +19,11 @@ pub fn get_x_random_elements<T>(
     .collect()
 }
 
+pub fn get_random_element<'a, T>(rng: &mut RandomNumberGenerator, elements: &'a Vec<T>) -> &'a T {
+  let idx = rng.range(0, elements.len() as i32);
+  elements.get(idx as usize).unwrap()
+}
+
 pub fn get_current_level_from_world(world: &World) -> u8 {
   let player_ent = world.fetch::<Entity>();
   let dungeon_level = world.read_storage::<DungeonLevel>();
