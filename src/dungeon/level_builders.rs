@@ -152,17 +152,32 @@ fn add_doors_to_rooms(level: &mut Level) {
     }
 }
 
+fn make_rect_square(rect: &mut Rect) {
+    let size_height = rect.y2 - rect.y1;
+    let size_width = rect.x2 - rect.x1;
+    let smallest_side = i32::min(size_width, size_height);
+    rect.x1 = rect.x1 + (size_width - smallest_side) / 2;
+    rect.x2 = rect.x1 + smallest_side;
+    rect.y1 = rect.y1 + (size_height - smallest_side) / 2;
+    rect.y2 = rect.y1 + smallest_side;
+}
+
 pub fn build(depth: u8) -> Level {
     let mut level = Level::new(depth);
     let mut rng = RandomNumberGenerator::new();
     let mut rects = generate_rects_for_level(level.width as i32, level.height as i32, &mut rng);
     let room_count = rng.range(2, rects.len() as i32);
-    let room_rects = get_x_random_elements(&mut rng, room_count as u32, &mut rects);
+    let mut room_rects = get_x_random_elements(&mut rng, room_count as u32, &mut rects);
 
-    room_rects.iter().for_each(|r| match rng.range(0, 6) {
-        1 => add_circular_room(&mut level, r),
-        _ => add_rectangular_room(&mut level, r),
-    });
+    room_rects
+        .iter_mut()
+        .for_each(|r| match rng.range(0, 6) {
+            1 => {
+                make_rect_square(r);
+                add_circular_room(&mut level, r)
+            }
+            _ => add_rectangular_room(&mut level, r),
+        });
     level.rooms = room_rects.iter().map(|r| Room::new(*r)).collect();
 
     add_nearest_neighbor_corridors(&mut level, &mut rng);
