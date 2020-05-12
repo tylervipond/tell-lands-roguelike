@@ -35,13 +35,7 @@ fn generate_rects_for_level(
             rects.push(Rect::new(rect.x1, y, rect.x2 - rect.x1, rect.y2 - y));
         }
     }
-    let room_count = rng.range(2, rects.len() as i32);
-    (0..room_count)
-        .map(|_| {
-            let idx = rng.range(0, rects.len() as i32);
-            rects.remove(idx as usize)
-        })
-        .collect()
+    rects
 }
 
 fn add_rectangular_room(level: &mut Level, room: &Rect) {
