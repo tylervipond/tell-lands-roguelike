@@ -10,7 +10,7 @@ use crate::dungeon::{
   level_utils,
   tile_type::TileType,
 };
-use crate::map_action::MapAction;
+use crate::user_actions::MapAction;
 use crate::services::game_log::GameLog;
 use crate::utils;
 use rltk::Point;

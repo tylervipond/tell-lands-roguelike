@@ -8,19 +8,8 @@ extern crate specs_derive;
 extern crate serde;
 mod artwork;
 mod components;
-mod credits_screen_action;
-mod death_screen_action;
-#[cfg(debug_assertions)]
-mod debug_menu_action;
 mod dungeon;
-mod exit_game_menu_action;
-mod failure_screen_action;
-mod input;
-mod intro_screen_action;
 mod inventory;
-mod inventory_action;
-mod main_menu_action;
-mod map_action;
 mod menu_option;
 mod persistence;
 mod player;
@@ -29,10 +18,9 @@ mod run_state;
 mod screens;
 mod services;
 mod spawner;
-mod success_screen_action;
 mod systems;
-mod targeting_action;
 mod ui_components;
+mod user_actions;
 mod utils;
 use components::{
     area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, causes_fire::CausesFire,
@@ -48,25 +36,8 @@ use components::{
     wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
     wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
 };
-use credits_screen_action::CreditsScreenAction;
-use death_screen_action::DeathScreenAction;
-#[cfg(debug_assertions)]
-use debug_menu_action::DebugMenuAction;
+
 use dungeon::{dungeon::Dungeon, level_builders, level_utils};
-use exit_game_menu_action::ExitGameMenuAction;
-use failure_screen_action::FailureScreenAction;
-#[cfg(debug_assertions)]
-use input::map_input_to_debug_menu_action;
-use input::{
-    map_input_to_credits_screen_action, map_input_to_death_screen_action,
-    map_input_to_exit_game_action, map_input_to_failure_screen_action,
-    map_input_to_intro_screen_action, map_input_to_inventory_action, map_input_to_main_menu_action,
-    map_input_to_map_action, map_input_to_success_screen_action, map_input_to_targeting_action,
-};
-use intro_screen_action::IntroScreenAction;
-use inventory_action::InventoryAction;
-use main_menu_action::MainMenuAction;
-use map_action::MapAction;
 use menu_option::{MenuOption, MenuOptionState};
 use player::player_action;
 use run_state::RunState;
@@ -85,7 +56,6 @@ use screens::{
 use services::{
     blood_spawner::BloodSpawner, game_log::GameLog, particle_effect_spawner::ParticleEffectSpawner,
 };
-use success_screen_action::SuccessScreenAction;
 use systems::{
     blood_spawn_system::BloodSpawnSystem, damage_system::DamageSystem,
     fire_burn_system::FireBurnSystem, fire_die_system::FireDieSystem,
@@ -99,7 +69,11 @@ use systems::{
     update_particle_effects_system::UpdateParticleEffectsSystem, use_item_system::UseItemSystem,
     visibility_system::VisibilitySystem,
 };
-use targeting_action::TargetingAction;
+use user_actions::{
+    map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
+    map_input_to_static_action, map_input_to_targeting_action, MapAction, MenuAction, StaticAction,
+    TargetingAction,
+};
 
 fn player_can_leave_dungeon(world: &mut World) -> bool {
     let player_level = utils::get_current_level_from_world(world);
@@ -349,6 +323,7 @@ impl GameState for State {
                             RunState::AwaitingInput
                         }
                     },
+                    MapAction::ShowActionMenu => RunState::ActionMenu { highlighted: 0 },
                     #[cfg(debug_assertions)]
                     MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
                     MapAction::SearchContainer => RunState::ShowTargetingOpenContainer,
@@ -405,27 +380,27 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.ecs);
-                let action = map_input_to_inventory_action(ctx, highlighted);
+                let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    InventoryAction::NoAction => RunState::InventoryMenu { highlighted, page },
-                    InventoryAction::Exit => RunState::AwaitingInput,
-                    InventoryAction::MoveHighlightDown => RunState::InventoryMenu {
+                    MenuAction::NoAction => RunState::InventoryMenu { highlighted, page },
+                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::MoveHighlightNext => RunState::InventoryMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                         page,
                     },
-                    InventoryAction::MoveHighlightUp => RunState::InventoryMenu {
+                    MenuAction::MoveHighlightPrev => RunState::InventoryMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                         page,
                     },
-                    InventoryAction::NextPage => RunState::InventoryMenu {
+                    MenuAction::NextPage => RunState::InventoryMenu {
                         highlighted,
                         page: select_next_menu_page(page, total_pages),
                     },
-                    InventoryAction::PreviousPage => RunState::InventoryMenu {
+                    MenuAction::PreviousPage => RunState::InventoryMenu {
                         highlighted,
                         page: select_prev_menu_page(page),
                     },
-                    InventoryAction::Select { option } => {
+                    MenuAction::Select { option } => {
                         match inventory_entities.get(page * items_per_page + option) {
                             Some(ent) => {
                                 let ranged = self.ecs.read_storage::<Ranged>();
@@ -481,27 +456,27 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.ecs);
-                let action = map_input_to_inventory_action(ctx, highlighted);
+                let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    InventoryAction::NoAction => RunState::DropItemMenu { highlighted, page },
-                    InventoryAction::Exit => RunState::AwaitingInput,
-                    InventoryAction::MoveHighlightDown => RunState::DropItemMenu {
+                    MenuAction::NoAction => RunState::DropItemMenu { highlighted, page },
+                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::MoveHighlightNext => RunState::DropItemMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                         page,
                     },
-                    InventoryAction::MoveHighlightUp => RunState::DropItemMenu {
+                    MenuAction::MoveHighlightPrev => RunState::DropItemMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                         page,
                     },
-                    InventoryAction::NextPage => RunState::DropItemMenu {
+                    MenuAction::NextPage => RunState::DropItemMenu {
                         highlighted,
                         page: select_next_menu_page(page, total_pages),
                     },
-                    InventoryAction::PreviousPage => RunState::DropItemMenu {
+                    MenuAction::PreviousPage => RunState::DropItemMenu {
                         highlighted,
                         page: select_prev_menu_page(page),
                     },
-                    InventoryAction::Select { option } => {
+                    MenuAction::Select { option } => {
                         match inventory_entities.get(page * items_per_page + option) {
                             Some(ent) => {
                                 let mut intent = self.ecs.write_storage::<WantsToDropItem>();
@@ -532,17 +507,16 @@ impl GameState for State {
                     .collect();
                 ScreenMapMenu::new(&menu, "Exit Dungeon?", "Escape to Cancel")
                     .draw(ctx, &mut self.ecs);
-                let action = map_input_to_exit_game_action(ctx, highlighted);
+                let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    ExitGameMenuAction::Exit => RunState::AwaitingInput,
-                    ExitGameMenuAction::NoAction => RunState::ExitGameMenu { highlighted },
-                    ExitGameMenuAction::MoveHighlightDown => RunState::ExitGameMenu {
+                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::MoveHighlightNext => RunState::ExitGameMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                     },
-                    ExitGameMenuAction::MoveHighlightUp => RunState::ExitGameMenu {
+                    MenuAction::MoveHighlightPrev => RunState::ExitGameMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                     },
-                    ExitGameMenuAction::Select { option } => match option {
+                    MenuAction::Select { option } => match option {
                         0 => {
                             persistence::delete_save();
                             match has_objective_in_backpack(&self.ecs) {
@@ -552,6 +526,7 @@ impl GameState for State {
                         }
                         _ => RunState::AwaitingInput,
                     },
+                    _ => RunState::ExitGameMenu { highlighted },
                 }
             }
             RunState::ShowTargeting { range, item } => {
@@ -637,35 +612,35 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.ecs);
-                let action = map_input_to_inventory_action(ctx, highlighted);
+                let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    InventoryAction::NoAction => RunState::OpenContainerMenu {
+                    MenuAction::NoAction => RunState::OpenContainerMenu {
                         highlighted,
                         page,
                         container,
                     },
-                    InventoryAction::Exit => RunState::AwaitingInput,
-                    InventoryAction::MoveHighlightDown => RunState::OpenContainerMenu {
+                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::MoveHighlightNext => RunState::OpenContainerMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                         page,
                         container,
                     },
-                    InventoryAction::MoveHighlightUp => RunState::OpenContainerMenu {
+                    MenuAction::MoveHighlightPrev => RunState::OpenContainerMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                         page,
                         container,
                     },
-                    InventoryAction::NextPage => RunState::OpenContainerMenu {
+                    MenuAction::NextPage => RunState::OpenContainerMenu {
                         highlighted,
                         page: select_next_menu_page(page, total_pages),
                         container,
                     },
-                    InventoryAction::PreviousPage => RunState::OpenContainerMenu {
+                    MenuAction::PreviousPage => RunState::OpenContainerMenu {
                         highlighted,
                         page: select_prev_menu_page(page),
                         container,
                     },
-                    InventoryAction::Select { option } => {
+                    MenuAction::Select { option } => {
                         match inventory_entities.get(page * items_per_page + option) {
                             Some(ent) => {
                                 let mut intent = self.ecs.write_storage::<WantsToPickUpItem>();
@@ -690,45 +665,85 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::ActionMenu { highlighted } => {
+                let menu: Vec<MenuOption> = vec!["Use Item", "Drop Item", "Open Container"]
+                    .iter()
+                    .enumerate()
+                    .map(|(index, text)| {
+                        let state = match highlighted == index {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        };
+                        MenuOption::new(text, state)
+                    })
+                    .collect();
+
+                ScreenMapMenu::new(&menu, "Choose an action", "Escape to Cancel")
+                    .draw(ctx, &mut self.ecs);
+                let action = map_input_to_menu_action(ctx, highlighted);
+                match action {
+                    MenuAction::MoveHighlightNext => RunState::ActionMenu {
+                        highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                    },
+                    MenuAction::MoveHighlightPrev => RunState::ActionMenu {
+                        highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                    },
+                    MenuAction::NoAction => RunState::ActionMenu { highlighted },
+                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Select { option } => match option {
+                        0 => RunState::InventoryMenu {
+                            highlighted: 0,
+                            page: 0,
+                        },
+                        1 => RunState::DropItemMenu {
+                            highlighted: 0,
+                            page: 0,
+                        },
+                        2 => RunState::ShowTargetingOpenContainer,
+                        _ => RunState::ActionMenu { highlighted },
+                    },
+                    _ => RunState::ActionMenu { highlighted },
+                }
+            }
             RunState::IntroScreen => {
                 ScreenIntro::new().draw(ctx);
-                let action = map_input_to_intro_screen_action(ctx);
+                let action = map_input_to_static_action(ctx);
                 match action {
-                    IntroScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
-                    IntroScreenAction::Continue => RunState::PreRun,
-                    IntroScreenAction::NoAction => RunState::IntroScreen,
+                    StaticAction::Exit => RunState::MainMenu { highlighted: 0 },
+                    StaticAction::Continue => RunState::PreRun,
+                    StaticAction::NoAction => RunState::IntroScreen,
                 }
             }
             RunState::DeathScreen => {
                 ScreenDeath::new().draw(ctx);
-                let action = map_input_to_death_screen_action(ctx);
+                let action = map_input_to_static_action(ctx);
                 match action {
-                    DeathScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
-                    DeathScreenAction::NoAction => RunState::DeathScreen,
+                    StaticAction::NoAction => RunState::DeathScreen,
+                    _ => RunState::MainMenu { highlighted: 0 },
                 }
             }
             RunState::SuccessScreen => {
                 ScreenSuccess::new().draw(ctx);
-                let action = map_input_to_success_screen_action(ctx);
+                let action = map_input_to_static_action(ctx);
                 match action {
-                    SuccessScreenAction::Exit => RunState::CreditsScreen,
-                    SuccessScreenAction::NoAction => RunState::SuccessScreen,
+                    StaticAction::NoAction => RunState::SuccessScreen,
+                    _ => RunState::CreditsScreen,
                 }
             }
             RunState::FailureScreen => {
                 ScreenFailure::new().draw(ctx);
-                let action = map_input_to_failure_screen_action(ctx);
+                let action = map_input_to_static_action(ctx);
                 match action {
-                    FailureScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
-                    FailureScreenAction::NoAction => RunState::FailureScreen,
+                    StaticAction::NoAction => RunState::FailureScreen,
+                    _ => RunState::MainMenu { highlighted: 0 },
                 }
             }
             RunState::CreditsScreen => {
                 ScreenCredits::new().draw(ctx);
-                let action = map_input_to_credits_screen_action(ctx);
+                let action = map_input_to_static_action(ctx);
                 match action {
-                    CreditsScreenAction::Exit => RunState::MainMenu { highlighted: 0 },
-                    CreditsScreenAction::NoAction => RunState::CreditsScreen,
+                    StaticAction::NoAction => RunState::CreditsScreen,
+                    _ => RunState::MainMenu { highlighted: 0 },
                 }
             }
             RunState::MainMenu { highlighted } => {
@@ -768,17 +783,16 @@ impl GameState for State {
                 };
 
                 ScreenMainMenu::new(&menu).draw(ctx);
-                let action = map_input_to_main_menu_action(ctx, highlighted);
+                let action = map_input_to_horizontal_menu_action(ctx, highlighted);
                 match action {
-                    MainMenuAction::Exit => RunState::MainMenu { highlighted },
-                    MainMenuAction::NoAction => RunState::MainMenu { highlighted },
-                    MainMenuAction::MoveHighlightNext => RunState::MainMenu {
+                    MenuAction::Exit => RunState::MainMenu { highlighted },
+                    MenuAction::MoveHighlightNext => RunState::MainMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                     },
-                    MainMenuAction::MoveHighlightPrevious => RunState::MainMenu {
+                    MenuAction::MoveHighlightPrev => RunState::MainMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                     },
-                    MainMenuAction::Select { option } => match option {
+                    MenuAction::Select { option } => match option {
                         0 => {
                             initialize_new_game(&mut self.ecs);
                             RunState::IntroScreen
@@ -792,6 +806,7 @@ impl GameState for State {
                         3 => std::process::exit(0),
                         _ => RunState::MainMenu { highlighted },
                     },
+                    _ => RunState::MainMenu { highlighted },
                 }
             }
             #[cfg(debug_assertions)]
@@ -815,17 +830,16 @@ impl GameState for State {
                 .to_vec();
                 ScreenMapMenu::new(&menu, "Debug Menu", "Escape to Cancel")
                     .draw(ctx, &mut self.ecs);
-                let action = map_input_to_debug_menu_action(ctx, highlighted);
+                let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    DebugMenuAction::Exit => RunState::DebugMenu { highlighted },
-                    DebugMenuAction::NoAction => RunState::DebugMenu { highlighted },
-                    DebugMenuAction::MoveHighlightDown => RunState::DebugMenu {
+                    MenuAction::Exit => RunState::DebugMenu { highlighted },
+                    MenuAction::MoveHighlightNext => RunState::DebugMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
                     },
-                    DebugMenuAction::MoveHighlightUp => RunState::DebugMenu {
+                    MenuAction::MoveHighlightPrev => RunState::DebugMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
                     },
-                    DebugMenuAction::Select { option } => match option {
+                    MenuAction::Select { option } => match option {
                         0 => {
                             kill_all_monsters(&mut self.ecs);
                             self.ecs
@@ -844,6 +858,7 @@ impl GameState for State {
                         }
                         _ => RunState::DebugMenu { highlighted },
                     },
+                    _ => RunState::DebugMenu { highlighted },
                 }
             }
         };

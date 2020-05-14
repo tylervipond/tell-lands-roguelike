@@ -30,6 +30,9 @@ pub enum RunState {
   ExitGameMenu {
     highlighted: usize,
   },
+  ActionMenu {
+    highlighted: usize,
+  },
   #[cfg(debug_assertions)]
   DebugMenu {
     highlighted: usize,
