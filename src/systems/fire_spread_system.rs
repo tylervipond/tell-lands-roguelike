@@ -1,7 +1,4 @@
-use crate::components::{
-    combat_stats::CombatStats, dungeon_level::DungeonLevel, flammable::Flammable, on_fire::OnFire,
-    position::Position, suffer_damage::SufferDamage,
-};
+use crate::components::{CombatStats, DungeonLevel, Flammable, OnFire, Position, SufferDamage};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::RandomNumberGenerator;
 use specs::{

@@ -1,10 +1,7 @@
+use crate::components::{DungeonLevel, Player, Position, Viewshed};
+use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::Point;
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
-
-use crate::components::{
-  dungeon_level::DungeonLevel, player::Player, position::Position, viewshed::Viewshed,
-};
-use crate::dungeon::{dungeon::Dungeon, level_utils};
 
 /**
  * Currently enemy AI won't take any actions if the player is not visible, so

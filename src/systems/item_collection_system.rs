@@ -1,7 +1,4 @@
-use crate::components::{
-  contained::Contained, in_backpack::InBackpack, name::Name, position::Position,
-  wants_to_pick_up_item::WantsToPickUpItem,
-};
+use crate::components::{Contained, InBackpack, Name, Position, WantsToPickUpItem};
 use crate::services::GameLog;
 use specs::{Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 

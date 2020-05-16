@@ -1,5 +1,4 @@
-use crate::components::particle_lifetime::ParticleLifetime;
-
+use crate::components::ParticleLifetime;
 use specs::{Entities, Join, System, ReadStorage};
 
 pub struct RemoveParticleEffectsSystem {}

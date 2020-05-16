@@ -1,7 +1,5 @@
-use crate::components::{
-    blood::Blood, dungeon_level::DungeonLevel, position::Position, renderable::Renderable,
-};
-use crate::services::blood_spawner::BloodSpawner;
+use crate::components::{Blood, DungeonLevel, Position, Renderable};
+use crate::services::BloodSpawner;
 use specs::{Entities, System, WriteExpect, WriteStorage};
 
 pub struct BloodSpawnSystem {}

@@ -4,17 +4,12 @@
 // It might be good in the future to look into making a custom impl for SerializeComponents
 // to replace the custom macros
 use crate::components::{
-  area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, causes_fire::CausesFire,
-  combat_stats::CombatStats, confusion::Confusion, consumable::Consumable, contained::Contained,
-  container::Container, dungeon_level::DungeonLevel, entity_moved::EntityMoved,
-  entry_trigger::EntryTrigger, flammable::Flammable, hidden::Hidden, in_backpack::InBackpack,
-  inflicts_damage::InflictsDamage, item::Item, monster::Monster, name::Name, objective::Objective,
-  on_fire::OnFire, particle_lifetime::ParticleLifetime, player::Player, position::Position,
-  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
-  serialization_helper::SerializationHelper, single_activation::SingleActivation,
-  suffer_damage::SufferDamage, triggered::Triggered, viewshed::Viewshed,
-  wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
-  wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
+  AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confusion, Consumable, Contained,
+  Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Hidden, InBackpack,
+  InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
+  ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
+  SufferDamage, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
+  WantsToSearchHidden, WantsToUse,
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -137,6 +132,7 @@ fn save_game_with_writer<T: Write>(ecs: &mut World, writer: T) -> serde_json::Se
       Flammable,
       OnFire,
       CausesFire,
+      WantsToSearchHidden,
       SerializationHelper
     );
   }
@@ -191,6 +187,7 @@ fn deserialize_from_string(ecs: &mut World, game_string: String) {
     Flammable,
     OnFire,
     CausesFire,
+    WantsToSearchHidden,
     SerializationHelper
   );
 }

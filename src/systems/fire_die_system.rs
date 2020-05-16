@@ -1,4 +1,4 @@
-use crate::components::flammable::Flammable;
+use crate::components::Flammable;
 use specs::{Entities, Join, ReadStorage, System};
 
 pub struct FireDieSystem {}

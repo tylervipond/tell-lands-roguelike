@@ -1,7 +1,4 @@
-use crate::components::{
-  combat_stats::CombatStats, dungeon_level::DungeonLevel, name::Name, player::Player,
-  position::Position, suffer_damage::SufferDamage,
-};
+use crate::components::{CombatStats, DungeonLevel, Name, Player, Position, SufferDamage};
 use crate::services::{BloodSpawner, GameLog};
 use rltk::RGB;
 use specs::{

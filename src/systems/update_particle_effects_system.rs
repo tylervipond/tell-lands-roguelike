@@ -1,6 +1,5 @@
-use crate::components::particle_lifetime::ParticleLifetime;
-
-use specs::{Join, System, Entities, WriteStorage};
+use crate::components::ParticleLifetime;
+use specs::{Entities, Join, System, WriteStorage};
 
 pub struct UpdateParticleEffectsSystem {
     pub elapsed_time: f32,

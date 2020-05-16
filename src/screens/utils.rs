@@ -22,12 +22,16 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
         &renderables,
         &levels,
         (&on_fire).maybe(),
-        !&hidden,
+        (&hidden).maybe(),
     )
         .join()
-        .filter(|(p, _r, l, _f, _h)| {
+        .filter(|(p, _r, l, _f, h)| {
             let idx = level_utils::xy_idx(&level, p.x, p.y) as usize;
-            return l.level == player_level.level && level.visible_tiles[idx];
+            let is_visible = match h {
+                Some(h) => h.found_by.contains(&*player_ent),
+                None => true,
+            };
+            return l.level == player_level.level && level.visible_tiles[idx] && is_visible;
         })
         .map(|(p, r, _l, f, _h)| {
             let (fg, bg) = match f {

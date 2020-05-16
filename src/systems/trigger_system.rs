@@ -1,7 +1,6 @@
 use crate::components::{
-    dungeon_level::DungeonLevel, entity_moved::EntityMoved, entry_trigger::EntryTrigger,
-    hidden::Hidden, inflicts_damage::InflictsDamage, name::Name, position::Position,
-    suffer_damage::SufferDamage, triggered::Triggered,
+    DungeonLevel, EntityMoved, EntryTrigger, Hidden, InflictsDamage, Name, Position, SufferDamage,
+    Triggered,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};

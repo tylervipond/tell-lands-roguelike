@@ -1,7 +1,6 @@
 use crate::components::{
-  combat_stats::CombatStats, dungeon_level::DungeonLevel, entity_moved::EntityMoved, item::Item,
-  player::Player, position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
-  wants_to_pick_up_item::WantsToPickUpItem,
+  CombatStats, DungeonLevel, EntityMoved, Item, Player, Position, Viewshed, WantsToMelee,
+  WantsToPickUpItem, WantsToSearchHidden,
 };
 use crate::dungeon::{
   constants::{MAP_HEIGHT, MAP_WIDTH},
@@ -10,8 +9,8 @@ use crate::dungeon::{
   level_utils,
   tile_type::TileType,
 };
-use crate::user_actions::MapAction;
 use crate::services::game_log::GameLog;
+use crate::user_actions::MapAction;
 use crate::utils;
 use rltk::Point;
 use specs::{Entity, Join, World, WorldExt};
@@ -215,6 +214,14 @@ fn try_go_up_stairs(ecs: &mut World) {
   }
 }
 
+fn search_hidden(ecs: &mut World) {
+  let player_entity = ecs.fetch::<Entity>();
+  let mut wants_to_search_hidden = ecs.write_storage::<WantsToSearchHidden>();
+  wants_to_search_hidden
+    .insert(*player_entity, WantsToSearchHidden {})
+    .expect("could not insert wants to search hidden for player");
+}
+
 pub fn player_action(ecs: &mut World, action: MapAction) {
   match action {
     MapAction::MoveLeft => try_move_player(-1, 0, ecs),
@@ -229,6 +236,7 @@ pub fn player_action(ecs: &mut World, action: MapAction) {
     MapAction::PickupItem => try_pickup_item(ecs),
     MapAction::GoDownStairs => try_go_down_stairs(ecs),
     MapAction::GoUpStairs => try_go_up_stairs(ecs),
+    MapAction::SearchHidden => search_hidden(ecs),
     _ => {}
   }
 }
