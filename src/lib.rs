@@ -28,7 +28,7 @@ use components::{
     Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Hidden, InBackpack,
     InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
     Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
-    SufferDamage, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
+    SufferDamage, Trap, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
     WantsToSearchHidden, WantsToUse,
 };
 
@@ -183,6 +183,7 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<OnFire>().clear();
     world.write_storage::<CausesFire>().clear();
     world.write_storage::<WantsToSearchHidden>().clear();
+    world.write_storage::<Trap>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = generate_dungeon(world, 10);
@@ -911,6 +912,7 @@ pub fn start() {
     gs.world.register::<OnFire>();
     gs.world.register::<CausesFire>();
     gs.world.register::<WantsToSearchHidden>();
+    gs.world.register::<Trap>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
