@@ -1,7 +1,4 @@
-use crate::components::{
-  dungeon_level::DungeonLevel, in_backpack::InBackpack, name::Name, position::Position,
-  wants_to_drop_item::WantsToDropItem,
-};
+use crate::components::{DungeonLevel, InBackpack, Name, Position, WantsToDropItem};
 use crate::services::GameLog;
 use specs::{Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 

@@ -1,9 +1,6 @@
 use crate::components::{
-  area_of_effect::AreaOfEffect, causes_fire::CausesFire, combat_stats::CombatStats,
-  confused::Confused, confusion::Confusion, consumable::Consumable, dungeon_level::DungeonLevel,
-  flammable::Flammable, inflicts_damage::InflictsDamage, name::Name, on_fire::OnFire,
-  position::Position, provides_healing::ProvidesHealing, suffer_damage::SufferDamage,
-  wants_to_use::WantsToUse,
+  AreaOfEffect, CausesFire, CombatStats, Confused, Confusion, Consumable, DungeonLevel, Flammable,
+  InflictsDamage, Name, OnFire, Position, ProvidesHealing, SufferDamage, WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};
@@ -110,7 +107,9 @@ impl<'a> System<'a> for UseItemSystem {
         let dungeon_level = dungeon_levels.get(target).unwrap();
         if let Some(_) = burns {
           if let Some(_) = flammables.get(target) {
-            on_fire.insert(target, OnFire {}).expect("couldn't light target on fire");
+            on_fire
+              .insert(target, OnFire {})
+              .expect("couldn't light target on fire");
           }
         }
         if let Some(heals) = heals {

@@ -1,13 +1,10 @@
 use crate::components::{
-  area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, causes_fire::CausesFire,
-  combat_stats::CombatStats, confusion::Confusion, consumable::Consumable, contained::Contained,
-  container::Container, dungeon_level::DungeonLevel, entry_trigger::EntryTrigger,
-  flammable::Flammable, hidden::Hidden, inflicts_damage::InflictsDamage, item::Item,
-  monster::Monster, name::Name, objective::Objective, player::Player, position::Position,
-  provides_healing::ProvidesHealing, ranged::Ranged, renderable::Renderable, saveable::Saveable,
-  single_activation::SingleActivation, viewshed::Viewshed,
+  AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
+  DungeonLevel, EntryTrigger, Flammable, Hidden, InflictsDamage, Item, Monster, Name, Objective,
+  Player, Position, ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Viewshed,
 };
 use crate::dungeon::{level::Level, level_utils, rect::Rect, room::Room, room_type::RoomType};
+use crate::entity_set::EntitySet;
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
 use specs::{
   saveload::{MarkedBuilder, SimpleMarker},
@@ -27,7 +24,7 @@ pub fn path_is_blocked(path_idx: (i32, i32, i32), level: &Level) -> bool {
   {
     return true;
   }
-  return false;
+  false
 }
 
 pub fn tile_can_be_blocked(idx: i32, level: &Level) -> bool {
@@ -46,7 +43,7 @@ pub fn tile_can_be_blocked(idx: i32, level: &Level) -> bool {
     }
   }
 
-  return true;
+  true
 }
 
 fn create_marked_entity_with_position<'a>(
@@ -285,7 +282,9 @@ pub fn spawn_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
       bg: RGB::named(rltk::BLACK),
       layer: 2,
     })
-    .with(Hidden {})
+    .with(Hidden {
+      found_by: EntitySet::new(),
+    })
     .with(EntryTrigger {})
     .with(InflictsDamage { amount: 6 })
     .with(SingleActivation {})

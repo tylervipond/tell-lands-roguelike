@@ -1,4 +1,4 @@
-use crate::components::{single_activation::SingleActivation, triggered::Triggered};
+use crate::components::{SingleActivation, Triggered};
 use specs::{Entities, Join, ReadStorage, System};
 
 pub struct RemoveTriggeredTrapsSystem {}

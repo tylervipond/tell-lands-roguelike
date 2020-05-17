@@ -1,5 +1,5 @@
-use crate::components::{flammable::Flammable, on_fire::OnFire};
-use specs::{ReadStorage, System, WriteStorage, Join};
+use crate::components::{Flammable, OnFire};
+use specs::{Join, ReadStorage, System, WriteStorage};
 
 pub struct FireBurnSystem {}
 

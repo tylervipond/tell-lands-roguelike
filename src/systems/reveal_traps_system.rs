@@ -1,6 +1,4 @@
-use crate::components::{
-    dungeon_level::DungeonLevel, hidden::Hidden, name::Name, viewshed::Viewshed,
-};
+use crate::components::{DungeonLevel, Hidden, Name, Viewshed};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
 use rltk::RandomNumberGenerator;
@@ -40,12 +38,12 @@ impl<'a> System<'a> for RevealTrapsSystem {
             .map(|p| level_utils::entities_at_xy(&level, p.x, p.y))
             .flatten()
             .for_each(|e| {
-                if let Some(_hidden) = hidden.get(e) {
+                if let Some(this_hidden) = hidden.get_mut(e) {
                     if rng.roll_dice(1, 24) == 1 {
                         if let Some(name) = names.get(e) {
                             log.add(format!("You spotted a {}.", name.name));
                         }
-                        hidden.remove(e);
+                        this_hidden.found_by.insert(*player_ent);
                     }
                 }
             })

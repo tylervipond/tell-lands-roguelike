@@ -16,6 +16,7 @@ pub enum MapAction {
   ShowInventoryMenu,
   ShowDropMenu,
   ShowActionMenu,
+  SearchHidden,
   #[cfg(debug_assertions)]
   ShowDebugMenu,
   NoAction,
@@ -45,6 +46,7 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::I => MapAction::ShowInventoryMenu,
       VirtualKeyCode::R => MapAction::ShowDropMenu,
       VirtualKeyCode::Tab => MapAction::ShowActionMenu,
+      VirtualKeyCode::H => MapAction::SearchHidden,
       #[cfg(debug_assertions)]
       VirtualKeyCode::Key8 => MapAction::ShowDebugMenu,
       VirtualKeyCode::Period => MapAction::GoDownStairs,

@@ -1,5 +1,12 @@
+use crate::entity_set::EntitySet;
 use serde::{Deserialize, Serialize};
-use specs::{Component, DenseVecStorage};
+use specs::{
+    error::NoError,
+    saveload::{ConvertSaveload, Marker},
+    Component, DenseVecStorage, Entity,
+};
 
-#[derive(Component, Serialize, Deserialize, Clone, Debug)]
-pub struct Hidden {}
+#[derive(Component, ConvertSaveload, Clone, Debug)]
+pub struct Hidden {
+    pub found_by: EntitySet<Entity>,
+}

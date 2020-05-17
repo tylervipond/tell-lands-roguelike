@@ -1,6 +1,5 @@
 use crate::components::{
-  confused::Confused, dungeon_level::DungeonLevel, entity_moved::EntityMoved, monster::Monster,
-  position::Position, viewshed::Viewshed, wants_to_melee::WantsToMelee,
+  Confused, DungeonLevel, EntityMoved, Monster, Position, Viewshed, WantsToMelee,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::{a_star_search, DistanceAlg::Pythagoras, Point};

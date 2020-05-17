@@ -9,6 +9,7 @@ extern crate serde;
 mod artwork;
 mod components;
 mod dungeon;
+mod entity_set;
 mod inventory;
 mod menu_option;
 mod persistence;
@@ -23,18 +24,12 @@ mod ui_components;
 mod user_actions;
 mod utils;
 use components::{
-    area_of_effect::AreaOfEffect, blocks_tile::BlocksTile, blood::Blood, causes_fire::CausesFire,
-    combat_stats::CombatStats, confused::Confused, confusion::Confusion, consumable::Consumable,
-    contained::Contained, container::Container, dungeon_level::DungeonLevel,
-    entity_moved::EntityMoved, entry_trigger::EntryTrigger, flammable::Flammable, hidden::Hidden,
-    in_backpack::InBackpack, inflicts_damage::InflictsDamage, item::Item, monster::Monster,
-    name::Name, objective::Objective, on_fire::OnFire, particle_lifetime::ParticleLifetime,
-    player::Player, position::Position, potion::Potion, provides_healing::ProvidesHealing,
-    ranged::Ranged, renderable::Renderable, saveable::Saveable,
-    serialization_helper::SerializationHelper, single_activation::SingleActivation,
-    suffer_damage::SufferDamage, triggered::Triggered, viewshed::Viewshed,
-    wants_to_drop_item::WantsToDropItem, wants_to_melee::WantsToMelee,
-    wants_to_pick_up_item::WantsToPickUpItem, wants_to_use::WantsToUse,
+    AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
+    Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Hidden, InBackpack,
+    InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
+    Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
+    SufferDamage, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
+    WantsToSearchHidden, WantsToUse,
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils};
@@ -57,17 +52,11 @@ use services::{
     blood_spawner::BloodSpawner, game_log::GameLog, particle_effect_spawner::ParticleEffectSpawner,
 };
 use systems::{
-    blood_spawn_system::BloodSpawnSystem, damage_system::DamageSystem,
-    fire_burn_system::FireBurnSystem, fire_die_system::FireDieSystem,
-    fire_spread_system::FireSpreadSystem, item_collection_system::ItemCollectionSystem,
-    item_drop_system::ItemDropSystem, map_indexing_system::MapIndexingSystem,
-    melee_combat_system::MeleeCombatSystem, monster_ai_system::MonsterAI,
-    particle_spawn_system::ParticleSpawnSystem,
-    remove_particle_effects_system::RemoveParticleEffectsSystem,
-    remove_triggered_traps_system::RemoveTriggeredTrapsSystem,
-    reveal_traps_system::RevealTrapsSystem, trigger_system::TriggerSystem,
-    update_particle_effects_system::UpdateParticleEffectsSystem, use_item_system::UseItemSystem,
-    visibility_system::VisibilitySystem,
+    BloodSpawnSystem, DamageSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem,
+    ItemCollectionSystem, ItemDropSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI,
+    ParticleSpawnSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
+    RevealTrapsSystem, SearchForHiddenSystem, TriggerSystem, UpdateParticleEffectsSystem,
+    UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -153,66 +142,67 @@ fn generate_dungeon(world: &mut World, levels: u8) -> Dungeon {
     Dungeon { levels }
 }
 
-fn initialize_new_game(ecs: &mut World) {
-    ecs.write_storage::<Position>().clear();
-    ecs.write_storage::<Renderable>().clear();
-    ecs.write_storage::<Player>().clear();
-    ecs.write_storage::<Viewshed>().clear();
-    ecs.write_storage::<Monster>().clear();
-    ecs.write_storage::<Name>().clear();
-    ecs.write_storage::<BlocksTile>().clear();
-    ecs.write_storage::<WantsToMelee>().clear();
-    ecs.write_storage::<SufferDamage>().clear();
-    ecs.write_storage::<CombatStats>().clear();
-    ecs.write_storage::<Item>().clear();
-    ecs.write_storage::<Potion>().clear();
-    ecs.write_storage::<InBackpack>().clear();
-    ecs.write_storage::<WantsToPickUpItem>().clear();
-    ecs.write_storage::<WantsToUse>().clear();
-    ecs.write_storage::<WantsToDropItem>().clear();
-    ecs.write_storage::<ProvidesHealing>().clear();
-    ecs.write_storage::<Consumable>().clear();
-    ecs.write_storage::<Ranged>().clear();
-    ecs.write_storage::<InflictsDamage>().clear();
-    ecs.write_storage::<AreaOfEffect>().clear();
-    ecs.write_storage::<Confusion>().clear();
-    ecs.write_storage::<Confused>().clear();
-    ecs.write_storage::<SimpleMarker<Saveable>>().clear();
-    ecs.write_storage::<SerializationHelper>().clear();
-    ecs.write_storage::<DungeonLevel>().clear();
-    ecs.write_storage::<Blood>().clear();
-    ecs.write_storage::<ParticleLifetime>().clear();
-    ecs.write_storage::<Hidden>().clear();
-    ecs.write_storage::<EntryTrigger>().clear();
-    ecs.write_storage::<EntityMoved>().clear();
-    ecs.write_storage::<SingleActivation>().clear();
-    ecs.write_storage::<Triggered>().clear();
-    ecs.write_storage::<Objective>().clear();
-    ecs.write_storage::<Contained>().clear();
-    ecs.write_storage::<Container>().clear();
-    ecs.write_storage::<Flammable>().clear();
-    ecs.write_storage::<OnFire>().clear();
-    ecs.write_storage::<CausesFire>().clear();
-    ecs.remove::<SimpleMarkerAllocator<Saveable>>();
-    ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
-    let mut dungeon = generate_dungeon(ecs, 10);
+fn initialize_new_game(world: &mut World) {
+    world.write_storage::<Position>().clear();
+    world.write_storage::<Renderable>().clear();
+    world.write_storage::<Player>().clear();
+    world.write_storage::<Viewshed>().clear();
+    world.write_storage::<Monster>().clear();
+    world.write_storage::<Name>().clear();
+    world.write_storage::<BlocksTile>().clear();
+    world.write_storage::<WantsToMelee>().clear();
+    world.write_storage::<SufferDamage>().clear();
+    world.write_storage::<CombatStats>().clear();
+    world.write_storage::<Item>().clear();
+    world.write_storage::<Potion>().clear();
+    world.write_storage::<InBackpack>().clear();
+    world.write_storage::<WantsToPickUpItem>().clear();
+    world.write_storage::<WantsToUse>().clear();
+    world.write_storage::<WantsToDropItem>().clear();
+    world.write_storage::<ProvidesHealing>().clear();
+    world.write_storage::<Consumable>().clear();
+    world.write_storage::<Ranged>().clear();
+    world.write_storage::<InflictsDamage>().clear();
+    world.write_storage::<AreaOfEffect>().clear();
+    world.write_storage::<Confusion>().clear();
+    world.write_storage::<Confused>().clear();
+    world.write_storage::<SimpleMarker<Saveable>>().clear();
+    world.write_storage::<SerializationHelper>().clear();
+    world.write_storage::<DungeonLevel>().clear();
+    world.write_storage::<Blood>().clear();
+    world.write_storage::<ParticleLifetime>().clear();
+    world.write_storage::<Hidden>().clear();
+    world.write_storage::<EntryTrigger>().clear();
+    world.write_storage::<EntityMoved>().clear();
+    world.write_storage::<SingleActivation>().clear();
+    world.write_storage::<Triggered>().clear();
+    world.write_storage::<Objective>().clear();
+    world.write_storage::<Contained>().clear();
+    world.write_storage::<Container>().clear();
+    world.write_storage::<Flammable>().clear();
+    world.write_storage::<OnFire>().clear();
+    world.write_storage::<CausesFire>().clear();
+    world.write_storage::<WantsToSearchHidden>().clear();
+    world.remove::<SimpleMarkerAllocator<Saveable>>();
+    world.insert(SimpleMarkerAllocator::<Saveable>::new());
+    let mut dungeon = generate_dungeon(world, 10);
     let level = dungeon.get_level(9).unwrap();
     let (player_x, player_y) = level.rooms[0].rect.center();
-    ecs.remove::<Point>();
-    ecs.insert(Point::new(player_x, player_y));
-    ecs.remove::<Entity>();
-    let player_entity = spawner::spawn_player(ecs, player_x as i32, player_y as i32, 9);
-    ecs.insert(player_entity);
-    let rng = ecs.get_mut::<RandomNumberGenerator>().unwrap();
+    world.remove::<Point>();
+    world.insert(Point::new(player_x, player_y));
+    world.remove::<Entity>();
+    let player_entity = spawner::spawn_player(world, player_x as i32, player_y as i32, 9);
+    world.insert(player_entity);
+    let rng = world.get_mut::<RandomNumberGenerator>().unwrap();
     let objective_floor = utils::get_random_between_numbers(rng, 1, 9) as u8;
     let level = dungeon.get_level(objective_floor).unwrap();
     let room_idx = utils::get_random_between_numbers(rng, 0, (level.rooms.len() - 1) as i32);
     let room = level.rooms.get(room_idx as usize).unwrap();
-    spawner::spawn_objective_for_room(ecs, &room.rect, &level);
-    ecs.remove::<Dungeon>();
-    ecs.insert(dungeon);
-    ecs.remove::<GameLog>();
-    ecs.insert(GameLog {
+    spawner::spawn_objective_for_room(world, &room.rect, &level);
+    world.remove::<Dungeon>();
+    world.insert(dungeon);
+    world.remove::<GameLog>();
+    world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
     });
 }
@@ -232,7 +222,7 @@ fn select_prev_menu_page(page: usize) -> usize {
 }
 
 pub struct State {
-    ecs: World,
+    world: World,
     run_state: RunState,
 }
 
@@ -241,48 +231,52 @@ impl State {
         let mut update_particles = UpdateParticleEffectsSystem {
             elapsed_time: ctx.frame_time_ms,
         };
-        update_particles.run_now(&self.ecs);
+        update_particles.run_now(&self.world);
         let mut remove_particles = RemoveParticleEffectsSystem {};
-        remove_particles.run_now(&self.ecs);
+        remove_particles.run_now(&self.world);
         let mut vis = VisibilitySystem {};
-        vis.run_now(&self.ecs);
+        vis.run_now(&self.world);
         if self.run_state == RunState::MonsterTurn {
             let mut mob = MonsterAI {};
-            mob.run_now(&self.ecs);
+            mob.run_now(&self.world);
         }
         let mut mapindex = MapIndexingSystem {};
-        mapindex.run_now(&self.ecs);
+        mapindex.run_now(&self.world);
         let mut melee_combat = MeleeCombatSystem {};
-        melee_combat.run_now(&self.ecs);
+        melee_combat.run_now(&self.world);
         let mut triggers = TriggerSystem {};
-        triggers.run_now(&self.ecs);
+        triggers.run_now(&self.world);
         if self.run_state == RunState::MonsterTurn {
             let mut fire_burn_system = FireBurnSystem {};
-            fire_burn_system.run_now(&self.ecs);
+            fire_burn_system.run_now(&self.world);
             let mut fire_spread_system = FireSpreadSystem {};
-            fire_spread_system.run_now(&self.ecs);
+            fire_spread_system.run_now(&self.world);
             let mut fire_die_system = FireDieSystem {};
-            fire_die_system.run_now(&self.ecs);
+            fire_die_system.run_now(&self.world);
         }
         let mut damage = DamageSystem {};
-        damage.run_now(&self.ecs);
+        damage.run_now(&self.world);
         let mut pickup = ItemCollectionSystem {};
-        pickup.run_now(&self.ecs);
+        pickup.run_now(&self.world);
         let mut to_use = UseItemSystem {};
-        to_use.run_now(&self.ecs);
+        to_use.run_now(&self.world);
         let mut drop = ItemDropSystem {};
-        drop.run_now(&self.ecs);
+        drop.run_now(&self.world);
         let mut remove_triggered_single_activation_traps_system = RemoveTriggeredTrapsSystem {};
-        remove_triggered_single_activation_traps_system.run_now(&self.ecs);
+        remove_triggered_single_activation_traps_system.run_now(&self.world);
         if self.run_state == RunState::PlayerTurn {
             let mut reveal_traps = RevealTrapsSystem {};
-            reveal_traps.run_now(&self.ecs);
+            reveal_traps.run_now(&self.world);
+        }
+        if self.run_state == RunState::PlayerTurn || self.run_state == RunState::MonsterTurn {
+            let mut search_for_hidden_system = SearchForHiddenSystem {};
+            search_for_hidden_system.run_now(&self.world);
         }
         let mut blood_spawn_system = BloodSpawnSystem {};
-        blood_spawn_system.run_now(&self.ecs);
+        blood_spawn_system.run_now(&self.world);
         let mut particle_spawn_system = ParticleSpawnSystem {};
-        particle_spawn_system.run_now(&self.ecs);
-        self.ecs.maintain();
+        particle_spawn_system.run_now(&self.world);
+        self.world.maintain();
     }
 }
 
@@ -290,18 +284,18 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         self.run_state = match self.run_state {
             RunState::PreRun => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
+                ScreenMapGeneric::new().draw(ctx, &mut self.world);
                 self.run_systems(ctx);
-                DamageSystem::delete_the_dead(&mut self.ecs);
+                DamageSystem::delete_the_dead(&mut self.world);
                 RunState::AwaitingInput
             }
             RunState::AwaitingInput => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
+                ScreenMapGeneric::new().draw(ctx, &mut self.world);
                 self.run_systems(ctx);
                 let action = map_input_to_map_action(ctx);
                 match action {
                     MapAction::Exit => {
-                        persistence::save_game(&mut self.ecs);
+                        persistence::save_game(&mut self.world);
                         RunState::MainMenu { highlighted: 0 }
                     }
                     MapAction::NoAction => RunState::AwaitingInput,
@@ -313,10 +307,10 @@ impl GameState for State {
                         highlighted: 0,
                         page: 0,
                     },
-                    MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.ecs) {
+                    MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.world) {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
-                            let mut log = self.ecs.fetch_mut::<GameLog>();
+                            let mut log = self.world.fetch_mut::<GameLog>();
                             log.add(
                                 "You must first locate the exit to leave the dungeon".to_string(),
                             );
@@ -328,23 +322,23 @@ impl GameState for State {
                     MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
                     MapAction::SearchContainer => RunState::ShowTargetingOpenContainer,
                     _ => {
-                        player_action(&mut self.ecs, action);
+                        player_action(&mut self.world, action);
                         RunState::PlayerTurn
                     }
                 }
             }
             RunState::PlayerTurn => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
+                ScreenMapGeneric::new().draw(ctx, &mut self.world);
                 self.run_systems(ctx);
-                DamageSystem::delete_the_dead(&mut self.ecs);
+                DamageSystem::delete_the_dead(&mut self.world);
                 RunState::MonsterTurn
             }
             RunState::MonsterTurn => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.ecs);
+                ScreenMapGeneric::new().draw(ctx, &mut self.world);
                 self.run_systems(ctx);
-                DamageSystem::delete_the_dead(&mut self.ecs);
-                let combat_stats = self.ecs.read_storage::<CombatStats>();
-                let player_ent = self.ecs.fetch::<Entity>();
+                DamageSystem::delete_the_dead(&mut self.world);
+                let combat_stats = self.world.read_storage::<CombatStats>();
+                let player_ent = self.world.fetch::<Entity>();
                 let player_stats = combat_stats.get(*player_ent).unwrap();
                 match player_stats.hp < 1 {
                     true => {
@@ -355,7 +349,7 @@ impl GameState for State {
                 }
             }
             RunState::InventoryMenu { highlighted, page } => {
-                let inventory = inventory::get_player_inventory_list(&mut self.ecs);
+                let inventory = inventory::get_player_inventory_list(&mut self.world);
                 let item_count = inventory.len();
                 let items_per_page: usize = 10;
                 let total_pages = item_count / items_per_page;
@@ -379,7 +373,7 @@ impl GameState for State {
                     &format!("Use Item  < {}/{} >", page + 1, total_pages + 1),
                     "Escape to Cancel",
                 )
-                .draw(ctx, &mut self.ecs);
+                .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
                     MenuAction::NoAction => RunState::InventoryMenu { highlighted, page },
@@ -403,7 +397,7 @@ impl GameState for State {
                     MenuAction::Select { option } => {
                         match inventory_entities.get(page * items_per_page + option) {
                             Some(ent) => {
-                                let ranged = self.ecs.read_storage::<Ranged>();
+                                let ranged = self.world.read_storage::<Ranged>();
                                 let is_ranged = ranged.get(*ent);
                                 match is_ranged {
                                     Some(ranged_props) => RunState::ShowTargeting {
@@ -411,10 +405,10 @@ impl GameState for State {
                                         item: *ent,
                                     },
                                     None => {
-                                        let mut intent = self.ecs.write_storage::<WantsToUse>();
+                                        let mut intent = self.world.write_storage::<WantsToUse>();
                                         intent
                                             .insert(
-                                                *self.ecs.fetch::<Entity>(),
+                                                *self.world.fetch::<Entity>(),
                                                 WantsToUse {
                                                     item: *ent,
                                                     target: None,
@@ -431,7 +425,7 @@ impl GameState for State {
                 }
             }
             RunState::DropItemMenu { highlighted, page } => {
-                let inventory = inventory::get_player_inventory_list(&mut self.ecs);
+                let inventory = inventory::get_player_inventory_list(&mut self.world);
                 let item_count = inventory.len();
                 let items_per_page: usize = 10;
                 let total_pages = item_count / items_per_page;
@@ -455,7 +449,7 @@ impl GameState for State {
                     &format!("Drop Item  < {}/{} >", page + 1, total_pages + 1),
                     "Escape to Cancel",
                 )
-                .draw(ctx, &mut self.ecs);
+                .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
                     MenuAction::NoAction => RunState::DropItemMenu { highlighted, page },
@@ -479,10 +473,10 @@ impl GameState for State {
                     MenuAction::Select { option } => {
                         match inventory_entities.get(page * items_per_page + option) {
                             Some(ent) => {
-                                let mut intent = self.ecs.write_storage::<WantsToDropItem>();
+                                let mut intent = self.world.write_storage::<WantsToDropItem>();
                                 intent
                                     .insert(
-                                        *self.ecs.fetch::<Entity>(),
+                                        *self.world.fetch::<Entity>(),
                                         WantsToDropItem { item: *ent },
                                     )
                                     .expect("Unable To Insert Drop Item Intent");
@@ -506,7 +500,7 @@ impl GameState for State {
                     })
                     .collect();
                 ScreenMapMenu::new(&menu, "Exit Dungeon?", "Escape to Cancel")
-                    .draw(ctx, &mut self.ecs);
+                    .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
                     MenuAction::Exit => RunState::AwaitingInput,
@@ -519,7 +513,7 @@ impl GameState for State {
                     MenuAction::Select { option } => match option {
                         0 => {
                             persistence::delete_save();
-                            match has_objective_in_backpack(&self.ecs) {
+                            match has_objective_in_backpack(&self.world) {
                                 true => RunState::SuccessScreen,
                                 false => RunState::FailureScreen,
                             }
@@ -530,19 +524,19 @@ impl GameState for State {
                 }
             }
             RunState::ShowTargeting { range, item } => {
-                let visible_tiles = ranged::get_visible_tiles_in_range(&self.ecs, range);
+                let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, range);
                 let target = ranged::get_target(ctx, &visible_tiles);
                 ScreenMapTargeting::new(range, target, Some("Select Target".to_string()))
-                    .draw(ctx, &mut self.ecs);
+                    .draw(ctx, &mut self.world);
                 let action = map_input_to_targeting_action(ctx, target);
                 match action {
                     TargetingAction::NoAction => RunState::ShowTargeting { range, item },
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let mut intent = self.ecs.write_storage::<WantsToUse>();
+                        let mut intent = self.world.write_storage::<WantsToUse>();
                         intent
                             .insert(
-                                *self.ecs.fetch::<Entity>(),
+                                *self.world.fetch::<Entity>(),
                                 WantsToUse {
                                     item,
                                     target: Some(target),
@@ -554,17 +548,17 @@ impl GameState for State {
                 }
             }
             RunState::ShowTargetingOpenContainer => {
-                let visible_tiles = ranged::get_visible_tiles_in_range(&self.ecs, 1);
+                let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
                 let target = ranged::get_target(ctx, &visible_tiles);
                 ScreenMapTargeting::new(1, target, Some("Select Container to Open".to_string()))
-                    .draw(ctx, &mut self.ecs);
+                    .draw(ctx, &mut self.world);
                 let action = map_input_to_targeting_action(ctx, target);
                 match action {
                     TargetingAction::NoAction => RunState::ShowTargetingOpenContainer,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
                         let container_entity =
-                            get_container_entity_at_point(&mut self.ecs, &target);
+                            get_container_entity_at_point(&mut self.world, &target);
                         match container_entity {
                             Some(e) => RunState::OpenContainerMenu {
                                 page: 0,
@@ -572,7 +566,7 @@ impl GameState for State {
                                 container: e,
                             },
                             None => {
-                                let mut game_log = self.ecs.fetch_mut::<GameLog>();
+                                let mut game_log = self.world.fetch_mut::<GameLog>();
                                 game_log.add(
                                     "There's no container to open at this location.".to_string(),
                                 );
@@ -587,7 +581,8 @@ impl GameState for State {
                 highlighted,
                 container,
             } => {
-                let inventory = inventory::get_container_inventory_list(&mut self.ecs, &container);
+                let inventory =
+                    inventory::get_container_inventory_list(&mut self.world, &container);
                 let item_count = inventory.len();
                 let items_per_page: usize = 10;
                 let total_pages = item_count / items_per_page;
@@ -611,7 +606,7 @@ impl GameState for State {
                     &format!("Take Item  < {}/{} >", page + 1, total_pages + 1),
                     "Escape to Cancel",
                 )
-                .draw(ctx, &mut self.ecs);
+                .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
                     MenuAction::NoAction => RunState::OpenContainerMenu {
@@ -643,11 +638,11 @@ impl GameState for State {
                     MenuAction::Select { option } => {
                         match inventory_entities.get(page * items_per_page + option) {
                             Some(ent) => {
-                                let mut intent = self.ecs.write_storage::<WantsToPickUpItem>();
-                                let collected_by = self.ecs.fetch::<Entity>();
+                                let mut intent = self.world.write_storage::<WantsToPickUpItem>();
+                                let collected_by = self.world.fetch::<Entity>();
                                 intent
                                     .insert(
-                                        *self.ecs.fetch::<Entity>(),
+                                        *self.world.fetch::<Entity>(),
                                         WantsToPickUpItem {
                                             item: *ent,
                                             collected_by: *collected_by,
@@ -666,20 +661,21 @@ impl GameState for State {
                 }
             }
             RunState::ActionMenu { highlighted } => {
-                let menu: Vec<MenuOption> = vec!["Use Item", "Drop Item", "Open Container"]
-                    .iter()
-                    .enumerate()
-                    .map(|(index, text)| {
-                        let state = match highlighted == index {
-                            true => MenuOptionState::Highlighted,
-                            false => MenuOptionState::Normal,
-                        };
-                        MenuOption::new(text, state)
-                    })
-                    .collect();
+                let menu: Vec<MenuOption> =
+                    vec!["Use Item", "Drop Item", "Open Container", "Search Area"]
+                        .iter()
+                        .enumerate()
+                        .map(|(index, text)| {
+                            let state = match highlighted == index {
+                                true => MenuOptionState::Highlighted,
+                                false => MenuOptionState::Normal,
+                            };
+                            MenuOption::new(text, state)
+                        })
+                        .collect();
 
                 ScreenMapMenu::new(&menu, "Choose an action", "Escape to Cancel")
-                    .draw(ctx, &mut self.ecs);
+                    .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
                     MenuAction::MoveHighlightNext => RunState::ActionMenu {
@@ -700,6 +696,10 @@ impl GameState for State {
                             page: 0,
                         },
                         2 => RunState::ShowTargetingOpenContainer,
+                        3 => {
+                            player_action(&mut self.world, MapAction::SearchHidden);
+                            RunState::PlayerTurn
+                        }
                         _ => RunState::ActionMenu { highlighted },
                     },
                     _ => RunState::ActionMenu { highlighted },
@@ -794,11 +794,11 @@ impl GameState for State {
                     },
                     MenuAction::Select { option } => match option {
                         0 => {
-                            initialize_new_game(&mut self.ecs);
+                            initialize_new_game(&mut self.world);
                             RunState::IntroScreen
                         }
                         1 => {
-                            persistence::load_game(&mut self.ecs);
+                            persistence::load_game(&mut self.world);
                             persistence::delete_save();
                             RunState::AwaitingInput
                         }
@@ -829,7 +829,7 @@ impl GameState for State {
                 ]
                 .to_vec();
                 ScreenMapMenu::new(&menu, "Debug Menu", "Escape to Cancel")
-                    .draw(ctx, &mut self.ecs);
+                    .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
                     MenuAction::Exit => RunState::DebugMenu { highlighted },
@@ -841,16 +841,16 @@ impl GameState for State {
                     },
                     MenuAction::Select { option } => match option {
                         0 => {
-                            kill_all_monsters(&mut self.ecs);
-                            self.ecs
+                            kill_all_monsters(&mut self.world);
+                            self.world
                                 .fetch_mut::<GameLog>()
                                 .entries
                                 .insert(0, "all monsters removed".to_owned());
                             RunState::AwaitingInput
                         }
                         1 => {
-                            reveal_map(&mut self.ecs);
-                            self.ecs
+                            reveal_map(&mut self.world);
+                            self.world
                                 .fetch_mut::<GameLog>()
                                 .entries
                                 .insert(0, "map revealed".to_owned());
@@ -868,56 +868,57 @@ impl GameState for State {
 #[wasm_bindgen]
 pub fn start() {
     let mut gs = State {
-        ecs: World::new(),
+        world: World::new(),
         run_state: RunState::MainMenu { highlighted: 0 },
     };
-    gs.ecs.register::<Position>();
-    gs.ecs.register::<Renderable>();
-    gs.ecs.register::<Player>();
-    gs.ecs.register::<Viewshed>();
-    gs.ecs.register::<Monster>();
-    gs.ecs.register::<Name>();
-    gs.ecs.register::<BlocksTile>();
-    gs.ecs.register::<WantsToMelee>();
-    gs.ecs.register::<SufferDamage>();
-    gs.ecs.register::<CombatStats>();
-    gs.ecs.register::<Item>();
-    gs.ecs.register::<Potion>();
-    gs.ecs.register::<InBackpack>();
-    gs.ecs.register::<WantsToPickUpItem>();
-    gs.ecs.register::<WantsToUse>();
-    gs.ecs.register::<WantsToDropItem>();
-    gs.ecs.register::<ProvidesHealing>();
-    gs.ecs.register::<Consumable>();
-    gs.ecs.register::<Ranged>();
-    gs.ecs.register::<InflictsDamage>();
-    gs.ecs.register::<AreaOfEffect>();
-    gs.ecs.register::<Confusion>();
-    gs.ecs.register::<Confused>();
-    gs.ecs.register::<SimpleMarker<Saveable>>();
-    gs.ecs.register::<SerializationHelper>();
-    gs.ecs.register::<DungeonLevel>();
-    gs.ecs.register::<Blood>();
-    gs.ecs.register::<ParticleLifetime>();
-    gs.ecs.register::<Hidden>();
-    gs.ecs.register::<EntryTrigger>();
-    gs.ecs.register::<EntityMoved>();
-    gs.ecs.register::<SingleActivation>();
-    gs.ecs.register::<Triggered>();
-    gs.ecs.register::<Objective>();
-    gs.ecs.register::<Contained>();
-    gs.ecs.register::<Container>();
-    gs.ecs.register::<Flammable>();
-    gs.ecs.register::<OnFire>();
-    gs.ecs.register::<CausesFire>();
-    gs.ecs.insert(SimpleMarkerAllocator::<Saveable>::new());
-    gs.ecs.insert(GameLog {
+    gs.world.register::<Position>();
+    gs.world.register::<Renderable>();
+    gs.world.register::<Player>();
+    gs.world.register::<Viewshed>();
+    gs.world.register::<Monster>();
+    gs.world.register::<Name>();
+    gs.world.register::<BlocksTile>();
+    gs.world.register::<WantsToMelee>();
+    gs.world.register::<SufferDamage>();
+    gs.world.register::<CombatStats>();
+    gs.world.register::<Item>();
+    gs.world.register::<Potion>();
+    gs.world.register::<InBackpack>();
+    gs.world.register::<WantsToPickUpItem>();
+    gs.world.register::<WantsToUse>();
+    gs.world.register::<WantsToDropItem>();
+    gs.world.register::<ProvidesHealing>();
+    gs.world.register::<Consumable>();
+    gs.world.register::<Ranged>();
+    gs.world.register::<InflictsDamage>();
+    gs.world.register::<AreaOfEffect>();
+    gs.world.register::<Confusion>();
+    gs.world.register::<Confused>();
+    gs.world.register::<SimpleMarker<Saveable>>();
+    gs.world.register::<SerializationHelper>();
+    gs.world.register::<DungeonLevel>();
+    gs.world.register::<Blood>();
+    gs.world.register::<ParticleLifetime>();
+    gs.world.register::<Hidden>();
+    gs.world.register::<EntryTrigger>();
+    gs.world.register::<EntityMoved>();
+    gs.world.register::<SingleActivation>();
+    gs.world.register::<Triggered>();
+    gs.world.register::<Objective>();
+    gs.world.register::<Contained>();
+    gs.world.register::<Container>();
+    gs.world.register::<Flammable>();
+    gs.world.register::<OnFire>();
+    gs.world.register::<CausesFire>();
+    gs.world.register::<WantsToSearchHidden>();
+    gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
+    gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
     }); // This needs to get moved to a continue game function I think...
     let rng = RandomNumberGenerator::new();
-    gs.ecs.insert(rng);
-    gs.ecs.insert(ParticleEffectSpawner::new());
-    gs.ecs.insert(BloodSpawner::new());
+    gs.world.insert(rng);
+    gs.world.insert(ParticleEffectSpawner::new());
+    gs.world.insert(BloodSpawner::new());
     let context = RltkBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT)
         .unwrap()
         .with_title("Apprentice")

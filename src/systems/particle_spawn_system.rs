@@ -1,7 +1,4 @@
-use crate::components::{
-    dungeon_level::DungeonLevel, particle_lifetime::ParticleLifetime, position::Position,
-    renderable::Renderable,
-};
+use crate::components::{DungeonLevel, ParticleLifetime, Position, Renderable};
 use crate::services::particle_effect_spawner::ParticleEffectSpawner;
 use specs::{Entities, System, WriteExpect, WriteStorage};
 

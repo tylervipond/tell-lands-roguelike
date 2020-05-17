@@ -1,4 +1,4 @@
-use crate::components::{blocks_tile::BlocksTile, dungeon_level::DungeonLevel, position::Position};
+use crate::components::{BlocksTile, DungeonLevel, Position};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect};
 
