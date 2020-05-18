@@ -1,6 +1,20 @@
+use super::constants::{SCREEN_PADDING, SCREEN_WIDTH};
 use crate::ui_components::ui_text_line_centered::UITextLineCentered;
 use rltk::{Rltk, BLACK, WHITE};
-use super::constants::{SCREEN_PADDING, SCREEN_WIDTH};
+
+const CREDIT_LINE_WIDTH: u32 = (SCREEN_WIDTH - SCREEN_PADDING * 2) as u32;
+
+fn create_credit_line(y: i32, text: &str) -> UITextLineCentered {
+    UITextLineCentered::new(
+        SCREEN_PADDING as i32,
+        y,
+        CREDIT_LINE_WIDTH,
+        WHITE,
+        BLACK,
+        text,
+    )
+}
+
 pub struct ScreenCredits {}
 
 impl ScreenCredits {
@@ -10,13 +24,12 @@ impl ScreenCredits {
 
     pub fn draw(&self, ctx: &mut Rltk) {
         ctx.cls();
-        let line_width = SCREEN_WIDTH - SCREEN_PADDING * 2;
-        UITextLineCentered::new(SCREEN_PADDING as i32, 5, line_width as u32, WHITE, BLACK, "Artwork By").draw(ctx);
-        UITextLineCentered::new(SCREEN_PADDING as i32, 6, line_width as u32, WHITE, BLACK, "Cameron Stott").draw(ctx);
-        UITextLineCentered::new(SCREEN_PADDING as i32, 8, line_width as u32, WHITE, BLACK, "Code By").draw(ctx);
-        UITextLineCentered::new(SCREEN_PADDING as i32, 9, line_width as u32, WHITE, BLACK, "Alex Eagleson").draw(ctx);
-        UITextLineCentered::new(SCREEN_PADDING as i32, 10, line_width as u32, WHITE, BLACK, "Tyler Vipond").draw(ctx);
-        UITextLineCentered::new(SCREEN_PADDING as i32, 12, line_width as u32, WHITE, BLACK, "Created By").draw(ctx);
-        UITextLineCentered::new(SCREEN_PADDING as i32, 13, line_width as u32, WHITE, BLACK, "Tyler Vipond").draw(ctx);
+        create_credit_line(5, "Artwork By").draw(ctx);
+        create_credit_line(6, "Cameron Stott").draw(ctx);
+        create_credit_line(8, "Code By").draw(ctx);
+        create_credit_line(9, "Alex Eagleson").draw(ctx);
+        create_credit_line(10, "Tyler Vipond").draw(ctx);
+        create_credit_line(12, "Created By").draw(ctx);
+        create_credit_line(13, "Tyler Vipond").draw(ctx);
     }
 }

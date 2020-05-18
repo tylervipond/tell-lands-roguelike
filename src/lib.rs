@@ -20,6 +20,7 @@ mod screens;
 mod services;
 mod spawner;
 mod systems;
+mod types;
 mod ui_components;
 mod user_actions;
 mod utils;
@@ -29,7 +30,7 @@ use components::{
     InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
     Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
     SufferDamage, Trap, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
-    WantsToSearchHidden, WantsToUse,
+    WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils};
@@ -37,26 +38,16 @@ use menu_option::{MenuOption, MenuOptionState};
 use player::player_action;
 use run_state::RunState;
 use screens::{
-    constants::{SCREEN_HEIGHT, SCREEN_WIDTH},
-    screen_credits::ScreenCredits,
-    screen_death::ScreenDeath,
-    screen_failure::ScreenFailure,
-    screen_intro::ScreenIntro,
-    screen_main_menu::ScreenMainMenu,
-    screen_map_generic::ScreenMapGeneric,
-    screen_map_menu::ScreenMapMenu,
-    screen_map_targeting::ScreenMapTargeting,
-    screen_success::ScreenSuccess,
+    ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenMainMenu, ScreenMapGeneric,
+    ScreenMapMenu, ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
 };
-use services::{
-    blood_spawner::BloodSpawner, game_log::GameLog, particle_effect_spawner::ParticleEffectSpawner,
-};
+use services::{BloodSpawner, GameLog, ParticleEffectSpawner, TrapSpawner};
 use systems::{
     BloodSpawnSystem, DamageSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem,
     ItemCollectionSystem, ItemDropSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI,
     ParticleSpawnSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
-    RevealTrapsSystem, SearchForHiddenSystem, TriggerSystem, UpdateParticleEffectsSystem,
-    UseItemSystem, VisibilitySystem,
+    RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
+    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -184,6 +175,7 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<CausesFire>().clear();
     world.write_storage::<WantsToSearchHidden>().clear();
     world.write_storage::<Trap>().clear();
+    world.write_storage::<WantsToTrap>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = generate_dungeon(world, 10);
@@ -272,11 +264,15 @@ impl State {
         if self.run_state == RunState::PlayerTurn || self.run_state == RunState::MonsterTurn {
             let mut search_for_hidden_system = SearchForHiddenSystem {};
             search_for_hidden_system.run_now(&self.world);
+            let mut set_trap_system = SetTrapSystem {};
+            set_trap_system.run_now(&self.world);
         }
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.world);
         let mut particle_spawn_system = ParticleSpawnSystem {};
         particle_spawn_system.run_now(&self.world);
+        let mut trap_spawn_system = TrapSpawnSystem {};
+        trap_spawn_system.run_now(&self.world);
         self.world.maintain();
     }
 }
@@ -398,24 +394,17 @@ impl GameState for State {
                     MenuAction::Select { option } => {
                         match inventory_entities.get(page * items_per_page + option) {
                             Some(ent) => {
-                                let ranged = self.world.read_storage::<Ranged>();
-                                let is_ranged = ranged.get(*ent);
+                                let is_ranged = {
+                                    let ranged = self.world.read_storage::<Ranged>();
+                                    match ranged.get(*ent) {
+                                        Some(ranged_props) => Some(ranged_props.range),
+                                        _ => None,
+                                    }
+                                };
                                 match is_ranged {
-                                    Some(ranged_props) => RunState::ShowTargeting {
-                                        range: ranged_props.range,
-                                        item: *ent,
-                                    },
+                                    Some(range) => RunState::ShowTargeting { range, item: *ent },
                                     None => {
-                                        let mut intent = self.world.write_storage::<WantsToUse>();
-                                        intent
-                                            .insert(
-                                                *self.world.fetch::<Entity>(),
-                                                WantsToUse {
-                                                    item: *ent,
-                                                    target: None,
-                                                },
-                                            )
-                                            .expect("Unable To Insert Use Item Intent");
+                                        player::use_item(&mut self.world, *ent, None);
                                         RunState::PlayerTurn
                                     }
                                 }
@@ -534,16 +523,7 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargeting { range, item },
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let mut intent = self.world.write_storage::<WantsToUse>();
-                        intent
-                            .insert(
-                                *self.world.fetch::<Entity>(),
-                                WantsToUse {
-                                    item,
-                                    target: Some(target),
-                                },
-                            )
-                            .expect("Unable To Insert Use Item Intent");
+                        player::use_item(&mut self.world, item, Some(target));
                         RunState::PlayerTurn
                     }
                 }
@@ -913,6 +893,7 @@ pub fn start() {
     gs.world.register::<CausesFire>();
     gs.world.register::<WantsToSearchHidden>();
     gs.world.register::<Trap>();
+    gs.world.register::<WantsToTrap>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
@@ -921,6 +902,7 @@ pub fn start() {
     gs.world.insert(rng);
     gs.world.insert(ParticleEffectSpawner::new());
     gs.world.insert(BloodSpawner::new());
+    gs.world.insert(TrapSpawner::new());
     let context = RltkBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT)
         .unwrap()
         .with_title("Apprentice")

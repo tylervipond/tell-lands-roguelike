@@ -40,12 +40,14 @@ impl<'a> System<'a> for RevealTrapsSystem {
             .for_each(|e| {
                 if let Some(this_hidden) = hidden.get_mut(e) {
                     if rng.roll_dice(1, 24) == 1 {
-                        if let Some(name) = names.get(e) {
-                            log.add(format!("You spotted a {}.", name.name));
+                        let inserted = this_hidden.found_by.insert(*player_ent);
+                        if inserted {
+                            if let Some(name) = names.get(e) {
+                                log.add(format!("You spotted a {}.", name.name));
+                            }
                         }
-                        this_hidden.found_by.insert(*player_ent);
                     }
                 }
-            })
+            });
     }
 }

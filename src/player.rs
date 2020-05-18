@@ -1,6 +1,6 @@
 use crate::components::{
-  CombatStats, DungeonLevel, EntityMoved, Item, Player, Position, Viewshed, WantsToMelee,
-  WantsToPickUpItem, WantsToSearchHidden,
+  CombatStats, DungeonLevel, EntityMoved, Item, Player, Position, Trap, Viewshed, WantsToMelee,
+  WantsToPickUpItem, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{
   constants::{MAP_HEIGHT, MAP_WIDTH},
@@ -220,6 +220,25 @@ fn search_hidden(ecs: &mut World) {
   wants_to_search_hidden
     .insert(*player_entity, WantsToSearchHidden {})
     .expect("could not insert wants to search hidden for player");
+}
+
+pub fn use_item(world: &mut World, item: Entity, target: Option<Point>) {
+  let player_entity = world.fetch::<Entity>();
+  let traps = world.read_storage::<Trap>();
+  match traps.get(item) {
+    Some(_) => {
+      let mut wants_to_trap = world.write_storage::<WantsToTrap>();
+      wants_to_trap
+        .insert(*player_entity, WantsToTrap { item, target })
+        .expect("Unable To Insert Trap Intent");
+    }
+    None => {
+      let mut wants_to_use = world.write_storage::<WantsToUse>();
+      wants_to_use
+        .insert(*player_entity, WantsToUse { item, target })
+        .expect("Unable To Insert Use Item Intent");
+    }
+  }
 }
 
 pub fn player_action(ecs: &mut World, action: MapAction) {

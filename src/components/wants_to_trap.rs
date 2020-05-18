@@ -7,7 +7,7 @@ use specs::{
 };
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
-pub struct WantsToUse {
+pub struct WantsToTrap {
     pub item: Entity,
     pub target: Option<Point>,
 }

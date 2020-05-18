@@ -9,7 +9,7 @@ use crate::components::{
   InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
   ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
   SufferDamage, Trap, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
-  WantsToSearchHidden, WantsToUse,
+  WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -134,6 +134,7 @@ fn save_game_with_writer<T: Write>(ecs: &mut World, writer: T) -> serde_json::Se
       CausesFire,
       WantsToSearchHidden,
       Trap,
+      WantsToTrap,
       SerializationHelper
     );
   }
@@ -190,6 +191,7 @@ fn deserialize_from_string(ecs: &mut World, game_string: String) {
     CausesFire,
     WantsToSearchHidden,
     Trap,
+    WantsToTrap,
     SerializationHelper
   );
 }

@@ -1,9 +1,6 @@
 use super::ui::ui_map_screen::UIMapScreen;
 use super::utils::get_render_data;
-use crate::components::{
-    combat_stats::CombatStats, dungeon_level::DungeonLevel, hidden::Hidden, name::Name,
-    position::Position,
-};
+use crate::components::{CombatStats, DungeonLevel, Hidden, Name, Position};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
 use rltk::Rltk;
@@ -35,18 +32,20 @@ impl ScreenMapGeneric {
             .get(level_utils::xy_idx(&level, mouse_x, mouse_y) as usize)
         {
             Some(visible) => match visible {
-                true => (&names, &positions, &levels, !&hidden).join().fold(
-                    Vec::new(),
-                    |mut acc, (name, position, level, _)| {
-                        if level.level == player_level.level
+                true => (&names, &positions, &levels, (&hidden).maybe())
+                    .join()
+                    .filter(|(_name, position, level, hidden)| {
+                        let visible_to_player = match hidden {
+                            Some(h) => h.found_by.contains(&*player_ent),
+                            None => false,
+                        };
+                        visible_to_player
+                            && level.level == player_level.level
                             && position.x == mouse_x
                             && position.y == mouse_y
-                        {
-                            acc.push(name.name.to_owned());
-                        }
-                        acc
-                    },
-                ),
+                    })
+                    .map(|(name, _position, _level, _hidden)| name.name.to_owned())
+                    .collect(),
                 false => Vec::new(),
             },
             None => Vec::new(),

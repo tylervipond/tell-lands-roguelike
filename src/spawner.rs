@@ -2,12 +2,13 @@ use crate::components::{
   AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
   DungeonLevel, EntryTrigger, Flammable, Hidden, InflictsDamage, Item, Monster, Name, Objective,
   Player, Position, ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap,
-  TrapType, Viewshed,
+  Viewshed,
 };
 use crate::dungeon::{
   level::Level, level_utils, rect::Rect, room::Room, room_type::RoomType, tile_type::TileType,
 };
 use crate::entity_set::EntitySet;
+use crate::types::{trap_type, TrapType};
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
 use specs::{
   saveload::{MarkedBuilder, SimpleMarker},
@@ -329,13 +330,16 @@ fn spawn_caltrops_in_container(world: &mut World, container_entity: Entity) -> E
   make_entity_caltrops(create_marked_entity_in_container(world, container_entity)).build()
 }
 
-fn spawn_set_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  create_marked_entity_with_position(ecs, idx, level)
+fn make_entity_set_trap<'a>(
+  builder: EntityBuilder<'a>,
+  type_of_trap: &TrapType,
+) -> EntityBuilder<'a> {
+  builder
     .with(Name {
-      name: "Armed Bear Trap".to_string(),
+      name: trap_type::get_name_for_trap(type_of_trap),
     })
     .with(Renderable {
-      glyph: to_cp437('^'),
+      glyph: trap_type::get_glyph_for_trap(type_of_trap),
       fg: RGB::named(rltk::RED),
       bg: RGB::named(rltk::BLACK),
       layer: 2,
@@ -344,28 +348,26 @@ fn spawn_set_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
       found_by: EntitySet::new(),
     })
     .with(EntryTrigger {})
-    .with(InflictsDamage { amount: 6 })
-    .with(SingleActivation {})
-    .build()
+    .with(InflictsDamage {
+      amount: trap_type::get_damage_for_trap(type_of_trap),
+    })
+}
+
+fn spawn_set_bear_trap(ecs: &mut World, idx: i32, level: &Level) -> Entity {
+  make_entity_set_trap(
+    create_marked_entity_with_position(ecs, idx, level),
+    &TrapType::BearTrap,
+  )
+  .with(SingleActivation {})
+  .build()
 }
 
 fn spawn_set_caltrops(ecs: &mut World, idx: i32, level: &Level) -> Entity {
-  create_marked_entity_with_position(ecs, idx, level)
-    .with(Name {
-      name: "Armed Caltrops".to_string(),
-    })
-    .with(Renderable {
-      glyph: to_cp437('%'),
-      fg: RGB::named(rltk::RED),
-      bg: RGB::named(rltk::BLACK),
-      layer: 2,
-    })
-    .with(Hidden {
-      found_by: EntitySet::new(),
-    })
-    .with(EntryTrigger {})
-    .with(InflictsDamage { amount: 4 })
-    .build()
+  make_entity_set_trap(
+    create_marked_entity_with_position(ecs, idx, level),
+    &TrapType::Caltrops,
+  )
+  .build()
 }
 
 fn spawn_monster_entities_for_room(ecs: &mut World, room: &Room, level: &mut Level) {
