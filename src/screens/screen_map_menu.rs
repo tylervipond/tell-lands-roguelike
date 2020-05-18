@@ -1,6 +1,6 @@
 use super::ui::{ui_hud::UIHud, ui_map::UIMap};
 use super::utils::get_render_data;
-use crate::components::{combat_stats::CombatStats, dungeon_level::DungeonLevel};
+use crate::components::{CombatStats, DungeonLevel};
 use crate::dungeon::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
     dungeon::Dungeon,

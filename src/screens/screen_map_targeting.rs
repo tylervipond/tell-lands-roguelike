@@ -2,7 +2,7 @@ use super::ui::ui_hud::UIHud;
 use super::ui::ui_map::UIMap;
 use super::ui::ui_mouse_pos::UIMousePos;
 use super::utils::get_render_data;
-use crate::components::{combat_stats::CombatStats, dungeon_level::DungeonLevel};
+use crate::components::{CombatStats, DungeonLevel};
 use crate::dungeon::dungeon::Dungeon;
 use crate::ranged;
 use crate::services::GameLog;
