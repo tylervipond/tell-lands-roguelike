@@ -29,8 +29,8 @@ use components::{
     Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Hidden, InBackpack,
     InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
     Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
-    SufferDamage, Trap, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
-    WantsToSearchHidden, WantsToTrap, WantsToUse,
+    SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDropItem,
+    WantsToMelee, WantsToPickUpItem, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils};
@@ -41,13 +41,13 @@ use screens::{
     ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenMainMenu, ScreenMapGeneric,
     ScreenMapMenu, ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
 };
-use services::{BloodSpawner, GameLog, ParticleEffectSpawner, TrapSpawner};
+use services::{BloodSpawner, GameLog, ItemSpawner, ParticleEffectSpawner, TrapSpawner};
 use systems::{
     BloodSpawnSystem, DamageSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem,
-    ItemCollectionSystem, ItemDropSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI,
-    ParticleSpawnSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
+    ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem, MapIndexingSystem, MeleeCombatSystem,
+    MonsterAI, ParticleSpawnSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
     RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
-    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
+    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem, DisarmTrapSystem
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -88,6 +88,22 @@ fn get_container_entity_at_point(world: &mut World, point: &Point) -> Option<Ent
         .iter()
         .filter(|e| match containers.get(**e) {
             Some(_) => true,
+            _ => false,
+        })
+        .map(|e| e.to_owned())
+        .next()
+}
+
+fn get_trap_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
+    let player_level = utils::get_current_level_from_world(world);
+    let mut dungeon = world.fetch_mut::<Dungeon>();
+    let level = dungeon.get_level(player_level).unwrap();
+    let entities = level_utils::entities_at_xy(level, point.x, point.y);
+    let traps = world.read_storage::<Trap>();
+    entities
+        .iter()
+        .filter(|e| match traps.get(**e) {
+            Some(trap) => trap.armed,
             _ => false,
         })
         .map(|e| e.to_owned())
@@ -176,6 +192,7 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<WantsToSearchHidden>().clear();
     world.write_storage::<Trap>().clear();
     world.write_storage::<WantsToTrap>().clear();
+    world.write_storage::<WantsToDisarmTrap>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let mut dungeon = generate_dungeon(world, 10);
@@ -266,6 +283,8 @@ impl State {
             search_for_hidden_system.run_now(&self.world);
             let mut set_trap_system = SetTrapSystem {};
             set_trap_system.run_now(&self.world);
+            let mut disarm_trap_system = DisarmTrapSystem {};
+            disarm_trap_system.run_now(&self.world);
         }
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.world);
@@ -273,6 +292,8 @@ impl State {
         particle_spawn_system.run_now(&self.world);
         let mut trap_spawn_system = TrapSpawnSystem {};
         trap_spawn_system.run_now(&self.world);
+        let mut item_spawn_system = ItemSpawnSystem {};
+        item_spawn_system.run_now(&self.world);
         self.world.maintain();
     }
 }
@@ -557,6 +578,29 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::ShowTargetingDisarmTrap => {
+                let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
+                let target = ranged::get_target(ctx, &visible_tiles);
+                ScreenMapTargeting::new(1, target, Some("Select Trap to Disarm".to_string()))
+                    .draw(ctx, &mut self.world);
+                let action = map_input_to_targeting_action(ctx, target);
+                match action {
+                    TargetingAction::NoAction => RunState::ShowTargetingDisarmTrap,
+                    TargetingAction::Exit => RunState::AwaitingInput,
+                    TargetingAction::Selected(target) => {
+                        let trap_entity = get_trap_entity_at_point(&mut self.world, &target);
+                        match trap_entity {
+                            Some(e) => player::disarm_trap(&mut self.world, e),
+                            None => {
+                                let mut game_log = self.world.fetch_mut::<GameLog>();
+                                game_log
+                                    .add("There are no armed traps at this location.".to_string());
+                            }
+                        }
+                        RunState::PlayerTurn
+                    }
+                }
+            }
             RunState::OpenContainerMenu {
                 page,
                 highlighted,
@@ -642,18 +686,23 @@ impl GameState for State {
                 }
             }
             RunState::ActionMenu { highlighted } => {
-                let menu: Vec<MenuOption> =
-                    vec!["Use Item", "Drop Item", "Open Container", "Search Area"]
-                        .iter()
-                        .enumerate()
-                        .map(|(index, text)| {
-                            let state = match highlighted == index {
-                                true => MenuOptionState::Highlighted,
-                                false => MenuOptionState::Normal,
-                            };
-                            MenuOption::new(text, state)
-                        })
-                        .collect();
+                let menu: Vec<MenuOption> = vec![
+                    "Use Item",
+                    "Drop Item",
+                    "Open Container",
+                    "Search Area",
+                    "Disarm Trap",
+                ]
+                .iter()
+                .enumerate()
+                .map(|(index, text)| {
+                    let state = match highlighted == index {
+                        true => MenuOptionState::Highlighted,
+                        false => MenuOptionState::Normal,
+                    };
+                    MenuOption::new(text, state)
+                })
+                .collect();
 
                 ScreenMapMenu::new(&menu, "Choose an action", "Escape to Cancel")
                     .draw(ctx, &mut self.world);
@@ -681,6 +730,7 @@ impl GameState for State {
                             player_action(&mut self.world, MapAction::SearchHidden);
                             RunState::PlayerTurn
                         }
+                        4 => RunState::ShowTargetingDisarmTrap,
                         _ => RunState::ActionMenu { highlighted },
                     },
                     _ => RunState::ActionMenu { highlighted },
@@ -894,6 +944,7 @@ pub fn start() {
     gs.world.register::<WantsToSearchHidden>();
     gs.world.register::<Trap>();
     gs.world.register::<WantsToTrap>();
+    gs.world.register::<WantsToDisarmTrap>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
@@ -903,6 +954,7 @@ pub fn start() {
     gs.world.insert(ParticleEffectSpawner::new());
     gs.world.insert(BloodSpawner::new());
     gs.world.insert(TrapSpawner::new());
+    gs.world.insert(ItemSpawner::new());
     let context = RltkBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT)
         .unwrap()
         .with_title("Apprentice")

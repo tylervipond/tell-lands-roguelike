@@ -8,8 +8,8 @@ use crate::components::{
   Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Hidden, InBackpack,
   InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
   ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
-  SufferDamage, Trap, Triggered, Viewshed, WantsToDropItem, WantsToMelee, WantsToPickUpItem,
-  WantsToSearchHidden, WantsToTrap, WantsToUse,
+  SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDropItem, WantsToMelee,
+  WantsToPickUpItem, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -135,6 +135,7 @@ fn save_game_with_writer<T: Write>(ecs: &mut World, writer: T) -> serde_json::Se
       WantsToSearchHidden,
       Trap,
       WantsToTrap,
+      WantsToDisarmTrap,
       SerializationHelper
     );
   }
@@ -192,6 +193,7 @@ fn deserialize_from_string(ecs: &mut World, game_string: String) {
     WantsToSearchHidden,
     Trap,
     WantsToTrap,
+    WantsToDisarmTrap,
     SerializationHelper
   );
 }

@@ -1,6 +1,9 @@
-use crate::components::{Blood, DungeonLevel, Position, Renderable};
+use crate::components::{Blood, DungeonLevel, Position, Renderable, Saveable};
 use crate::services::BloodSpawner;
-use specs::{Entities, System, WriteExpect, WriteStorage};
+use specs::{
+    saveload::{MarkerAllocator, SimpleMarker, SimpleMarkerAllocator},
+    Entities, System, WriteExpect, WriteStorage,
+};
 
 pub struct BloodSpawnSystem {}
 impl<'a> System<'a> for BloodSpawnSystem {
@@ -11,10 +14,21 @@ impl<'a> System<'a> for BloodSpawnSystem {
         WriteStorage<'a, Renderable>,
         WriteStorage<'a, Blood>,
         WriteExpect<'a, BloodSpawner>,
+        WriteExpect<'a, SimpleMarkerAllocator<Saveable>>,
+        WriteStorage<'a, SimpleMarker<Saveable>>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (entities, mut positions, mut levels, mut renderables, mut bloods, mut spawner) = data;
+        let (
+            entities,
+            mut positions,
+            mut levels,
+            mut renderables,
+            mut bloods,
+            mut spawner,
+            mut marker_allocator,
+            mut markers,
+        ) = data;
         for request in spawner.requests.iter() {
             let new_blood = entities.create();
             bloods
@@ -48,6 +62,7 @@ impl<'a> System<'a> for BloodSpawnSystem {
                     },
                 )
                 .expect("failed inserting level for blood");
+            marker_allocator.mark(new_blood, &mut markers);
         }
         spawner.requests.clear();
     }

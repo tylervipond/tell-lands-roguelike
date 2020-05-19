@@ -1,6 +1,6 @@
 use crate::components::{
-  CombatStats, DungeonLevel, EntityMoved, Item, Player, Position, Trap, Viewshed, WantsToMelee,
-  WantsToPickUpItem, WantsToSearchHidden, WantsToTrap, WantsToUse,
+  CombatStats, DungeonLevel, EntityMoved, Item, Player, Position, Trap, Viewshed,
+  WantsToDisarmTrap, WantsToMelee, WantsToPickUpItem, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{
   constants::{MAP_HEIGHT, MAP_WIDTH},
@@ -239,6 +239,14 @@ pub fn use_item(world: &mut World, item: Entity, target: Option<Point>) {
         .expect("Unable To Insert Use Item Intent");
     }
   }
+}
+
+pub fn disarm_trap(world: &mut World, item: Entity) {
+  let player_entity = world.fetch::<Entity>();
+  let mut disarm_traps_intents = world.write_storage::<WantsToDisarmTrap>();
+  disarm_traps_intents
+    .insert(*player_entity, WantsToDisarmTrap { trap: item })
+    .expect("Unable to Insert Disarm Trap Intent");
 }
 
 pub fn player_action(ecs: &mut World, action: MapAction) {
