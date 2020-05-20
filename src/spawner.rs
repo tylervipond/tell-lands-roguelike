@@ -292,6 +292,7 @@ fn make_entity_bear_trap<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
     .with(Ranged { range: 1 })
     .with(Trap {
       trap_type: TrapType::BearTrap,
+      armed: false,
     })
 }
 
@@ -319,6 +320,7 @@ fn make_entity_caltrops<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
     .with(Ranged { range: 3 })
     .with(Trap {
       trap_type: TrapType::Caltrops,
+      armed: false,
     })
 }
 
@@ -350,6 +352,10 @@ fn make_entity_set_trap<'a>(
     .with(EntryTrigger {})
     .with(InflictsDamage {
       amount: trap_type::get_damage_for_trap(type_of_trap),
+    })
+    .with(Trap {
+      trap_type: type_of_trap.to_owned(),
+      armed: true,
     })
 }
 

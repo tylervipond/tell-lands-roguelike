@@ -37,7 +37,7 @@ impl ScreenMapGeneric {
                     .filter(|(_name, position, level, hidden)| {
                         let visible_to_player = match hidden {
                             Some(h) => h.found_by.contains(&*player_ent),
-                            None => false,
+                            None => true,
                         };
                         visible_to_player
                             && level.level == player_level.level

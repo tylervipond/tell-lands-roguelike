@@ -11,6 +11,7 @@ pub enum RunState {
     item: Entity,
   },
   ShowTargetingOpenContainer,
+  ShowTargetingDisarmTrap,
   OpenContainerMenu {
     highlighted: usize,
     page: usize,

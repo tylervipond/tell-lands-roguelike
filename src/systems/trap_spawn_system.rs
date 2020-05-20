@@ -1,12 +1,15 @@
 use crate::components::{
-    DungeonLevel, EntryTrigger, Hidden, InflictsDamage, Name, Position, Renderable,
-    SingleActivation,
+    DungeonLevel, EntryTrigger, Hidden, InflictsDamage, Name, Position, Renderable, Saveable,
+    SingleActivation, Trap,
 };
 use crate::entity_set::EntitySet;
 use crate::services::TrapSpawner;
 use crate::types::trap_type;
 use rltk::{BLACK, RED, RGB};
-use specs::{Entities, System, WriteExpect, WriteStorage};
+use specs::{
+    saveload::{MarkerAllocator, SimpleMarker, SimpleMarkerAllocator},
+    Entities, System, WriteExpect, WriteStorage,
+};
 
 pub struct TrapSpawnSystem {}
 impl<'a> System<'a> for TrapSpawnSystem {
@@ -20,7 +23,10 @@ impl<'a> System<'a> for TrapSpawnSystem {
         WriteStorage<'a, EntryTrigger>,
         WriteStorage<'a, InflictsDamage>,
         WriteStorage<'a, SingleActivation>,
+        WriteStorage<'a, Trap>,
         WriteExpect<'a, TrapSpawner>,
+        WriteExpect<'a, SimpleMarkerAllocator<Saveable>>,
+        WriteStorage<'a, SimpleMarker<Saveable>>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -34,7 +40,10 @@ impl<'a> System<'a> for TrapSpawnSystem {
             mut entry_triggers,
             mut inflicts_damage,
             mut single_activations,
+            mut trap,
             mut spawner,
+            mut marker_allocator,
+            mut markers,
         ) = data;
         for request in spawner.requests.iter() {
             let new_trap = entities.create();
@@ -46,7 +55,7 @@ impl<'a> System<'a> for TrapSpawnSystem {
                         y: request.y,
                     },
                 )
-                .expect("failed inserting position for blood");
+                .expect("failed inserting position for new trap");
             renderables
                 .insert(
                     new_trap,
@@ -93,11 +102,21 @@ impl<'a> System<'a> for TrapSpawnSystem {
                     },
                 )
                 .expect("failed inserting name for new trap");
+            trap.insert(
+                new_trap,
+                Trap {
+                    trap_type: request.trap_type,
+                    armed: true,
+                },
+            )
+            .expect("failed inserting trap for new trap");
             if trap_type::is_trap_single_activation(&request.trap_type) {
                 single_activations
                     .insert(new_trap, SingleActivation {})
                     .expect("failed inserting single activation for new trap");
             }
+            marker_allocator.mark(new_trap, &mut markers);
+            // need to mark entity
         }
         spawner.requests.clear();
     }
