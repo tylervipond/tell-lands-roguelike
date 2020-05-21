@@ -13,7 +13,7 @@ impl<'a> System<'a> for SearchForHiddenSystem {
         WriteStorage<'a, WantsToSearchHidden>,
         WriteExpect<'a, RandomNumberGenerator>,
         ReadStorage<'a, DungeonLevel>,
-        WriteExpect<'a, Dungeon>,
+        ReadExpect<'a, Dungeon>,
         ReadExpect<'a, Entity>,
         WriteExpect<'a, GameLog>,
         ReadStorage<'a, Name>,
@@ -29,7 +29,7 @@ impl<'a> System<'a> for SearchForHiddenSystem {
             mut wants_to_search_hiddens,
             mut rng,
             dungeon_levels,
-            mut dungeon,
+            dungeon,
             player_entity,
             mut log,
             names,
@@ -64,7 +64,7 @@ impl<'a> System<'a> for SearchForHiddenSystem {
                             match rng.range(1, 6) {
                                 1 => {
                                     let inserted = hidden.found_by.insert(entity);
-                                    if is_player && inserted{
+                                    if is_player && inserted {
                                         let hidden_name = names.get(*hidden_entity).unwrap();
                                         log.add(format!("You spotted a {}", hidden_name.name));
                                     }

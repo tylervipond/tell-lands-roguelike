@@ -10,7 +10,7 @@ impl<'a> System<'a> for RevealTrapsSystem {
     type SystemData = (
         ReadStorage<'a, Viewshed>,
         ReadStorage<'a, DungeonLevel>,
-        WriteExpect<'a, Dungeon>,
+        ReadExpect<'a, Dungeon>,
         ReadExpect<'a, Entity>,
         WriteStorage<'a, Hidden>,
         WriteExpect<'a, RandomNumberGenerator>,
@@ -22,7 +22,7 @@ impl<'a> System<'a> for RevealTrapsSystem {
         let (
             viewsheds,
             dungeon_levels,
-            mut dungeon,
+            dungeon,
             player_ent,
             mut hidden,
             mut rng,

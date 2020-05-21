@@ -2,7 +2,8 @@ use crate::components::{CombatStats, DungeonLevel, Flammable, OnFire, Position, 
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::RandomNumberGenerator;
 use specs::{
-    storage::GenericWriteStorage, Entity, Join, ReadStorage, System, WriteExpect, WriteStorage,
+    storage::GenericWriteStorage, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect,
+    WriteStorage,
 };
 
 pub struct FireSpreadSystem {}
@@ -14,7 +15,7 @@ impl<'a> System<'a> for FireSpreadSystem {
         ReadStorage<'a, Flammable>,
         ReadStorage<'a, CombatStats>,
         ReadStorage<'a, DungeonLevel>,
-        WriteExpect<'a, Dungeon>,
+        ReadExpect<'a, Dungeon>,
         WriteStorage<'a, SufferDamage>,
         WriteExpect<'a, RandomNumberGenerator>,
     );
@@ -26,7 +27,7 @@ impl<'a> System<'a> for FireSpreadSystem {
             flammables,
             combat_stats,
             dungeon_levels,
-            mut dungeon,
+            dungeon,
             mut suffer_damage,
             mut rng,
         ) = data;

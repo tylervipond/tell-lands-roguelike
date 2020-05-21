@@ -1,4 +1,3 @@
-use crate::entity_set::EntitySet;
 use serde::{Deserialize, Serialize};
 use specs::{
     error::NoError,
@@ -7,6 +6,6 @@ use specs::{
 };
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
-pub struct Hidden {
-    pub found_by: EntitySet,
+pub struct Grabbing {
+    pub thing: Entity,
 }

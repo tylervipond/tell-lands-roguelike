@@ -22,7 +22,7 @@ impl<'a> System<'a> for VisibilitySystem {
   fn run(&mut self, data: Self::SystemData) {
     let (mut dungeon, entities, mut viewshed, position, player, player_ent, dungeon_levels) = data;
     let player_level = dungeon_levels.get(*player_ent).unwrap();
-    let level = dungeon.get_level(player_level.level).unwrap();
+    let level = dungeon.get_level_mut(player_level.level).unwrap();
     for (ent, viewshed, position, dungeon_level) in
       (&entities, &mut viewshed, &position, &dungeon_levels).join()
     {
