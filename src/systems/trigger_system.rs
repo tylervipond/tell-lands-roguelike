@@ -13,7 +13,7 @@ pub struct TriggerSystem {}
 
 impl<'a> System<'a> for TriggerSystem {
     type SystemData = (
-        WriteExpect<'a, Dungeon>,
+        ReadExpect<'a, Dungeon>,
         ReadExpect<'a, Entity>,
         ReadStorage<'a, DungeonLevel>,
         WriteStorage<'a, EntityMoved>,
@@ -31,7 +31,7 @@ impl<'a> System<'a> for TriggerSystem {
 
     fn run(&mut self, data: Self::SystemData) {
         let (
-            mut dungeon,
+            dungeon,
             player_ent,
             levels,
             mut moved,

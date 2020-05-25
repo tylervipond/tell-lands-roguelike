@@ -8,7 +8,11 @@ pub struct Dungeon {
 }
 
 impl Dungeon {
-  pub fn get_level(&mut self, floor: u8) -> Option<&mut Level> {
+  pub fn get_level(&self, floor: u8) -> Option<&Level> {
+    self.levels.get(&floor)
+  }
+
+  pub fn get_level_mut(&mut self, floor: u8) -> Option<&mut Level> {
     self.levels.get_mut(&floor)
   }
 }

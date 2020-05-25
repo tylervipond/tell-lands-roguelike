@@ -1,4 +1,4 @@
-// Taken from https://github.com/amethyst/specs/issues/681 so that we can
+// adapted from https://github.com/amethyst/specs/issues/681 so that we can
 // serialize and deserialize Vec<Entity>
 
 use serde::{Deserialize, Serialize};
@@ -7,50 +7,47 @@ use specs::{
     Entity,
 };
 use std::collections::HashSet;
-use std::hash::Hash;
 
 #[derive(Clone, Debug)]
-pub struct EntitySet<T: Eq + Hash>(HashSet<T>);
+pub struct EntitySet(HashSet<Entity>);
 
-impl<T: Eq + Hash> EntitySet<T> {
-    pub fn new() -> EntitySet<T> {
-        EntitySet { 0: HashSet::new() }
+impl EntitySet {
+    pub fn new() -> EntitySet {
+        EntitySet(HashSet::new())
     }
 
-    pub fn with_capacity(capacity: usize) -> EntitySet<T> {
-        EntitySet {
-            0: HashSet::with_capacity(capacity),
-        }
+    pub fn with_capacity(capacity: usize) -> EntitySet {
+        EntitySet(HashSet::with_capacity(capacity))
     }
-    pub fn insert(&mut self, item: T) -> bool {
+
+    pub fn insert(&mut self, item: Entity) -> bool {
         self.0.insert(item)
     }
 
-    pub fn contains(&self, item: &T) -> bool {
+    pub fn contains(&self, item: &Entity) -> bool {
         self.0.contains(item)
     }
 }
 
-impl<T: Eq + Hash> std::ops::Deref for EntitySet<T> {
-    type Target = HashSet<T>;
-    fn deref(&self) -> &HashSet<T> {
+impl std::ops::Deref for EntitySet {
+    type Target = HashSet<Entity>;
+    fn deref(&self) -> &HashSet<Entity> {
         &self.0
     }
 }
 
-impl<T: Eq + Hash> std::ops::DerefMut for EntitySet<T> {
-    fn deref_mut(&mut self) -> &mut HashSet<T> {
+impl std::ops::DerefMut for EntitySet {
+    fn deref_mut(&mut self) -> &mut HashSet<Entity> {
         &mut self.0
     }
 }
 
-impl<C: Eq + Hash, M: Serialize + Marker> ConvertSaveload<M> for EntitySet<C>
+impl<M: Serialize + Marker> ConvertSaveload<M> for EntitySet
 where
-    for<'de> M: Deserialize<'de>,
-    C: ConvertSaveload<M>,
+    for<'de> M: Deserialize<'de>
 {
-    type Data = Vec<<C as ConvertSaveload<M>>::Data>;
-    type Error = <C as ConvertSaveload<M>>::Error;
+    type Data = Vec<<Entity as ConvertSaveload<M>>::Data>;
+    type Error = <Entity as ConvertSaveload<M>>::Error;
 
     fn convert_into<F>(&self, mut ids: F) -> Result<Self::Data, Self::Error>
     where
@@ -59,7 +56,6 @@ where
         let mut output = Vec::with_capacity(self.len());
         for item in self.iter() {
             let converted_item = item.convert_into(|entity| ids(entity))?;
-
             output.push(converted_item);
         }
         Ok(output)
@@ -69,7 +65,7 @@ where
     where
         F: FnMut(M) -> Option<Entity>,
     {
-        let mut output: EntitySet<C> = EntitySet::with_capacity(data.len());
+        let mut output: EntitySet = EntitySet::with_capacity(data.len());
         for item in data.into_iter() {
             let converted_item = ConvertSaveload::convert_from(item, |marker| ids(marker))?;
             output.insert(converted_item);

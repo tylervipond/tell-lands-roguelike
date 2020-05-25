@@ -9,6 +9,7 @@ extern crate serde;
 mod artwork;
 mod components;
 mod dungeon;
+mod entity_option;
 mod entity_set;
 mod inventory;
 mod menu_option;
@@ -26,11 +27,12 @@ mod user_actions;
 mod utils;
 use components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
-    Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Hidden, InBackpack,
-    InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
-    Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
-    SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDropItem,
-    WantsToMelee, WantsToPickUpItem, WantsToSearchHidden, WantsToTrap, WantsToUse,
+    Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Grabbable, Grabbing,
+    Hidden, InBackpack, InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime,
+    Player, Position, Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper,
+    SingleActivation, SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDropItem,
+    WantsToGrab, WantsToMelee, WantsToMove, WantsToPickUpItem, WantsToReleaseGrabbed,
+    WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils};
@@ -43,11 +45,12 @@ use screens::{
 };
 use services::{BloodSpawner, GameLog, ItemSpawner, ParticleEffectSpawner, TrapSpawner};
 use systems::{
-    BloodSpawnSystem, DamageSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem,
-    ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem, MapIndexingSystem, MeleeCombatSystem,
-    MonsterAI, ParticleSpawnSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
-    RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
-    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem, DisarmTrapSystem
+    BloodSpawnSystem, DamageSystem, DisarmTrapSystem, FireBurnSystem, FireDieSystem,
+    FireSpreadSystem, GrabSystem, ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem,
+    MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, ParticleSpawnSystem,
+    ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem, RevealTrapsSystem,
+    SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
+    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -57,7 +60,7 @@ use user_actions::{
 
 fn player_can_leave_dungeon(world: &mut World) -> bool {
     let player_level = utils::get_current_level_from_world(world);
-    let mut dungeon = world.fetch_mut::<Dungeon>();
+    let dungeon = world.fetch::<Dungeon>();
     let level = dungeon.get_level(player_level).unwrap();
     if let Some(exit_point) = level.exit {
         let player_point = world.fetch::<Point>();
@@ -78,36 +81,47 @@ fn has_objective_in_backpack(world: &World) -> bool {
     false
 }
 
-fn get_container_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
+fn get_entity_at_point_on_level(
+    world: &World,
+    point: &Point,
+    filter: impl Fn(Entity) -> bool,
+) -> Option<Entity> {
     let player_level = utils::get_current_level_from_world(world);
-    let mut dungeon = world.fetch_mut::<Dungeon>();
+    let dungeon = world.fetch::<Dungeon>();
     let level = dungeon.get_level(player_level).unwrap();
     let entities = level_utils::entities_at_xy(level, point.x, point.y);
-    let containers = world.read_storage::<Container>();
     entities
         .iter()
-        .filter(|e| match containers.get(**e) {
-            Some(_) => true,
-            _ => false,
-        })
+        .filter(|e| filter(**e))
         .map(|e| e.to_owned())
         .next()
 }
 
+fn get_container_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
+    let containers = world.read_storage::<Container>();
+    let filter = |e| match containers.get(e) {
+        Some(_) => true,
+        _ => false,
+    };
+    get_entity_at_point_on_level(world, point, filter)
+}
+
 fn get_trap_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
-    let player_level = utils::get_current_level_from_world(world);
-    let mut dungeon = world.fetch_mut::<Dungeon>();
-    let level = dungeon.get_level(player_level).unwrap();
-    let entities = level_utils::entities_at_xy(level, point.x, point.y);
     let traps = world.read_storage::<Trap>();
-    entities
-        .iter()
-        .filter(|e| match traps.get(**e) {
-            Some(trap) => trap.armed,
-            _ => false,
-        })
-        .map(|e| e.to_owned())
-        .next()
+    let filter = |e| match traps.get(e) {
+        Some(trap) => trap.armed,
+        _ => false,
+    };
+    get_entity_at_point_on_level(world, point, filter)
+}
+
+fn get_grabbable_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
+    let grabbables = world.read_storage::<Grabbable>();
+    let filter = |e| match grabbables.get(e) {
+        Some(_) => true,
+        _ => false,
+    };
+    get_entity_at_point_on_level(world, point, filter)
 }
 
 #[cfg(debug_assertions)]
@@ -127,7 +141,7 @@ fn reveal_map(world: &mut World) {
     use dungeon::constants::MAP_COUNT;
     let player_level = utils::get_current_level_from_world(world);
     let mut dungeon = world.fetch_mut::<Dungeon>();
-    let mut level = dungeon.get_level(player_level).unwrap();
+    let mut level = dungeon.get_level_mut(player_level).unwrap();
     level.revealed_tiles = vec![true; MAP_COUNT]
 }
 
@@ -193,9 +207,14 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Trap>().clear();
     world.write_storage::<WantsToTrap>().clear();
     world.write_storage::<WantsToDisarmTrap>().clear();
+    world.write_storage::<WantsToGrab>().clear();
+    world.write_storage::<Grabbable>().clear();
+    world.write_storage::<Grabbing>().clear();
+    world.write_storage::<WantsToMove>().clear();
+    world.write_storage::<WantsToReleaseGrabbed>();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
-    let mut dungeon = generate_dungeon(world, 10);
+    let dungeon = generate_dungeon(world, 10);
     let level = dungeon.get_level(9).unwrap();
     let (player_x, player_y) = level.rooms[0].rect.center();
     world.remove::<Point>();
@@ -250,6 +269,8 @@ impl State {
             let mut mob = MonsterAI {};
             mob.run_now(&self.world);
         }
+        let mut move_system = MoveSystem {};
+        move_system.run_now(&self.world);
         let mut mapindex = MapIndexingSystem {};
         mapindex.run_now(&self.world);
         let mut melee_combat = MeleeCombatSystem {};
@@ -278,6 +299,8 @@ impl State {
             let mut reveal_traps = RevealTrapsSystem {};
             reveal_traps.run_now(&self.world);
         }
+        let mut release_system = ReleaseSystem {};
+        release_system.run_now(&self.world);
         if self.run_state == RunState::PlayerTurn || self.run_state == RunState::MonsterTurn {
             let mut search_for_hidden_system = SearchForHiddenSystem {};
             search_for_hidden_system.run_now(&self.world);
@@ -285,6 +308,8 @@ impl State {
             set_trap_system.run_now(&self.world);
             let mut disarm_trap_system = DisarmTrapSystem {};
             disarm_trap_system.run_now(&self.world);
+            let mut grab_system = GrabSystem {};
+            grab_system.run_now(&self.world);
         }
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.world);
@@ -339,6 +364,7 @@ impl GameState for State {
                     #[cfg(debug_assertions)]
                     MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
                     MapAction::SearchContainer => RunState::ShowTargetingOpenContainer,
+                    MapAction::GrabFurniture => RunState::ShowTargetingGrabFurniture,
                     _ => {
                         player_action(&mut self.world, action);
                         RunState::PlayerTurn
@@ -601,6 +627,31 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::ShowTargetingGrabFurniture => {
+                let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
+                let target = ranged::get_target(ctx, &visible_tiles);
+                ScreenMapTargeting::new(1, target, Some("Select Furniture to Grab".to_string()))
+                    .draw(ctx, &mut self.world);
+                let action = map_input_to_targeting_action(ctx, target);
+                match action {
+                    TargetingAction::NoAction => RunState::ShowTargetingGrabFurniture,
+                    TargetingAction::Exit => RunState::AwaitingInput,
+                    TargetingAction::Selected(target) => {
+                        let trap_entity = get_grabbable_entity_at_point(&mut self.world, &target);
+                        match trap_entity {
+                            Some(e) => player::grab_entity(&mut self.world, e),
+                            None => {
+                                let mut game_log = self.world.fetch_mut::<GameLog>();
+                                game_log.add(
+                                    "There are no grabbable pieces of furniture at this location."
+                                        .to_string(),
+                                );
+                            }
+                        }
+                        RunState::PlayerTurn
+                    }
+                }
+            }
             RunState::OpenContainerMenu {
                 page,
                 highlighted,
@@ -692,6 +743,8 @@ impl GameState for State {
                     "Open Container",
                     "Search Area",
                     "Disarm Trap",
+                    "Grab Furniture",
+                    "Release Furniture",
                 ]
                 .iter()
                 .enumerate()
@@ -731,6 +784,11 @@ impl GameState for State {
                             RunState::PlayerTurn
                         }
                         4 => RunState::ShowTargetingDisarmTrap,
+                        5 => RunState::ShowTargetingGrabFurniture,
+                        6 => {
+                            player::release_entity(&mut self.world);
+                            RunState::AwaitingInput
+                        }
                         _ => RunState::ActionMenu { highlighted },
                     },
                     _ => RunState::ActionMenu { highlighted },
@@ -945,6 +1003,11 @@ pub fn start() {
     gs.world.register::<Trap>();
     gs.world.register::<WantsToTrap>();
     gs.world.register::<WantsToDisarmTrap>();
+    gs.world.register::<WantsToGrab>();
+    gs.world.register::<Grabbable>();
+    gs.world.register::<Grabbing>();
+    gs.world.register::<WantsToMove>();
+    gs.world.register::<WantsToReleaseGrabbed>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
