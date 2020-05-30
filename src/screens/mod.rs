@@ -9,7 +9,7 @@ pub mod screen_map_menu;
 pub mod screen_map_targeting;
 pub mod screen_success;
 mod ui;
-mod utils;
+pub mod utils;
 
 pub use constants::{MAP_HEIGHT, MAP_WIDTH, SCREEN_HEIGHT, SCREEN_PADDING, SCREEN_WIDTH};
 pub use screen_credits::ScreenCredits;

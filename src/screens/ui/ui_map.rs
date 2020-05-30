@@ -53,11 +53,20 @@ pub fn get_wall_tile(level: &Level, x: i32, y: i32) -> u16 {
 pub struct UIMap<'a> {
     level: &'a Level,
     renderables: &'a Vec<RenderData>,
+    render_offset: (i32, i32),
 }
 
 impl<'a> UIMap<'a> {
-    pub fn new(level: &'a Level, renderables: &'a Vec<RenderData>) -> Self {
-        Self { level, renderables }
+    pub fn new(
+        level: &'a Level,
+        renderables: &'a Vec<RenderData>,
+        render_offset: (i32, i32),
+    ) -> Self {
+        Self {
+            level,
+            renderables,
+            render_offset,
+        }
     }
 
     pub fn draw(&mut self, ctx: &mut Rltk) {
@@ -78,8 +87,8 @@ impl<'a> UIMap<'a> {
                     false => rltk::WHITE,
                 };
                 ctx.set(
-                    x as i32,
-                    y as i32,
+                    x as i32 - self.render_offset.0,
+                    y as i32 - self.render_offset.1,
                     RGB::named(foreground_color),
                     RGB::named(rltk::BLACK),
                     character,
@@ -87,7 +96,13 @@ impl<'a> UIMap<'a> {
             }
         }
         for r in self.renderables.iter() {
-            ctx.set(r.x, r.y, r.fg, r.bg, r.glyph);
+            ctx.set(
+                r.x - self.render_offset.0,
+                r.y - self.render_offset.1,
+                r.fg,
+                r.bg,
+                r.glyph,
+            );
         }
     }
 }

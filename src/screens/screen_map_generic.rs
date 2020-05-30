@@ -1,5 +1,5 @@
 use super::ui::ui_map_screen::UIMapScreen;
-use super::utils::get_render_data;
+use super::utils::{get_render_data, get_render_offset};
 use crate::components::{CombatStats, DungeonLevel, Hidden, Name, Position};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
@@ -27,9 +27,10 @@ impl ScreenMapGeneric {
         let (mouse_x, mouse_y) = ctx.mouse_pos();
         let dungeon = world.fetch::<Dungeon>();
         let level = dungeon.levels.get(&player_level.level).unwrap();
+        let render_offset = get_render_offset(world);
         let tool_tip_lines = match level
             .visible_tiles
-            .get(level_utils::xy_idx(&level, mouse_x, mouse_y) as usize)
+            .get(level_utils::xy_idx(&level, mouse_x + render_offset.0, mouse_y + render_offset.1) as usize)
         {
             Some(visible) => match visible {
                 true => (&names, &positions, &levels, (&hidden).maybe())
@@ -41,8 +42,8 @@ impl ScreenMapGeneric {
                         };
                         visible_to_player
                             && level.level == player_level.level
-                            && position.x == mouse_x
-                            && position.y == mouse_y
+                            && position.x - render_offset.0 == mouse_x
+                            && position.y - render_offset.1 == mouse_y
                     })
                     .map(|(name, _position, _level, _hidden)| name.name.to_owned())
                     .collect(),
@@ -62,6 +63,7 @@ impl ScreenMapGeneric {
             player_stats.max_hp,
             level,
             &render_data,
+            render_offset,
         )
         .draw(ctx);
     }
