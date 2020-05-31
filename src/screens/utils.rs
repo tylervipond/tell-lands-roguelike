@@ -61,3 +61,10 @@ pub fn get_render_offset(world: &World) -> (i32, i32) {
     let offset_y = player_position.y - MAP_HEIGHT as i32 / 2;
     (offset_x, offset_y)
 }
+
+pub fn get_render_offset_for_xy(world: &World, xy: (i32, i32)) -> (i32, i32) {
+    let render_offset = get_render_offset(world);
+    let offset_x = xy.0 + render_offset.0;
+    let offset_y = xy.1 + render_offset.1;
+    (offset_x, offset_y)
+}
