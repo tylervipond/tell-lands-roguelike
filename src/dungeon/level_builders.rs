@@ -169,19 +169,18 @@ pub fn build(depth: u8) -> Level {
     let room_count = rng.range(2, rects.len() as i32);
     let mut room_rects = get_x_random_elements(&mut rng, room_count as u32, &mut rects);
 
-    room_rects
-        .iter_mut()
-        .for_each(|r| match rng.range(0, 6) {
-            1 => {
-                make_rect_square(r);
-                add_circular_room(&mut level, r)
-            }
-            _ => add_rectangular_room(&mut level, r),
-        });
+    room_rects.iter_mut().for_each(|r| match rng.range(0, 6) {
+        1 => {
+            make_rect_square(r);
+            add_circular_room(&mut level, r)
+        }
+        _ => add_rectangular_room(&mut level, r),
+    });
     level.rooms = room_rects.iter().map(|r| Room::new(*r)).collect();
 
     add_nearest_neighbor_corridors(&mut level, &mut rng);
     add_doors_to_rooms(&mut level);
+    level_utils::populate_blocked(&mut level);
     level
 }
 
