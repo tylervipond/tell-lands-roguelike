@@ -1,5 +1,5 @@
 use super::ui::{ui_hud::UIHud, ui_map::UIMap};
-use super::utils::get_render_data;
+use super::utils::{get_render_data, get_render_offset};
 use crate::components::{CombatStats, DungeonLevel};
 use crate::dungeon::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
@@ -38,8 +38,10 @@ impl<'a> ScreenMapMenu<'a> {
         let dungeon = world.fetch::<Dungeon>();
         let level = dungeon.levels.get(&player_level.level).unwrap();
         let render_data = get_render_data(world);
+        let render_offset = get_render_offset(world);
+
         ctx.cls();
-        UIMap::new(level, &render_data).draw(ctx);
+        UIMap::new(level, &render_data, render_offset).draw(ctx);
         UIHud::new(
             player_level.level,
             player_stats.hp,

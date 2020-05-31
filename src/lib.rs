@@ -562,7 +562,7 @@ impl GameState for State {
             }
             RunState::ShowTargeting { range, item } => {
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, range);
-                let target = ranged::get_target(ctx, &visible_tiles);
+                let target = ranged::get_target(&self.world, ctx, &visible_tiles);
                 ScreenMapTargeting::new(range, target, Some("Select Target".to_string()))
                     .draw(ctx, &mut self.world);
                 let action = map_input_to_targeting_action(ctx, target);
@@ -577,7 +577,7 @@ impl GameState for State {
             }
             RunState::ShowTargetingOpenContainer => {
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
-                let target = ranged::get_target(ctx, &visible_tiles);
+                let target = ranged::get_target(&self.world, ctx, &visible_tiles);
                 ScreenMapTargeting::new(1, target, Some("Select Container to Open".to_string()))
                     .draw(ctx, &mut self.world);
                 let action = map_input_to_targeting_action(ctx, target);
@@ -606,7 +606,7 @@ impl GameState for State {
             }
             RunState::ShowTargetingDisarmTrap => {
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
-                let target = ranged::get_target(ctx, &visible_tiles);
+                let target = ranged::get_target(&self.world, ctx, &visible_tiles);
                 ScreenMapTargeting::new(1, target, Some("Select Trap to Disarm".to_string()))
                     .draw(ctx, &mut self.world);
                 let action = map_input_to_targeting_action(ctx, target);
@@ -629,7 +629,7 @@ impl GameState for State {
             }
             RunState::ShowTargetingGrabFurniture => {
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
-                let target = ranged::get_target(ctx, &visible_tiles);
+                let target = ranged::get_target(&self.world, ctx, &visible_tiles);
                 ScreenMapTargeting::new(1, target, Some("Select Furniture to Grab".to_string()))
                     .draw(ctx, &mut self.world);
                 let action = map_input_to_targeting_action(ctx, target);

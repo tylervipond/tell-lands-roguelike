@@ -1,7 +1,7 @@
 use super::ui::ui_hud::UIHud;
 use super::ui::ui_map::UIMap;
 use super::ui::ui_mouse_pos::UIMousePos;
-use super::utils::get_render_data;
+use super::utils::{get_render_data, get_render_offset};
 use crate::components::{CombatStats, DungeonLevel};
 use crate::dungeon::dungeon::Dungeon;
 use crate::ranged;
@@ -32,9 +32,10 @@ impl<'a> ScreenMapTargeting<'a> {
         let dungeon = world.fetch::<Dungeon>();
         let level = dungeon.levels.get(&player_level.level).unwrap();
         let render_data = get_render_data(world);
+        let render_offset = get_render_offset(world);
 
         ctx.cls();
-        UIMap::new(level, &render_data).draw(ctx);
+        UIMap::new(level, &render_data, render_offset).draw(ctx);
         UIHud::new(
             player_level.level,
             player_stats.hp,
@@ -48,10 +49,10 @@ impl<'a> ScreenMapTargeting<'a> {
         let visible_tiles = ranged::get_visible_tiles_in_range(world, self.range);
         visible_tiles
             .iter()
-            .for_each(|tile| ctx.set_bg(tile.x, tile.y, RGB::named(BLUE)));
+            .for_each(|tile| ctx.set_bg(tile.x - render_offset.0, tile.y - render_offset.1, RGB::named(BLUE)));
         UIMousePos::new(mouse_x, mouse_y).draw(ctx);
         if let Some(target) = self.target {
-            ctx.set_bg(target.x, target.y, RGB::named(CYAN))
+            ctx.set_bg(target.x - render_offset.0, target.y - render_offset.1, RGB::named(CYAN))
         }
     }
 }

@@ -1,10 +1,13 @@
-use super::ui::ui_map::RenderData;
+use super::{
+    constants::{MAP_HEIGHT, MAP_WIDTH},
+    ui::ui_map::RenderData,
+};
 use crate::components::{
     dungeon_level::DungeonLevel, hidden::Hidden, on_fire::OnFire, position::Position,
     renderable::Renderable,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
-use rltk::{BLACK, ORANGE, RGB};
+use rltk::{Point, BLACK, ORANGE, RGB};
 use specs::{Entity, Join, World, WorldExt};
 
 pub fn get_render_data(world: &World) -> Vec<RenderData> {
@@ -50,4 +53,18 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
         .collect();
     render_data.sort_unstable_by(|a, b| b.layer.cmp(&a.layer));
     return render_data;
+}
+
+pub fn get_render_offset(world: &World) -> (i32, i32) {
+    let player_position = world.fetch::<Point>();
+    let offset_x = player_position.x - MAP_WIDTH as i32 / 2;
+    let offset_y = player_position.y - MAP_HEIGHT as i32 / 2;
+    (offset_x, offset_y)
+}
+
+pub fn get_render_offset_for_xy(world: &World, xy: (i32, i32)) -> (i32, i32) {
+    let render_offset = get_render_offset(world);
+    let offset_x = xy.0 + render_offset.0;
+    let offset_y = xy.1 + render_offset.1;
+    (offset_x, offset_y)
 }

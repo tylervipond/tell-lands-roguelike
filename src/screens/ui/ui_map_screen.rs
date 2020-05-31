@@ -18,6 +18,7 @@ pub struct UIMapScreen<'a> {
     max_hp: i32,
     level: &'a Level,
     renderables: &'a Vec<RenderData>,
+    render_offset: (i32, i32),
 }
 
 impl<'a> UIMapScreen<'a> {
@@ -31,6 +32,7 @@ impl<'a> UIMapScreen<'a> {
         max_hp: i32,
         level: &'a Level,
         renderables: &'a Vec<RenderData>,
+        render_offset: (i32, i32),
     ) -> Self {
         Self {
             mouse_x,
@@ -42,11 +44,12 @@ impl<'a> UIMapScreen<'a> {
             max_hp,
             level,
             renderables,
+            render_offset,
         }
     }
 
     pub fn draw(&self, ctx: &mut Rltk) {
-        UIMap::new(self.level, self.renderables).draw(ctx);
+        UIMap::new(self.level, self.renderables, self.render_offset).draw(ctx);
         UIHud::new(self.depth, self.hp, self.max_hp, self.messages).draw(ctx);
         if !self.tool_tip_lines.is_empty() {
             let tool_tip_pos = match self.mouse_x > (SCREEN_WIDTH / 2) as i32 {
