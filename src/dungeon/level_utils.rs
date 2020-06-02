@@ -1,5 +1,5 @@
 use super::{level::Level, rect::Rect, tile_type::TileType};
-use rltk::{Point, RandomNumberGenerator};
+use rltk::{DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
 use specs::Entity;
 
 pub fn xy_idx(level: &Level, x: i32, y: i32) -> i32 {
@@ -94,7 +94,9 @@ pub fn get_walkable_tiles_in_rect(rect: &Rect, level: &Level) -> Vec<i32> {
         })
         .flatten()
         .map(|(x, y)| xy_idx(level, x, y))
-        .filter(|idx| level.tiles[*idx as usize] == TileType::Floor && !tile_is_blocked(*idx, level))
+        .filter(|idx| {
+            level.tiles[*idx as usize] == TileType::Floor && !tile_is_blocked(*idx, level)
+        })
         .collect()
 }
 
@@ -137,4 +139,24 @@ pub fn get_wall_adjacent_spawn_points(
     (0..count)
         .map(|_| get_random_wall_adjacent_spawn_point(rect, level, rng))
         .collect()
+}
+
+pub fn get_all_unblocked_tiles_in_radius(
+    level: &Level,
+    center_idx: i32,
+    radius_length: i32,
+) -> Vec<i32> {
+    let center_xy = idx_xy(level, center_idx);
+    let center_point = Point::new(center_xy.0, center_xy.1);
+    return level
+        .tiles
+        .iter()
+        .enumerate()
+        .map(|(tile_idx, _tile_type)| tile_idx as i32)
+        .filter(|tile_idx| {
+            let this_xy = idx_xy(level, *tile_idx);
+            let this_point = Point::new(this_xy.0, this_xy.1);
+            Pythagoras.distance2d(center_point, this_point) <= radius_length as f32 && !tile_is_blocked(*tile_idx, level)
+        })
+        .collect();
 }

@@ -9,6 +9,7 @@ use crate::dungeon::{
 };
 use crate::entity_set::EntitySet;
 use crate::types::{trap_type, TrapType};
+use crate::utils;
 use rltk::{to_cp437, RandomNumberGenerator, RGB};
 use specs::{
     saveload::{MarkedBuilder, SimpleMarker},
@@ -16,10 +17,14 @@ use specs::{
 };
 use std::cmp;
 
-pub const MAX_MONSTERS_PER_ROOM: i32 = 2;
-pub const MAX_ITEMS_PER_ROOM: i32 = 2;
+pub const MAX_ITEMS_PER_ROOM: i32 = 4;
 pub const MAX_MISC_PER_ROOM: i32 = 10;
 pub const MAX_TRAPS_SET_PER_LEVEL: i32 = 10;
+pub const MIN_GOBLIN_GROUPS_PER_LEVEL: i32 = 2;
+pub const MAX_GOBLIN_GROUPS_PER_LEVEL: i32 = 4;
+pub const MIN_GOBLINS_PER_GROUP: i32 = 3;
+pub const MAX_GOBLINS_PER_GROUP: i32 = 6;
+pub const MAX_GOBLIN_SPACING: i32 = 4;
 
 fn path_is_blocked(path_idx: (i32, i32, i32), level: &Level) -> bool {
     let (tile_1, tile_2, tile_3) = path_idx;
@@ -47,13 +52,47 @@ pub fn tile_can_be_blocked(idx: i32, level: &Level) -> bool {
     true
 }
 
+fn get_possible_spawn_points_in_level(level: &Level) -> Vec<usize> {
+    level
+        .tiles
+        .iter()
+        .enumerate()
+        .filter(|(idx, tile)| {
+            **tile == TileType::Floor && !level_utils::tile_is_blocked(*idx as i32, level)
+        })
+        .map(|(idx, _)| idx)
+        .collect()
+}
+
+fn get_random_from_world(world: &mut World, min: i32, max: i32) -> i32 {
+    let mut rng = world.write_resource::<RandomNumberGenerator>();
+    rng.range(min, max)
+}
+
+fn get_random_spawn_points_for_level(
+    world: &mut World,
+    level: &Level,
+    min: i32,
+    max: i32,
+) -> Vec<usize> {
+    let amount = get_random_from_world(world, min, max);
+    let mut possible_spawn_points = get_possible_spawn_points_in_level(level);
+    (0..std::cmp::min(amount, possible_spawn_points.len() as i32))
+        .map(|_| {
+            let idx = get_random_from_world(world, 0, possible_spawn_points.len() as i32);
+            possible_spawn_points.remove(idx as usize)
+        })
+        .collect()
+}
+
 fn create_marked_entity_with_position<'a>(
     world: &'a mut World,
     map_idx: i32,
     level: &'a Level,
 ) -> EntityBuilder<'a> {
     let (x, y) = level_utils::idx_xy(level, map_idx);
-    world.create_entity()
+    world
+        .create_entity()
         .with(Position { x, y })
         .with(DungeonLevel { level: level.depth })
         .marked::<SimpleMarker<Saveable>>()
@@ -63,7 +102,8 @@ fn create_marked_entity_in_container<'a>(
     world: &'a mut World,
     container_entity: Entity,
 ) -> EntityBuilder<'a> {
-    world.create_entity()
+    world
+        .create_entity()
         .with(Contained {
             container: container_entity,
         })
@@ -71,7 +111,8 @@ fn create_marked_entity_in_container<'a>(
 }
 
 pub fn spawn_player(world: &mut World, x: i32, y: i32, level: u8) -> Entity {
-    world.create_entity()
+    world
+        .create_entity()
         .with(Position { x, y })
         .with(Renderable {
             glyph: to_cp437('@'),
@@ -354,20 +395,8 @@ fn spawn_set_caltrops(world: &mut World, idx: i32, level: &Level) -> Entity {
     .build()
 }
 
-fn spawn_monster_entities_for_room(world: &mut World, room: &Room, level: &mut Level) {
-    let spawn_points = {
-        let mut rng = world.write_resource::<RandomNumberGenerator>();
-        let num_monsters = rng.range(0, MAX_MONSTERS_PER_ROOM);
-        level_utils::get_spawn_points(&room.rect, level, &mut rng, num_monsters)
-    };
-    for idx in spawn_points.iter() {
-        spawn_goblin(world, (*idx) as i32, level);
-        level.blocked[*idx as usize] = true;
-    }
-}
-
 fn spawn_set_traps(world: &mut World, idx: i32, level: &Level) {
-    let roll = get_random_in_range(world, 1, 2);
+    let roll = get_random_from_world(world, 0, 2);
     match roll {
         1 => spawn_set_bear_trap(world, idx, level),
         _ => spawn_set_caltrops(world, idx, level),
@@ -375,7 +404,7 @@ fn spawn_set_traps(world: &mut World, idx: i32, level: &Level) {
 }
 
 fn spawn_random_item(world: &mut World, idx: i32, level: &Level) {
-    let roll = get_random_in_range(world, 1, 7);
+    let roll = get_random_from_world(world, 0, 7);
     match roll {
         1 | 2 => spawn_health_potion(world, idx, level),
         3 => spawn_fireball_scroll(world, idx, level),
@@ -387,7 +416,7 @@ fn spawn_random_item(world: &mut World, idx: i32, level: &Level) {
 }
 
 fn spawn_random_item_in_container(world: &mut World, container_entity: Entity) {
-    let roll = get_random_in_range(world, 1, 7);
+    let roll = get_random_from_world(world, 0, 7);
     match roll {
         1 | 2 => spawn_health_potion_in_container(world, container_entity),
         3 => spawn_fireball_scroll_in_container(world, container_entity),
@@ -409,23 +438,18 @@ fn get_containers_in_room(world: &World, room: &Room) -> Vec<Entity> {
         .collect()
 }
 
-fn get_random_in_range(world: &mut World, min: i32, max: i32) -> i32 {
-    let mut rng = world.write_resource::<RandomNumberGenerator>();
-    rng.range(min, max + 1)
-}
-
 pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Level) {
     let containers_in_room = get_containers_in_room(world, room);
     let min_items = match room.room_type {
         Some(RoomType::TreasureRoom) => 2,
         _ => 0,
     };
-    let num_items = get_random_in_range(world, min_items, MAX_ITEMS_PER_ROOM + 2) - 3;
+    let num_items = get_random_from_world(world, min_items, MAX_ITEMS_PER_ROOM + 2) - 2;
     if num_items > 0 {
         // more than half of the items should be in containers if there are any.
         let min_items_in_containers = num_items as f32 * 0.6;
         let num_items_in_containers = cmp::min(
-            get_random_in_range(world, min_items_in_containers.ceil() as i32, num_items),
+            get_random_from_world(world, min_items_in_containers.ceil() as i32, num_items + 1),
             containers_in_room.len() as i32,
         );
         let num_items_not_in_containers = num_items - num_items_in_containers;
@@ -437,7 +461,7 @@ pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Leve
             spawn_random_item(world, (*idx) as i32, level);
         }
         for _ in 0..num_items_in_containers {
-            let container_idx = get_random_in_range(world, 0, (containers_in_room.len() - 1) as i32);
+            let container_idx = get_random_from_world(world, 0, containers_in_room.len() as i32);
             spawn_random_item_in_container(world, containers_in_room[container_idx as usize]);
         }
     }
@@ -526,34 +550,41 @@ fn spawn_miscellaneous_entities_for_room(world: &mut World, room: &Room, level: 
 }
 
 pub fn spawn_entities_for_room(world: &mut World, room: &Room, level: &mut Level) {
-    // Miscellaneous must spawn before monsters/items are placed
     spawn_miscellaneous_entities_for_room(world, room, level);
-    spawn_monster_entities_for_room(world, room, level);
     spawn_item_entities_for_room(world, room, level);
 }
 
 fn spawn_set_traps_for_level(world: &mut World, level: &mut Level) {
-    let num_set_traps = {
-        let mut rng = world.write_resource::<RandomNumberGenerator>();
-        rng.range(4, MAX_TRAPS_SET_PER_LEVEL)
-    };
-    let mut possible_spawn_points: Vec<usize> = level
-        .tiles
+    get_random_spawn_points_for_level(world, level, 4, MAX_TRAPS_SET_PER_LEVEL)
         .iter()
-        .enumerate()
-        .filter(|(idx, tile)| {
-            **tile == TileType::Floor && !level_utils::tile_is_blocked(*idx as i32, level)
-        })
-        .map(|(idx, _)| idx)
-        .collect();
-    for _ in 0..num_set_traps {
-        let idx = {
+        .for_each(|idx| spawn_set_traps(world, *idx as i32, level));
+}
+
+fn spawn_goblins_for_level(world: &mut World, level: &mut Level) {
+    get_random_spawn_points_for_level(
+        world,
+        level,
+        MIN_GOBLIN_GROUPS_PER_LEVEL,
+        MAX_GOBLIN_GROUPS_PER_LEVEL,
+    )
+    .iter()
+    .for_each(|idx| {
+        let mut possible_spawn_points_for_group =
+            level_utils::get_all_unblocked_tiles_in_radius(level, *idx as i32, MAX_GOBLIN_SPACING);
+        let goblin_count =
+            get_random_from_world(world, MIN_GOBLINS_PER_GROUP, MAX_GOBLINS_PER_GROUP);
+        let spawn_points = {
             let mut rng = world.write_resource::<RandomNumberGenerator>();
-            rng.range(0, possible_spawn_points.len())
+            utils::get_x_random_elements(
+                &mut rng,
+                goblin_count as u32,
+                &mut possible_spawn_points_for_group,
+            )
         };
-        let spawn_point = possible_spawn_points.remove(idx);
-        spawn_set_traps(world, spawn_point as i32, level);
-    }
+        spawn_points.iter().for_each(|idx| {
+            spawn_goblin(world, *idx, level);
+        });
+    });
 }
 
 pub fn spawn_entities_for_level(world: &mut World, level: &mut Level) {
@@ -562,6 +593,7 @@ pub fn spawn_entities_for_level(world: &mut World, level: &mut Level) {
         let room = level.rooms[i].clone();
         spawn_entities_for_room(world, &room, level);
     }
+    spawn_goblins_for_level(world, level);
     spawn_set_traps_for_level(world, level);
 }
 
