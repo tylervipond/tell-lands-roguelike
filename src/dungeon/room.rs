@@ -29,6 +29,14 @@ impl Room {
         ];
         get_random_element(&mut rng, &choices).to_owned()
       }
+      101..=200 => {
+        let mut rng = RandomNumberGenerator::new();
+        let choices = vec![
+          Some(RoomType::MessHall),
+          None,
+        ];
+        get_random_element(&mut rng, &choices).to_owned()
+      }
       _ => None,
     };
 
