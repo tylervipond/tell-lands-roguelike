@@ -5,4 +5,5 @@ pub enum RoomType {
   Collapsed,
   TreasureRoom,
   StoreRoom,
+  BedRoom,
 }

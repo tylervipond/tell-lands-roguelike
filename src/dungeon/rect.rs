@@ -23,6 +23,18 @@ impl Rect {
   }
 
   pub fn contains(&self, x: i32, y: i32) -> bool {
-    return self.x1 <= x && self.x2 >= x && self.y1 <= y && self.y2 >= y;
+    self.x1 <= x && self.x2 >= x && self.y1 <= y && self.y2 >= y
+  }
+
+  pub fn height(&self) -> i32 {
+    self.y2 - self.y1
+  }
+
+  pub fn width(&self) -> i32 {
+    self.x2 - self.x1
+  }
+
+  pub fn area(&self) -> i32 {
+    self.width() * self.height()
   }
 }

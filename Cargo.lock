@@ -53,6 +53,7 @@ dependencies = [
  "serde_json",
  "specs",
  "specs-derive",
+ "stamp-rs",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -1499,6 +1500,14 @@ dependencies = [
  "proc-macro2 0.4.30",
  "quote 0.6.13",
  "syn 0.15.44",
+]
+
+[[package]]
+name = "stamp-rs"
+version = "0.4.6"
+source = "git+https://github.com/tylervipond/stamp-rs#6b7d17edc975aa2f39fbf5fd825777b03bbfcdf3"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -156,7 +156,8 @@ pub fn get_all_unblocked_tiles_in_radius(
         .filter(|tile_idx| {
             let this_xy = idx_xy(level, *tile_idx);
             let this_point = Point::new(this_xy.0, this_xy.1);
-            Pythagoras.distance2d(center_point, this_point) <= radius_length as f32 && !tile_is_blocked(*tile_idx, level)
+            Pythagoras.distance2d(center_point, this_point) <= radius_length as f32
+                && !tile_is_blocked(*tile_idx, level)
         })
         .collect();
 }
