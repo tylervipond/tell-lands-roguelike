@@ -6,4 +6,5 @@ pub enum RoomType {
   TreasureRoom,
   StoreRoom,
   BedRoom,
+  MessHall
 }

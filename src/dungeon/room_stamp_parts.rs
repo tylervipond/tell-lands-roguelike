@@ -16,4 +16,5 @@ pub enum RoomPart {
     Chair = 11,
     Desk = 12,
     Shelf = 13,
+    Table = 14,
 }

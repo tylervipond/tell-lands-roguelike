@@ -3,7 +3,8 @@ use super::{
     room_stamp_parts::{
         RoomPart,
         RoomPart::{
-            Armoire, Bed, BedsideTable, Chair, Chest, Desk, Door, Dresser, Floor, Shelf, Wall,
+            Armoire, Bed, BedsideTable, Chair, Chest, Desk, Door, Dresser, Floor, Shelf, Table,
+            Wall,
         },
     },
     room_type::RoomType,
@@ -361,9 +362,129 @@ pub fn stamp_bedroom(room_stamp: &mut Stamp<StampPart<RoomPart>>, rng: &mut Rand
     };
 }
 
+pub fn add_table_to_mess_hall(
+    room_stamp: &mut Stamp<StampPart<RoomPart>>,
+    rng: &mut RandomNumberGenerator,
+) {
+    let mut query_stamp = Stamp::new(vec![
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+        vec![
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor, Table])),
+        ],
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor, Table])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+    ]);
+    let mut replace_stamp = Stamp::new(vec![
+        vec![
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+        ],
+        vec![
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+        ],
+        vec![
+            Transparent,
+            Transparent,
+            Use(Table),
+            Transparent,
+            Transparent,
+        ],
+        vec![
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+        ],
+        vec![
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+            Transparent,
+        ],
+    ]);
+    find_and_replace(room_stamp, rng, &mut query_stamp, &mut replace_stamp);
+}
+
+pub fn add_chair_to_mess_hall(
+    room_stamp: &mut Stamp<StampPart<RoomPart>>,
+    rng: &mut RandomNumberGenerator,
+) {
+    let mut query_stamp = Stamp::new(vec![
+        vec![
+            Is(Box::new([Table, Floor, Chair])),
+            Is(Box::new([Table])),
+            Is(Box::new([Table, Floor, Chair])),
+        ],
+        vec![
+            Is(Box::new([Table, Floor, Chair])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Table, Floor, Chair])),
+        ],
+        vec![Any, Is(Box::new([Floor])), Any],
+    ]);
+    let mut replace_stamp = Stamp::new(vec![
+        vec![Transparent, Transparent, Transparent],
+        vec![Transparent, Use(Chair), Transparent],
+        vec![Transparent, Transparent, Transparent],
+    ]);
+    find_and_replace(room_stamp, rng, &mut query_stamp, &mut replace_stamp);
+}
+
+// This should likely be fixed to not take quite as long... it doesn't take that long, but still
+pub fn stamp_mess_hall(
+    room_stamp: &mut Stamp<StampPart<RoomPart>>,
+    rng: &mut RandomNumberGenerator,
+) {
+    for _ in 0..20 + rng.range(0, 80) {
+        add_table_to_mess_hall(room_stamp, rng);
+    }
+    for _ in 0..30 + rng.range(0, 80) {
+        add_chair_to_mess_hall(room_stamp, rng);
+    }
+}
+
 pub fn stamp_room(room: &mut Room, rng: &mut RandomNumberGenerator) {
     match room.room_type {
         Some(RoomType::BedRoom) => stamp_bedroom(&mut room.stamp, rng),
+        Some(RoomType::MessHall) => stamp_mess_hall(&mut room.stamp, rng),
         _ => {}
     };
 }
