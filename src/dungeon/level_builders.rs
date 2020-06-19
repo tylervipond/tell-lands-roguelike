@@ -1,6 +1,18 @@
-use super::{level::Level, level_utils, rect::Rect, room::Room, tile_type::TileType};
+use super::{
+    level::Level,
+    level_utils,
+    rect::Rect,
+    room::Room,
+    room_stamp_parts::{
+        RoomPart,
+        RoomPart::{Door, DownStairs, Exit, Floor, UpStairs, Wall},
+    },
+    room_stampers,
+    tile_type::TileType,
+};
 use crate::utils::get_x_random_elements;
 use rltk::{DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
+use stamp_rs::{StampPart, StampPart::Use};
 use std::cmp;
 use std::collections::HashMap;
 
@@ -36,6 +48,42 @@ fn generate_rects_for_level(
         }
     }
     rects
+}
+
+pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGenerator) {
+    let mut updates: Vec<(usize, usize, usize, StampPart<RoomPart>)> = vec![];
+    for (room_index, room) in level.rooms.iter().enumerate() {
+        for x in room.rect.x1..room.rect.x2 {
+            for y in room.rect.y1..room.rect.y2 {
+                let room_x = x - room.rect.x1;
+                let room_y = y - room.rect.y1;
+                let room_stamp_part = match level_utils::get_tile_at_xy(level, x, y) {
+                    TileType::Floor => Use(Floor),
+                    TileType::Wall => Use(Wall),
+                    TileType::Door => Use(Door),
+                    TileType::DownStairs => Use(DownStairs),
+                    TileType::UpStairs => Use(UpStairs),
+                    TileType::Exit => Use(Exit),
+                };
+                updates.push((
+                    room_index,
+                    room_x as usize,
+                    room_y as usize,
+                    room_stamp_part,
+                ));
+            }
+        }
+    }
+    updates
+        .iter()
+        .for_each(|(room_index, room_x, room_y, stamp_part)| {
+            level.rooms[*room_index]
+                .stamp
+                .set_at((*room_x, *room_y), stamp_part.clone());
+        });
+    level.rooms.iter_mut().for_each(|room| {
+        room_stampers::stamp_room(room, rng);
+    });
 }
 
 fn add_rectangular_room(level: &mut Level, room: &Rect) {

@@ -5,7 +5,8 @@ use crate::components::{
     Trap, Viewshed,
 };
 use crate::dungeon::{
-    level::Level, level_utils, rect::Rect, room::Room, room_type::RoomType, tile_type::TileType,
+    level::Level, level_utils, rect::Rect, room::Room, room_stamp_parts::RoomPart,
+    room_type::RoomType, tile_type::TileType,
 };
 use crate::entity_set::EntitySet;
 use crate::types::{trap_type, TrapType};
@@ -15,6 +16,7 @@ use specs::{
     saveload::{MarkedBuilder, SimpleMarker},
     Builder, Entity, EntityBuilder, Join, World, WorldExt,
 };
+use stamp_rs::StampPart::Use;
 use std::cmp;
 
 pub const MAX_ITEMS_PER_ROOM: i32 = 4;
@@ -467,7 +469,133 @@ pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Leve
     }
 }
 
-pub fn spawn_barrel(world: &mut World, idx: i32, level: &Level) {
+pub fn spawn_bed(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Bed".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('b'),
+            fg: RGB::named(rltk::LIGHT_BLUE),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+pub fn spawn_bedside_table(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Bedside Table".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('t'),
+            fg: RGB::named(rltk::BROWN4),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+pub fn spawn_chair(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Chair".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('c'),
+            fg: RGB::named(rltk::BROWN4),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+pub fn spawn_desk(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Desk".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('d'),
+            fg: RGB::named(rltk::BROWN4),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+pub fn spawn_armoire(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Armoire".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('a'),
+            fg: RGB::named(rltk::BROWN4),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+pub fn spawn_dresser(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Dresser".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('d'),
+            fg: RGB::named(rltk::BROWN3),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+pub fn spawn_shelf(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Shelf".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('s'),
+            fg: RGB::named(rltk::BROWN3),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+pub fn spawn_barrel(world: &mut World, idx: i32, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)
         .with(Name {
             name: "Barrel".to_string(),
@@ -482,9 +610,10 @@ pub fn spawn_barrel(world: &mut World, idx: i32, level: &Level) {
         .with(BlocksTile {})
         .with(Grabbable {})
         .build();
+    level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_treasure_chest(world: &mut World, idx: i32, level: &Level) {
+pub fn spawn_treasure_chest(world: &mut World, idx: i32, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)
         .with(Name {
             name: "Trasure Chest".to_string(),
@@ -500,6 +629,7 @@ pub fn spawn_treasure_chest(world: &mut World, idx: i32, level: &Level) {
         .with(BlocksTile {})
         .with(Grabbable {})
         .build();
+    level.blocked[idx as usize] = true;
 }
 
 pub fn spawn_debris(world: &mut World, idx: i32, level: &Level) {
@@ -542,6 +672,7 @@ fn spawn_miscellaneous_entities_for_room(world: &mut World, room: &Room, level: 
                     RoomType::Collapsed => spawn_debris(world, (*idx) as i32, level),
                     RoomType::StoreRoom => spawn_barrel(world, (*idx) as i32, level),
                     RoomType::TreasureRoom => spawn_treasure_chest(world, (*idx) as i32, level),
+                    _ => {}
                 }
             }
             level.blocked[*idx as usize] = true;
@@ -552,6 +683,28 @@ fn spawn_miscellaneous_entities_for_room(world: &mut World, room: &Room, level: 
 pub fn spawn_entities_for_room(world: &mut World, room: &Room, level: &mut Level) {
     spawn_miscellaneous_entities_for_room(world, room, level);
     spawn_item_entities_for_room(world, room, level);
+}
+
+pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut Level) {
+    let room_x = room.rect.x1;
+    let room_y = room.rect.y1;
+    for (y, row) in room.stamp.pattern.iter().enumerate() {
+        for (x, tile) in row.iter().enumerate() {
+            let this_x = room_x + x as i32;
+            let this_y = room_y + y as i32;
+            let idx = level_utils::xy_idx(level, this_x, this_y);
+            match tile {
+                Use(RoomPart::Bed) => spawn_bed(world, idx, level),
+                Use(RoomPart::BedsideTable) => spawn_bedside_table(world, idx, level),
+                Use(RoomPart::Chair) => spawn_chair(world, idx, level),
+                Use(RoomPart::Desk) => spawn_desk(world, idx, level),
+                Use(RoomPart::Dresser) => spawn_dresser(world, idx, level),
+                Use(RoomPart::Armoire) => spawn_armoire(world, idx, level),
+                Use(RoomPart::Shelf) => spawn_shelf(world, idx, level),
+                _ => (),
+            };
+        }
+    }
 }
 
 fn spawn_set_traps_for_level(world: &mut World, level: &mut Level) {
@@ -591,6 +744,7 @@ pub fn spawn_entities_for_level(world: &mut World, level: &mut Level) {
     let count = level.rooms.len();
     for i in (0..count).skip(1) {
         let room = level.rooms[i].clone();
+        spawn_entites_from_room_stamp(world, &room, level);
         spawn_entities_for_room(world, &room, level);
     }
     spawn_goblins_for_level(world, level);
