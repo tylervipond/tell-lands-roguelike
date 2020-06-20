@@ -36,13 +36,14 @@ impl Room {
           Some(RoomType::TreasureRoom),
           Some(RoomType::Collapsed),
           Some(RoomType::StoreRoom),
+          Some(RoomType::DiningRoom),
           None,
         ];
         get_random_element(&mut rng, &choices).to_owned()
       }
       101..=200 => {
         let mut rng = RandomNumberGenerator::new();
-        let choices = vec![Some(RoomType::MessHall), None];
+        let choices = vec![Some(RoomType::MessHall), Some(RoomType::Barracks), None];
         get_random_element(&mut rng, &choices).to_owned()
       }
       _ => None,

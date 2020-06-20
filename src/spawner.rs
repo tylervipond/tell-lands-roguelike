@@ -667,6 +667,22 @@ pub fn spawn_cupboard(world: &mut World, idx: i32, level: &mut Level) {
         .build();
     level.blocked[idx as usize] = true;
 }
+pub fn spawn_weapon_rack(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Weapon Rack".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('W'),
+            fg: RGB::named(rltk::LIGHT_GREY),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
 
 pub fn spawn_barrel(world: &mut World, idx: i32, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)
@@ -780,6 +796,7 @@ pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut
                 Use(RoomPart::Stove) => spawn_stove(world, idx, level),
                 Use(RoomPart::Counter) => spawn_counter(world, idx, level),
                 Use(RoomPart::Cupboard) => spawn_cupboard(world, idx, level),
+                Use(RoomPart::WeaponRack) => spawn_weapon_rack(world, idx, level),
                 _ => (),
             };
         }
