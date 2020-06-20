@@ -5,7 +5,5 @@ pub mod level_builders;
 pub mod level_utils;
 pub mod rect;
 pub mod room;
-pub mod room_stamp_parts;
-pub mod room_stampers;
-pub mod room_type;
 pub mod tile_type;
+pub mod room_decorators;

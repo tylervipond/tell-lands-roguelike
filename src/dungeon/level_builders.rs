@@ -3,11 +3,11 @@ use super::{
     level_utils,
     rect::Rect,
     room::Room,
-    room_stamp_parts::{
+    room_decorators,
+    room_decorators::{
         RoomPart,
         RoomPart::{Door, DownStairs, Exit, Floor, UpStairs, Wall},
     },
-    room_stampers,
     tile_type::TileType,
 };
 use crate::utils::get_x_random_elements;
@@ -82,7 +82,7 @@ pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGe
                 .set_at((*room_x, *room_y), stamp_part.clone());
         });
     level.rooms.iter_mut().for_each(|room| {
-        room_stampers::stamp_room(room, rng);
+        room_decorators::decorate_room(&mut room.stamp, &room.room_type, rng);
     });
 }
 
