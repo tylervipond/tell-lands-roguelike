@@ -154,3 +154,24 @@ pub fn add_table_to_room(
     ]);
     find_and_replace(room_stamp, rng, &mut query_stamp, &mut replace_stamp);
 }
+
+pub fn add_chair_next_to_table(
+    room_stamp: &mut Stamp<StampPart<RoomPart>>,
+    rng: &mut RandomNumberGenerator,
+) {
+    let mut query_stamp = Stamp::new(vec![
+        vec![
+            Is(Box::new([Table, Floor, Chair])),
+            Is(Box::new([Table])),
+            Is(Box::new([Table, Floor, Chair])),
+        ],
+        vec![
+            Is(Box::new([Table, Floor, Chair])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Table, Floor, Chair])),
+        ],
+        vec![Any, Is(Box::new([Floor])), Any],
+    ]);
+    let mut replace_stamp = replace_middle_3x3(Chair);
+    find_and_replace(room_stamp, rng, &mut query_stamp, &mut replace_stamp);
+}

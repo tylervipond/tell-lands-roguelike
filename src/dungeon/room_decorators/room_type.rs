@@ -9,4 +9,6 @@ pub enum RoomType {
   MessHall,
   SittingRoom,
   Kitchen,
+  Barracks,
+  DiningRoom,
 }
