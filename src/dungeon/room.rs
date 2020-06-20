@@ -1,8 +1,7 @@
 use super::{
   rect::Rect,
-  room_stamp_parts::{RoomPart, RoomPart::Floor},
+  room_decorators::{RoomPart, RoomPart::Floor, RoomType},
 };
-use crate::dungeon::room_type::RoomType;
 use crate::utils::get_random_element;
 use rltk::RandomNumberGenerator;
 use serde::{Deserialize, Serialize};
@@ -18,23 +17,32 @@ pub struct Room {
 impl Room {
   pub fn new(rect: Rect) -> Self {
     let room_type = match rect.area() {
-      9..=100 => {
+      9..=75 => {
+        let mut rng = RandomNumberGenerator::new();
+        let choices = vec![
+          Some(RoomType::SittingRoom),
+          Some(RoomType::TreasureRoom),
+          Some(RoomType::Collapsed),
+          Some(RoomType::StoreRoom),
+          Some(RoomType::BedRoom),
+          Some(RoomType::Kitchen),
+          None,
+        ];
+        get_random_element(&mut rng, &choices).to_owned()
+      }
+      76..=100 => {
         let mut rng = RandomNumberGenerator::new();
         let choices = vec![
           Some(RoomType::TreasureRoom),
           Some(RoomType::Collapsed),
           Some(RoomType::StoreRoom),
-          Some(RoomType::BedRoom),
           None,
         ];
         get_random_element(&mut rng, &choices).to_owned()
       }
       101..=200 => {
         let mut rng = RandomNumberGenerator::new();
-        let choices = vec![
-          Some(RoomType::MessHall),
-          None,
-        ];
+        let choices = vec![Some(RoomType::MessHall), None];
         get_random_element(&mut rng, &choices).to_owned()
       }
       _ => None,

@@ -5,8 +5,12 @@ use crate::components::{
     Trap, Viewshed,
 };
 use crate::dungeon::{
-    level::Level, level_utils, rect::Rect, room::Room, room_stamp_parts::RoomPart,
-    room_type::RoomType, tile_type::TileType,
+    level::Level,
+    level_utils,
+    rect::Rect,
+    room::Room,
+    room_decorators::{RoomPart, RoomType},
+    tile_type::TileType,
 };
 use crate::entity_set::EntitySet;
 use crate::types::{trap_type, TrapType};
@@ -612,6 +616,57 @@ pub fn spawn_table(world: &mut World, idx: i32, level: &mut Level) {
         .build();
     level.blocked[idx as usize] = true;
 }
+pub fn spawn_counter(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Counter".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('C'),
+            fg: RGB::named(rltk::BROWN3),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+pub fn spawn_stove(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Stove".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('S'),
+            fg: RGB::named(rltk::BROWN3),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+pub fn spawn_cupboard(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Cupboard".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('c'),
+            fg: RGB::named(rltk::BROWN3),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 8 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
 
 pub fn spawn_barrel(world: &mut World, idx: i32, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)
@@ -650,7 +705,7 @@ pub fn spawn_treasure_chest(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_debris(world: &mut World, idx: i32, level: &Level) {
+pub fn spawn_debris(world: &mut World, idx: i32, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)
         .with(Name {
             name: "Debris".to_string(),
@@ -663,6 +718,7 @@ pub fn spawn_debris(world: &mut World, idx: i32, level: &Level) {
         })
         .with(BlocksTile {})
         .build();
+    level.blocked[idx as usize] = true;
 }
 
 fn spawn_miscellaneous_entities_for_room(world: &mut World, room: &Room, level: &mut Level) {
@@ -693,7 +749,6 @@ fn spawn_miscellaneous_entities_for_room(world: &mut World, room: &Room, level: 
                     _ => {}
                 }
             }
-            level.blocked[*idx as usize] = true;
         }
     }
 }
@@ -720,6 +775,11 @@ pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut
                 Use(RoomPart::Armoire) => spawn_armoire(world, idx, level),
                 Use(RoomPart::Shelf) => spawn_shelf(world, idx, level),
                 Use(RoomPart::Table) => spawn_table(world, idx, level),
+                Use(RoomPart::Chest) => spawn_treasure_chest(world, idx, level),
+                Use(RoomPart::Barrel) => spawn_barrel(world, idx, level),
+                Use(RoomPart::Stove) => spawn_stove(world, idx, level),
+                Use(RoomPart::Counter) => spawn_counter(world, idx, level),
+                Use(RoomPart::Cupboard) => spawn_cupboard(world, idx, level),
                 _ => (),
             };
         }
