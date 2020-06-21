@@ -369,6 +369,7 @@ impl GameState for State {
                     MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
                     MapAction::SearchContainer => RunState::ShowTargetingOpenContainer,
                     MapAction::GrabFurniture => RunState::ShowTargetingGrabFurniture,
+                    MapAction::DisarmTrap => RunState::ShowTargetingDisarmTrap,
                     _ => {
                         player_action(&mut self.world, action);
                         RunState::PlayerTurn
