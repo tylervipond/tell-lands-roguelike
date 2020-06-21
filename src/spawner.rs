@@ -24,39 +24,12 @@ use stamp_rs::StampPart::Use;
 use std::cmp;
 
 pub const MAX_ITEMS_PER_ROOM: i32 = 4;
-pub const MAX_MISC_PER_ROOM: i32 = 10;
 pub const MAX_TRAPS_SET_PER_LEVEL: i32 = 10;
 pub const MIN_GOBLIN_GROUPS_PER_LEVEL: i32 = 2;
 pub const MAX_GOBLIN_GROUPS_PER_LEVEL: i32 = 4;
 pub const MIN_GOBLINS_PER_GROUP: i32 = 3;
 pub const MAX_GOBLINS_PER_GROUP: i32 = 6;
 pub const MAX_GOBLIN_SPACING: i32 = 4;
-
-fn path_is_blocked(path_idx: (i32, i32, i32), level: &Level) -> bool {
-    let (tile_1, tile_2, tile_3) = path_idx;
-    level_utils::tile_is_blocked(tile_1, level)
-        || level_utils::tile_is_blocked(tile_2, level)
-        || level_utils::tile_is_blocked(tile_3, level)
-}
-
-pub fn tile_can_be_blocked(idx: i32, level: &Level) -> bool {
-    let (n, e, s, w) = level_utils::get_cardinal_idx(idx, level);
-    let (ne, se, sw, nw) = level_utils::get_ordinal_idx(idx, level);
-
-    if !level_utils::tile_is_blocked(w, level) && !level_utils::tile_is_blocked(e, level) {
-        if path_is_blocked((nw, n, ne), level) || path_is_blocked((sw, s, se), level) {
-            return false;
-        }
-    }
-
-    if !level_utils::tile_is_blocked(n, level) && !level_utils::tile_is_blocked(s, level) {
-        if path_is_blocked((nw, w, sw), level) || path_is_blocked((ne, e, se), level) {
-            return false;
-        }
-    }
-
-    true
-}
 
 fn get_possible_spawn_points_in_level(level: &Level) -> Vec<usize> {
     level
@@ -737,40 +710,7 @@ pub fn spawn_debris(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-fn spawn_miscellaneous_entities_for_room(world: &mut World, room: &Room, level: &mut Level) {
-    if let Some(room_type) = room.room_type {
-        let spawn_points = {
-            let mut rng = world.write_resource::<RandomNumberGenerator>();
-            let num_miscellaneous = rng.roll_dice(1, MAX_MISC_PER_ROOM + 2) - 3;
-            match room_type {
-                RoomType::Collapsed => {
-                    level_utils::get_spawn_points(&room.rect, level, &mut rng, num_miscellaneous)
-                }
-                _ => level_utils::get_wall_adjacent_spawn_points(
-                    &room.rect,
-                    level,
-                    &mut rng,
-                    num_miscellaneous,
-                ),
-            }
-        };
-        for idx in spawn_points.iter() {
-            if !level_utils::tile_is_blocked((*idx) as i32, level)
-                && tile_can_be_blocked((*idx) as i32, level)
-            {
-                match room_type {
-                    RoomType::Collapsed => spawn_debris(world, (*idx) as i32, level),
-                    RoomType::StoreRoom => spawn_barrel(world, (*idx) as i32, level),
-                    RoomType::TreasureRoom => spawn_treasure_chest(world, (*idx) as i32, level),
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
 pub fn spawn_entities_for_room(world: &mut World, room: &Room, level: &mut Level) {
-    spawn_miscellaneous_entities_for_room(world, room, level);
     spawn_item_entities_for_room(world, room, level);
 }
 
@@ -797,6 +737,7 @@ pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut
                 Use(RoomPart::Counter) => spawn_counter(world, idx, level),
                 Use(RoomPart::Cupboard) => spawn_cupboard(world, idx, level),
                 Use(RoomPart::WeaponRack) => spawn_weapon_rack(world, idx, level),
+                Use(RoomPart::Debris) => spawn_debris(world, idx, level),
                 _ => (),
             };
         }

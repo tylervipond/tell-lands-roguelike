@@ -1,9 +1,12 @@
+use super::decorate_barracks::decorate_barracks;
 use super::decorate_bedroom::decorate_bedroom;
+use super::decorate_collapsed_room::decorate_collapsed_room;
+use super::decorate_dining_room::decorate_dining_room;
 use super::decorate_kitchen::decorate_kitchen;
 use super::decorate_mess_hall::decorate_mess_hall;
 use super::decorate_sitting_room::decorate_sitting_room;
-use super::decorate_barracks::decorate_barracks;
-use super::decorate_dining_room::decorate_dining_room;
+use super::decorate_store_room::decorate_store_room;
+use super::decorate_treasure_room::decorate_treasure_room;
 use super::{RoomPart, RoomType};
 use rltk::RandomNumberGenerator;
 use stamp_rs::{Stamp, StampPart};
@@ -20,6 +23,9 @@ pub fn decorate_room(
         Some(RoomType::Kitchen) => decorate_kitchen(stamp, rng),
         Some(RoomType::Barracks) => decorate_barracks(stamp, rng),
         Some(RoomType::DiningRoom) => decorate_dining_room(stamp, rng),
+        Some(RoomType::TreasureRoom) => decorate_treasure_room(stamp, rng),
+        Some(RoomType::StoreRoom) => decorate_store_room(stamp, rng),
+        Some(RoomType::Collapsed) => decorate_collapsed_room(stamp, rng),
         _ => {}
     };
 }
