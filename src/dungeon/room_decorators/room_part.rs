@@ -23,4 +23,5 @@ pub enum RoomPart {
     Barrel = 18,
     WeaponRack = 19,
     Debris = 20,
+    Column = 21,
 }

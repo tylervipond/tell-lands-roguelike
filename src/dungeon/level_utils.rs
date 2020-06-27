@@ -10,12 +10,23 @@ pub fn idx_xy(level: &Level, idx: i32) -> (i32, i32) {
     (idx % level.width as i32, idx / level.width as i32)
 }
 
-pub fn get_tile_at_xy(level: &Level, x: i32, y: i32) -> TileType {
-    level.tiles[xy_idx(level, x, y) as usize]
+pub fn get_tile_at_xy(level: &Level, x: i32, y: i32) -> Option<&TileType> {
+    level.tiles.get(xy_idx(level, x, y) as usize)
 }
 
 pub fn tile_at_xy_is_wall(level: &Level, x: i32, y: i32) -> bool {
-    get_tile_at_xy(level, x, y) == TileType::Wall
+    get_tile_at_xy(level, x, y) == Some(&TileType::Wall)
+}
+
+pub fn tile_at_xy_is_door(level: &Level, x: i32, y: i32) -> bool {
+    get_tile_at_xy(level, x, y) == Some(&TileType::Door)
+}
+
+pub fn tile_is_door_adjacent(level: &Level, x: i32, y: i32) -> bool {
+    tile_at_xy_is_door(level, x - 1, y)
+        || tile_at_xy_is_door(level, x, y - 1)
+        || tile_at_xy_is_door(level, x + 1, y)
+        || tile_at_xy_is_door(level, x, y + 1)
 }
 
 pub fn set_tile_to_floor(level: &mut Level, idx: usize) {
@@ -33,7 +44,8 @@ pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
 
 pub fn populate_blocked(level: &mut Level) {
     for (i, tile) in level.tiles.iter_mut().enumerate() {
-        level.blocked[i] = *tile == TileType::Wall || *tile == TileType::Door;
+        level.blocked[i] =
+            *tile == TileType::Wall || *tile == TileType::Door || *tile == TileType::Column;
     }
 }
 

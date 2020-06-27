@@ -11,26 +11,26 @@ pub struct RenderData {
     pub glyph: u16,
 }
 
-pub fn is_revealed_and_wall(level: &Level, x: i32, y: i32) -> bool {
+pub fn is_revealed_and_wall_or_door(level: &Level, x: i32, y: i32) -> bool {
     let idx = level_utils::xy_idx(level, x, y) as usize;
     match level.tiles.get(idx) {
-        Some(tile) => *tile == TileType::Wall && level.revealed_tiles[idx],
+        Some(tile) => (*tile == TileType::Wall || *tile == TileType::Door) && level.revealed_tiles[idx],
         None => false,
     }
 }
 
 pub fn get_wall_tile(level: &Level, x: i32, y: i32) -> u16 {
     let mut mask: u8 = 0;
-    if is_revealed_and_wall(level, x, y - 1) {
+    if is_revealed_and_wall_or_door(level, x, y - 1) {
         mask += 1;
     }
-    if is_revealed_and_wall(level, x, y + 1) {
+    if is_revealed_and_wall_or_door(level, x, y + 1) {
         mask += 2;
     }
-    if is_revealed_and_wall(level, x - 1, y) {
+    if is_revealed_and_wall_or_door(level, x - 1, y) {
         mask += 4;
     }
-    if is_revealed_and_wall(level, x + 1, y) {
+    if is_revealed_and_wall_or_door(level, x + 1, y) {
         mask += 8;
     }
     match mask {
@@ -77,6 +77,7 @@ impl<'a> UIMap<'a> {
                 let character = match tile {
                     TileType::Floor => rltk::to_cp437('.'),
                     TileType::Wall => get_wall_tile(&self.level, x as i32, y as i32),
+                    TileType::Column => 9,
                     TileType::DownStairs => rltk::to_cp437('>'),
                     TileType::UpStairs => rltk::to_cp437('<'),
                     TileType::Door => rltk::to_cp437('D'),

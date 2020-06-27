@@ -1,3 +1,4 @@
+pub mod column_placers;
 pub mod constants;
 pub mod dungeon;
 pub mod level;
@@ -5,5 +6,6 @@ pub mod level_builders;
 pub mod level_utils;
 pub mod rect;
 pub mod room;
-pub mod tile_type;
 pub mod room_decorators;
+pub mod room_feature;
+pub mod tile_type;

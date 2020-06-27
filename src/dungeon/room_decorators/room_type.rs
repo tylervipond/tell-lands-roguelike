@@ -11,4 +11,7 @@ pub enum RoomType {
   Kitchen,
   Barracks,
   DiningRoom,
+  Courtyard,
+  Baths,
+  ThroneRoom,
 }
