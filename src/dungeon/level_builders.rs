@@ -1,4 +1,13 @@
+use super::room_feature::RoomFeature::{
+    ColumnsDoubleAll, ColumnsDoubleBottom, ColumnsDoubleHorizontal, ColumnsDoubleLeft,
+    ColumnsDoubleMiddle, ColumnsDoubleRight, ColumnsDoubleTop, ColumnsDoubleVertical,
+    ColumnsSingleAll, ColumnsSingleBottom, ColumnsSingleHorizontal, ColumnsSingleLeft,
+    ColumnsSingleMiddle, ColumnsSingleRight, ColumnsSingleTop, ColumnsSingleVertical,
+    ColumnsTripleAll, ColumnsTripleBottom, ColumnsTripleHorizontal, ColumnsTripleLeft,
+    ColumnsTripleRight, ColumnsTripleTop, ColumnsTripleVertical,
+};
 use super::{
+    column_placers,
     level::Level,
     level_utils,
     rect::Rect,
@@ -6,13 +15,16 @@ use super::{
     room_decorators,
     room_decorators::{
         RoomPart,
-        RoomPart::{Door, DownStairs, Exit, Floor, UpStairs, Wall},
+        RoomPart::{Column, Door, DownStairs, Exit, Floor, UpStairs, Wall},
     },
     tile_type::TileType,
 };
 use crate::utils::get_x_random_elements;
 use rltk::{DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
-use stamp_rs::{StampPart, StampPart::Use};
+use stamp_rs::{
+    StampPart,
+    StampPart::{Transparent, Use},
+};
 use std::cmp;
 use std::collections::HashMap;
 
@@ -50,6 +62,57 @@ fn generate_rects_for_level(
     rects
 }
 
+pub fn update_level_from_room_features(level: &mut Level, rng: &mut RandomNumberGenerator) {
+    let mut updates: Vec<((i32, i32), TileType)> = vec![];
+    for room in &level.rooms {
+        let rect = &room.rect;
+        for feature in &room.features {
+            let mut additional_updates: Vec<((i32, i32), TileType)> = match feature {
+                Some(ColumnsSingleLeft) => column_placers::get_columns_left(rect, rng, 1),
+                Some(ColumnsDoubleLeft) => column_placers::get_columns_left(rect, rng, 2),
+                Some(ColumnsTripleLeft) => column_placers::get_columns_left(rect, rng, 3),
+                Some(ColumnsSingleRight) => column_placers::get_columns_right(rect, rng, 1),
+                Some(ColumnsDoubleRight) => column_placers::get_columns_right(rect, rng, 2),
+                Some(ColumnsTripleRight) => column_placers::get_columns_right(rect, rng, 3),
+                Some(ColumnsSingleBottom) => column_placers::get_columns_bottom(rect, rng, 1),
+                Some(ColumnsDoubleBottom) => column_placers::get_columns_bottom(rect, rng, 2),
+                Some(ColumnsTripleBottom) => column_placers::get_columns_bottom(rect, rng, 3),
+                Some(ColumnsSingleTop) => column_placers::get_columns_top(rect, rng, 1),
+                Some(ColumnsDoubleTop) => column_placers::get_columns_top(rect, rng, 2),
+                Some(ColumnsTripleTop) => column_placers::get_columns_top(rect, rng, 3),
+                Some(ColumnsSingleVertical) => column_placers::get_columns_vertical(rect, rng, 1),
+                Some(ColumnsDoubleVertical) => column_placers::get_columns_vertical(rect, rng, 2),
+                Some(ColumnsTripleVertical) => column_placers::get_columns_vertical(rect, rng, 3),
+                Some(ColumnsSingleHorizontal) => {
+                    column_placers::get_columns_horizontal(rect, rng, 1)
+                }
+                Some(ColumnsDoubleHorizontal) => {
+                    column_placers::get_columns_horizontal(rect, rng, 2)
+                }
+                Some(ColumnsTripleHorizontal) => {
+                    column_placers::get_columns_horizontal(rect, rng, 3)
+                }
+                Some(ColumnsSingleAll) => column_placers::get_columns_all(rect, rng, 1),
+                Some(ColumnsDoubleAll) => column_placers::get_columns_all(rect, rng, 2),
+                Some(ColumnsTripleAll) => column_placers::get_columns_all(rect, rng, 3),
+                Some(ColumnsSingleMiddle) => column_placers::get_columns_single_middle(rect),
+                Some(ColumnsDoubleMiddle) => column_placers::get_columns_double_middle(rect, rng),
+                _ => vec![],
+            };
+            &mut updates.append(&mut additional_updates);
+        }
+    }
+    for (xy, tile_type) in &updates {
+        if !level_utils::tile_at_xy_is_wall(level, xy.0, xy.1)
+            && !level_utils::tile_is_door_adjacent(level, xy.0, xy.1)
+        {
+            let idx = level_utils::xy_idx(level, xy.0, xy.1);
+            level.tiles[idx as usize] = *tile_type;
+            level.blocked[idx as usize] = true;
+        }
+    }
+}
+
 pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let mut updates: Vec<(usize, usize, usize, StampPart<RoomPart>)> = vec![];
     for (room_index, room) in level.rooms.iter().enumerate() {
@@ -58,12 +121,14 @@ pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGe
                 let room_x = x - room.rect.x1;
                 let room_y = y - room.rect.y1;
                 let room_stamp_part = match level_utils::get_tile_at_xy(level, x, y) {
-                    TileType::Floor => Use(Floor),
-                    TileType::Wall => Use(Wall),
-                    TileType::Door => Use(Door),
-                    TileType::DownStairs => Use(DownStairs),
-                    TileType::UpStairs => Use(UpStairs),
-                    TileType::Exit => Use(Exit),
+                    Some(&TileType::Floor) => Use(Floor),
+                    Some(&TileType::Wall) => Use(Wall),
+                    Some(&TileType::Door) => Use(Door),
+                    Some(&TileType::DownStairs) => Use(DownStairs),
+                    Some(&TileType::UpStairs) => Use(UpStairs),
+                    Some(&TileType::Exit) => Use(Exit),
+                    Some(&TileType::Column) => Use(Column),
+                    None => Transparent,
                 };
                 updates.push((
                     room_index,
