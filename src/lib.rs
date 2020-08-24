@@ -160,6 +160,9 @@ fn generate_dungeon(world: &mut World, levels: u8) -> Dungeon {
             let mut rng = world.fetch_mut::<RandomNumberGenerator>();
             level_builders::update_level_from_room_features(&mut level, &mut rng);
             level_builders::update_room_stamps_from_level(&mut level, &mut rng);
+            level_builders::decorate_level(&mut level, &mut rng);
+            level_builders::update_level_from_room_stamps(&mut level, &mut rng);
+
         }
         spawner::spawn_entities_for_level(world, &mut level);
         acc.insert(floor_number, level);

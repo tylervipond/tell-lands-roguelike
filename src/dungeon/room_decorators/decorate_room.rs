@@ -1,6 +1,8 @@
 use super::decorate_barracks::decorate_barracks;
+use super::decorate_baths::decorate_baths;
 use super::decorate_bedroom::decorate_bedroom;
 use super::decorate_collapsed_room::decorate_collapsed_room;
+use super::decorate_courtyard::decorate_courtyard;
 use super::decorate_dining_room::decorate_dining_room;
 use super::decorate_kitchen::decorate_kitchen;
 use super::decorate_mess_hall::decorate_mess_hall;
@@ -26,6 +28,8 @@ pub fn decorate_room(
         Some(RoomType::TreasureRoom) => decorate_treasure_room(stamp, rng),
         Some(RoomType::StoreRoom) => decorate_store_room(stamp, rng),
         Some(RoomType::Collapsed) => decorate_collapsed_room(stamp, rng),
+        Some(RoomType::Baths) => decorate_baths(stamp, rng),
+        Some(RoomType::Courtyard) => decorate_courtyard(stamp, rng),
         _ => {}
     };
 }

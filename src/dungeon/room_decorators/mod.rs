@@ -9,6 +9,8 @@ mod decorate_sitting_room;
 mod decorate_store_room;
 mod decorate_treasure_room;
 mod decorate_collapsed_room;
+mod decorate_baths;
+mod decorate_courtyard;
 pub mod room_part;
 pub mod room_type;
 mod utils;
