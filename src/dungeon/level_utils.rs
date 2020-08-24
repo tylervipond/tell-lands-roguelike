@@ -37,6 +37,8 @@ pub fn set_tile_to_door(level: &mut Level, idx: usize) {
     level.tiles[idx] = TileType::Door;
 }
 
+
+
 pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
     let idx = xy_idx(level, x, y);
     level.tile_content[idx as usize].to_vec()
@@ -45,7 +47,7 @@ pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
 pub fn populate_blocked(level: &mut Level) {
     for (i, tile) in level.tiles.iter_mut().enumerate() {
         level.blocked[i] =
-            *tile == TileType::Wall || *tile == TileType::Door || *tile == TileType::Column;
+            *tile == TileType::Wall || *tile == TileType::Door || *tile == TileType::Column || *tile == TileType::Ledge;
     }
 }
 

@@ -15,7 +15,7 @@ use super::{
     room_decorators,
     room_decorators::{
         RoomPart,
-        RoomPart::{Column, Door, DownStairs, Exit, Floor, UpStairs, Wall},
+        RoomPart::{Column, Door, DownStairs, Exit, Floor, Ledge, UpStairs, Wall, WaterDeep},
     },
     tile_type::TileType,
 };
@@ -113,6 +113,43 @@ pub fn update_level_from_room_features(level: &mut Level, rng: &mut RandomNumber
     }
 }
 
+pub fn update_level_from_room_stamps(level: &mut Level, rng: &mut RandomNumberGenerator) {
+    let mut updates: Vec<(usize, usize, Option<TileType>)> = vec![];
+    for room in level.rooms.iter() {
+        for x in room.rect.x1..room.rect.x2 {
+            for y in room.rect.y1..room.rect.y2 {
+                let room_x = x - room.rect.x1;
+                let room_y = y - room.rect.y1;
+                let tile_type = match room.stamp.get_at((room_x as usize, room_y as usize)) {
+                    Some(Use(Ledge)) => Some(TileType::Ledge),
+                    Some(Use(WaterDeep)) => Some(TileType::WaterDeep),
+                    _ => None,
+                };
+                updates.push((x as usize, y as usize, tile_type));
+            }
+        }
+    }
+    updates.iter().for_each(|(x, y, tile_type)| {
+        let idx = level_utils::xy_idx(level, *x as i32, *y as i32);
+        match tile_type {
+            Some(TileType::Ledge) => {
+                level.tiles[idx as usize] = TileType::Ledge;
+                level.blocked[idx as usize] = true;
+            },
+            Some(t) => {
+                level.tiles[idx as usize] = *t;
+            }
+            None => {}
+        }
+    });
+}
+
+pub fn decorate_level(level: &mut Level, rng: &mut RandomNumberGenerator) {
+    level.rooms.iter_mut().for_each(|room| {
+        room_decorators::decorate_room(&mut room.stamp, &room.room_type, rng);
+    });
+}
+
 pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let mut updates: Vec<(usize, usize, usize, StampPart<RoomPart>)> = vec![];
     for (room_index, room) in level.rooms.iter().enumerate() {
@@ -128,6 +165,8 @@ pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGe
                     Some(&TileType::UpStairs) => Use(UpStairs),
                     Some(&TileType::Exit) => Use(Exit),
                     Some(&TileType::Column) => Use(Column),
+                    Some(&TileType::Ledge) => Use(Ledge),
+                    Some(&TileType::WaterDeep) => Use(WaterDeep),
                     None => Transparent,
                 };
                 updates.push((
@@ -146,9 +185,6 @@ pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGe
                 .stamp
                 .set_at((*room_x, *room_y), stamp_part.clone());
         });
-    level.rooms.iter_mut().for_each(|room| {
-        room_decorators::decorate_room(&mut room.stamp, &room.room_type, rng);
-    });
 }
 
 fn add_rectangular_room(level: &mut Level, room: &Rect) {

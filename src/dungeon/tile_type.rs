@@ -9,4 +9,6 @@ pub enum TileType {
   DownStairs,
   UpStairs,
   Exit,
+  Ledge,
+  WaterDeep
 }

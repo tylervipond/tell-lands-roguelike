@@ -14,7 +14,17 @@ pub struct RenderData {
 pub fn is_revealed_and_wall_or_door(level: &Level, x: i32, y: i32) -> bool {
     let idx = level_utils::xy_idx(level, x, y) as usize;
     match level.tiles.get(idx) {
-        Some(tile) => (*tile == TileType::Wall || *tile == TileType::Door) && level.revealed_tiles[idx],
+        Some(tile) => {
+            (*tile == TileType::Wall || *tile == TileType::Door) && level.revealed_tiles[idx]
+        }
+        None => false,
+    }
+}
+
+fn is_revealed_and_ledge(level: &Level, x: i32, y: i32) -> bool {
+    let idx = level_utils::xy_idx(level, x, y) as usize;
+    match level.tiles.get(idx) {
+        Some(tile) => (*tile == TileType::Ledge) && level.revealed_tiles[idx],
         None => false,
     }
 }
@@ -50,6 +60,44 @@ pub fn get_wall_tile(level: &Level, x: i32, y: i32) -> u16 {
     }
 }
 
+fn get_ledge_tile(level: &Level, x: i32, y: i32) -> u16 {
+    let mut mask: u8 = 0;
+    if is_revealed_and_ledge(level, x, y - 1) {
+        mask += 1;
+    }
+    if is_revealed_and_ledge(level, x, y + 1) {
+        mask += 2;
+    }
+    if is_revealed_and_ledge(level, x - 1, y) {
+        mask += 4;
+    }
+    if is_revealed_and_ledge(level, x + 1, y) {
+        mask += 8;
+    }
+    match mask {
+        0 => 9,
+        1 | 2 | 3 => 179,
+        4 | 8 | 12 => 196,
+        5 => 217,
+        6 => 191,
+        7 => 180,
+        9 => 192,
+        10 => 218,
+        11 => 195,
+        13 => 193,
+        14 => 194,
+        15 => 197,
+        _ => 35,
+    }
+}
+
+fn get_bg_color(tile_type: &TileType) -> RGB {
+    match tile_type {
+        TileType::WaterDeep => RGB::named(rltk::BLUE),
+        _ => RGB::named(rltk::BLACK),
+    }
+}
+
 pub struct UIMap<'a> {
     level: &'a Level,
     renderables: &'a Vec<RenderData>,
@@ -82,6 +130,8 @@ impl<'a> UIMap<'a> {
                     TileType::UpStairs => rltk::to_cp437('<'),
                     TileType::Door => rltk::to_cp437('D'),
                     TileType::Exit => 219,
+                    TileType::WaterDeep => 176,
+                    TileType::Ledge => get_ledge_tile(&self.level, x as i32, y as i32),
                 };
                 let foreground_color = match self.level.visible_tiles[i] {
                     true => rltk::GREEN,
@@ -91,7 +141,7 @@ impl<'a> UIMap<'a> {
                     x as i32 - self.render_offset.0,
                     y as i32 - self.render_offset.1,
                     RGB::named(foreground_color),
-                    RGB::named(rltk::BLACK),
+                    get_bg_color(tile),
                     character,
                 )
             }

@@ -24,4 +24,6 @@ pub enum RoomPart {
     WeaponRack = 19,
     Debris = 20,
     Column = 21,
+    Ledge = 22,
+    WaterDeep = 23,
 }

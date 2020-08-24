@@ -26,4 +26,10 @@ pub enum RoomFeature {
     ColumnsTripleTop,
     ColumnsTripleMiddle,
     ColumnsTripleBottom,
+    FountainCircular,
+    FountainSquare,
+    BathSquare,
+    BathCircular,
+    Trough,
+    Flood,
 }
