@@ -37,8 +37,6 @@ pub fn set_tile_to_door(level: &mut Level, idx: usize) {
     level.tiles[idx] = TileType::Door;
 }
 
-
-
 pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
     let idx = xy_idx(level, x, y);
     level.tile_content[idx as usize].to_vec()
@@ -46,8 +44,10 @@ pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
 
 pub fn populate_blocked(level: &mut Level) {
     for (i, tile) in level.tiles.iter_mut().enumerate() {
-        level.blocked[i] =
-            *tile == TileType::Wall || *tile == TileType::Door || *tile == TileType::Column || *tile == TileType::Ledge;
+        level.blocked[i] = *tile == TileType::Wall
+            || *tile == TileType::Door
+            || *tile == TileType::Column
+            || *tile == TileType::Ledge;
     }
 }
 
@@ -88,8 +88,17 @@ pub fn get_walkable_tiles_in_rect(rect: &Rect, level: &Level) -> Vec<i32> {
         .collect()
 }
 
+pub fn filter_water_from_tiles(tiles: Vec<i32>, level: &Level) -> Vec<i32> {
+    tiles
+        .iter()
+        .filter(|idx| level.tiles[**idx as usize] != TileType::WaterDeep)
+        .map(|idx| idx.to_owned())
+        .collect()
+}
+
 pub fn get_random_spawn_point(rect: &Rect, level: &Level, rng: &mut RandomNumberGenerator) -> u16 {
-    let walkable_tiles_in_rect = get_walkable_tiles_in_rect(rect, level);
+    let walkable_tiles_in_rect =
+        filter_water_from_tiles(get_walkable_tiles_in_rect(rect, level), level);
     let selected_index = rng.range(0, walkable_tiles_in_rect.len());
     walkable_tiles_in_rect[selected_index] as u16
 }
@@ -124,4 +133,15 @@ pub fn get_all_unblocked_tiles_in_radius(
                 && !tile_is_blocked(*tile_idx, level)
         })
         .collect();
+}
+
+pub fn get_all_spawnable_tiles_in_radius(
+    level: &Level,
+    center_idx: i32,
+    radius_length: i32,
+) -> Vec<i32> {
+    filter_water_from_tiles(
+        get_all_unblocked_tiles_in_radius(level, center_idx, radius_length),
+        level,
+    )
 }

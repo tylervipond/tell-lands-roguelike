@@ -135,7 +135,7 @@ pub fn update_level_from_room_stamps(level: &mut Level, rng: &mut RandomNumberGe
             Some(TileType::Ledge) => {
                 level.tiles[idx as usize] = TileType::Ledge;
                 level.blocked[idx as usize] = true;
-            },
+            }
             Some(t) => {
                 level.tiles[idx as usize] = *t;
             }
@@ -333,23 +333,26 @@ pub fn build(depth: u8) -> Level {
     level
 }
 
-pub fn add_exit(level: &mut Level) {
-    let exit_position = level.rooms[0].rect.center();
-    let exit_idx = level_utils::xy_idx(level, exit_position.0, exit_position.1);
+pub fn add_exit(level: &mut Level, rng: &mut RandomNumberGenerator) {
+    let rect = level.rooms[0].rect;
+    let exit_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
+    let exit_position = level_utils::idx_xy(level, exit_idx);
     level.tiles[exit_idx as usize] = TileType::Exit;
     level.exit = Some(Point::new(exit_position.0, exit_position.1));
 }
 
-pub fn add_down_stairs(level: &mut Level) {
-    let stairs_position = level.rooms[level.rooms.len() - 1].rect.center();
-    let stairs_idx = level_utils::xy_idx(level, stairs_position.0, stairs_position.1);
+pub fn add_down_stairs(level: &mut Level, rng: &mut RandomNumberGenerator) {
+    let rect = level.rooms[level.rooms.len() - 1].rect;
+    let stairs_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
+    let stairs_position = level_utils::idx_xy(level, stairs_idx);
     level.tiles[stairs_idx as usize] = TileType::DownStairs;
     level.stairs_down = Some(Point::new(stairs_position.0, stairs_position.1));
 }
 
-pub fn add_up_stairs(level: &mut Level) {
-    let stairs_position = level.rooms[0].rect.center();
-    let stairs_idx = level_utils::xy_idx(level, stairs_position.0, stairs_position.1);
+pub fn add_up_stairs(level: &mut Level, rng: &mut RandomNumberGenerator) {
+    let rect = level.rooms[0].rect;
+    let stairs_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
+    let stairs_position = level_utils::idx_xy(level, stairs_idx);
     level.tiles[stairs_idx as usize] = TileType::UpStairs;
     level.stairs_up = Some(Point::new(stairs_position.0, stairs_position.1));
 }

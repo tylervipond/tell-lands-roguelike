@@ -760,7 +760,7 @@ fn spawn_goblins_for_level(world: &mut World, level: &mut Level) {
     .iter()
     .for_each(|idx| {
         let mut possible_spawn_points_for_group =
-            level_utils::get_all_unblocked_tiles_in_radius(level, *idx as i32, MAX_GOBLIN_SPACING);
+            level_utils::get_all_spawnable_tiles_in_radius(level, *idx as i32, MAX_GOBLIN_SPACING);
         let goblin_count =
             get_random_from_world(world, MIN_GOBLINS_PER_GROUP, MAX_GOBLINS_PER_GROUP);
         let spawn_points = {
