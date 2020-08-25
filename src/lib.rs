@@ -35,7 +35,7 @@ use components::{
     WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 
-use dungeon::{dungeon::Dungeon, level_builders, level_utils};
+use dungeon::{dungeon::Dungeon, level_builders, level_utils, tile_type::TileType};
 use menu_option::{MenuOption, MenuOptionState};
 use player::player_action;
 use run_state::RunState;
@@ -148,21 +148,22 @@ fn reveal_map(world: &mut World) {
 fn generate_dungeon(world: &mut World, levels: u8) -> Dungeon {
     let levels = (0..levels).fold(HashMap::new(), |mut acc, floor_number| {
         let mut level = level_builders::build(floor_number);
-        if floor_number != levels - 1 {
-            level_builders::add_up_stairs(&mut level);
-        } else {
-            level_builders::add_exit(&mut level);
-        }
-        if floor_number != 0 {
-            level_builders::add_down_stairs(&mut level);
-        }
         {
             let mut rng = world.fetch_mut::<RandomNumberGenerator>();
             level_builders::update_level_from_room_features(&mut level, &mut rng);
+            if floor_number != levels - 1 {
+                level_builders::add_up_stairs(&mut level, &mut rng);
+            } else {
+                level_builders::add_exit(&mut level, &mut rng);
+            }
+            if floor_number != 0 {
+                level_builders::add_down_stairs(&mut level, &mut rng);
+            }
             level_builders::update_room_stamps_from_level(&mut level, &mut rng);
             level_builders::decorate_level(&mut level, &mut rng);
             level_builders::update_level_from_room_stamps(&mut level, &mut rng);
-
+            // refactor the above, it should really just be "decorate level, update level from room stamps"
+            // basically this would involve moving the column generation into decorate level
         }
         spawner::spawn_entities_for_level(world, &mut level);
         acc.insert(floor_number, level);
@@ -224,7 +225,13 @@ fn initialize_new_game(world: &mut World) {
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
     let level = dungeon.get_level(9).unwrap();
-    let (player_x, player_y) = level.rooms[0].rect.center();
+    let (player_idx, _) = level
+        .tiles
+        .iter()
+        .enumerate()
+        .find(|(_, tile_type)| **tile_type == TileType::Exit)
+        .unwrap();
+    let (player_x, player_y) = level_utils::idx_xy(level, player_idx as i32);
     world.remove::<Point>();
     world.insert(Point::new(player_x, player_y));
     world.remove::<Entity>();
