@@ -50,7 +50,7 @@ impl<'a> System<'a> for BloodSpawnSystem {
                         fg: request.fg,
                         bg: request.bg,
                         glyph: request.glyph,
-                        layer: 2,
+                        layer: 3,
                     },
                 )
                 .expect("failed inserting renderable for blood");
