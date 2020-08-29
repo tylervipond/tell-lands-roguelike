@@ -29,6 +29,18 @@ pub fn tile_is_door_adjacent(level: &Level, x: i32, y: i32) -> bool {
         || tile_at_xy_is_door(level, x, y + 1)
 }
 
+pub fn tile_is_between_walls_vertical(level: &Level, x: i32, y: i32) -> bool {
+    tile_at_xy_is_wall(level, x, y - 1) && tile_at_xy_is_wall(level, x, y + 1)
+}
+
+pub fn tile_is_between_walls_horizontal(level: &Level, x: i32, y: i32) -> bool {
+    tile_at_xy_is_wall(level, x - 1, y) && tile_at_xy_is_wall(level, x + 1, y)
+}
+
+pub fn tile_is_between_walls(level: &Level, x: i32, y: i32) -> bool {
+    tile_is_between_walls_horizontal(level, x, y) || tile_is_between_walls_vertical(level, x, y)
+}
+
 pub fn set_tile_to_floor(level: &mut Level, idx: usize) {
     level.tiles[idx] = TileType::Floor;
 }
