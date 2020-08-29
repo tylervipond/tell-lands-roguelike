@@ -104,6 +104,7 @@ pub fn update_level_from_room_features(level: &mut Level, rng: &mut RandomNumber
     }
     for (xy, tile_type) in &updates {
         if !level_utils::tile_at_xy_is_wall(level, xy.0, xy.1)
+            && !level_utils::tile_is_between_walls(level, xy.0, xy.1)
             && !level_utils::tile_is_door_adjacent(level, xy.0, xy.1)
         {
             let idx = level_utils::xy_idx(level, xy.0, xy.1);
@@ -277,8 +278,7 @@ fn add_doors_to_rooms(level: &mut Level) {
                 // Checks the left and right walls of a room and adds a door if the tile is empty with a wall above & below
                 if x == room.rect.x1 || x == room.rect.x2 {
                     if !level_utils::tile_at_xy_is_wall(&level, x, y)
-                        && level_utils::tile_at_xy_is_wall(&level, x, y - 1)
-                        && level_utils::tile_at_xy_is_wall(&level, x, y + 1)
+                        && level_utils::tile_is_between_walls_vertical(&level, x, y)
                     {
                         door_idxs.push(level_utils::xy_idx(&level, x, y));
                     }
@@ -287,8 +287,7 @@ fn add_doors_to_rooms(level: &mut Level) {
                 // Checks the up and bottom walls of a room and adds a door if the tile is empty with a wall left & right
                 if y == room.rect.y1 || y == room.rect.y2 {
                     if !level_utils::tile_at_xy_is_wall(&level, x, y)
-                        && level_utils::tile_at_xy_is_wall(&level, x - 1, y)
-                        && level_utils::tile_at_xy_is_wall(&level, x + 1, y)
+                        && level_utils::tile_is_between_walls_horizontal(level, x, y)
                     {
                         door_idxs.push(level_utils::xy_idx(&level, x, y));
                     }
