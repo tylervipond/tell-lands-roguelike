@@ -26,4 +26,5 @@ pub enum RoomPart {
     Column = 21,
     Ledge = 22,
     WaterDeep = 23,
+    TowelRack = 24,
 }
