@@ -1,12 +1,13 @@
 use super::super::room_feature::RoomFeature;
 use super::{
+    common::replace_middle_3x3,
     utils::find_and_replace,
     RoomPart,
-    RoomPart::{Floor, WaterDeep},
+    RoomPart::{Chest, Column, Floor, TowelRack, Wall, WaterDeep},
 };
 use rltk::{DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
 use stamp_rs::{
-    QueryStampPart::Is,
+    QueryStampPart::{Any, Is},
     Stamp, StampPart,
     StampPart::{Transparent, Use},
 };
@@ -29,7 +30,8 @@ fn add_circle_bath_to_room(
     let middle_point = Point::new(middle, middle);
     let radius = Pythagoras.distance2d(middle_point, Point::new(1, middle));
     let mut replace_stamp = Stamp::new(
-        range_size.clone()
+        range_size
+            .clone()
             .map(|y| {
                 range_size
                     .clone()
@@ -87,6 +89,46 @@ fn add_rectangle_bath_to_room(
     find_and_replace(room_stamp, rng, &mut query_stamp, &mut replace_stamp);
 }
 
+fn add_towel_racks_to_room(
+    room_stamp: &mut Stamp<StampPart<RoomPart>>,
+    rng: &mut RandomNumberGenerator,
+) {
+    let mut query_stamp = Stamp::new(vec![
+        vec![Any, Is(Box::new([Wall, Column])), Any],
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+    ]);
+    let mut replace_stamp = replace_middle_3x3(TowelRack);
+    find_and_replace(room_stamp, rng, &mut query_stamp, &mut replace_stamp);
+}
+fn add_chests_to_room(
+    room_stamp: &mut Stamp<StampPart<RoomPart>>,
+    rng: &mut RandomNumberGenerator,
+) {
+    let mut query_stamp = Stamp::new(vec![
+        vec![Any, Is(Box::new([Wall, Column])), Any],
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+        vec![
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+            Is(Box::new([Floor])),
+        ],
+    ]);
+    let mut replace_stamp = replace_middle_3x3(Chest);
+    find_and_replace(room_stamp, rng, &mut query_stamp, &mut replace_stamp);
+}
 pub fn decorate_baths(
     room_stamp: &mut Stamp<StampPart<RoomPart>>,
     rng: &mut RandomNumberGenerator,
@@ -104,5 +146,11 @@ pub fn decorate_baths(
                 add_circle_bath_to_room(room_stamp, rng);
             }
         }
+    }
+    for _ in 0..rng.range(2, 8) {
+        add_towel_racks_to_room(room_stamp, rng);
+    }
+    for _ in 0..rng.range(2, 10) {
+        add_chests_to_room(room_stamp, rng);
     }
 }
