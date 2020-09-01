@@ -572,6 +572,25 @@ pub fn spawn_throne(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
+pub fn spawn_podium(world: &mut World, idx: i32, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Podium".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('P'),
+            fg: RGB::named(rltk::LIGHT_YELLOW),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Flammable { turns_remaining: 5 })
+        .with(BlocksTile {})
+        .with(Grabbable {})
+        .build();
+    level.blocked[idx as usize] = true;
+}
+
+
 pub fn spawn_dresser(world: &mut World, idx: i32, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)
         .with(Name {
@@ -776,6 +795,7 @@ pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut
                 Use(RoomPart::Debris) => spawn_debris(world, idx, level),
                 Use(RoomPart::TowelRack) => spawn_towel_rack(world, idx, level),
                 Use(RoomPart::Throne) => spawn_throne(world, idx, level),
+                Use(RoomPart::Podium) => spawn_podium(world, idx, level),
                 _ => (),
             };
         }

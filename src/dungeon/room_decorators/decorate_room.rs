@@ -10,6 +10,8 @@ use super::decorate_sitting_room::decorate_sitting_room;
 use super::decorate_store_room::decorate_store_room;
 use super::decorate_treasure_room::decorate_treasure_room;
 use super::decorate_throneroom::decorate_throneroom;
+use super::decorate_classroom::decorate_classroom;
+use super::decorate_meetingroom::decorate_meetingroom;
 use super::{RoomPart, RoomType};
 use rltk::RandomNumberGenerator;
 use stamp_rs::{Stamp, StampPart};
@@ -32,6 +34,8 @@ pub fn decorate_room(
         Some(RoomType::Baths) => decorate_baths(stamp, rng),
         Some(RoomType::Courtyard) => decorate_courtyard(stamp, rng),
         Some(RoomType::ThroneRoom) => decorate_throneroom(stamp, rng),
+        Some(RoomType::ClassRoom) => decorate_classroom(stamp, rng),
+        Some(RoomType::MeetingRoom) => decorate_meetingroom(stamp, rng),
         _ => {}
     };
 }

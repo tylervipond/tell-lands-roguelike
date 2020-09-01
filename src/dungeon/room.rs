@@ -44,7 +44,11 @@ impl Room {
                 get_random_element(&mut rng, &choices).to_owned()
             }
             101..=200 => {
-                let choices = vec![Some(RoomType::MessHall), Some(RoomType::Barracks), None];
+                let mut choices = vec![Some(RoomType::MessHall), Some(RoomType::Barracks), None];
+                if rect.height() >= 8 && rect.width() >= 8 {
+                    choices.push(Some(RoomType::ClassRoom));
+                    choices.push(Some(RoomType::MeetingRoom));
+                }
                 get_random_element(&mut rng, &choices).to_owned()
             }
             _ => {

@@ -12,6 +12,8 @@ mod decorate_sitting_room;
 mod decorate_store_room;
 mod decorate_throneroom;
 mod decorate_treasure_room;
+mod decorate_classroom;
+mod decorate_meetingroom;
 pub mod room_part;
 pub mod room_type;
 mod utils;

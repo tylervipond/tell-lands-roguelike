@@ -28,4 +28,5 @@ pub enum RoomPart {
     WaterDeep = 23,
     TowelRack = 24,
     Throne = 25,
+    Podium = 26,
 }
