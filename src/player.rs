@@ -1,7 +1,7 @@
 use crate::components::{
     CombatStats, DungeonLevel, Item, Player, Position, Trap, Viewshed, WantsToDisarmTrap,
-    WantsToGrab, WantsToMelee, WantsToMove, WantsToPickUpItem, WantsToReleaseGrabbed,
-    WantsToSearchHidden, WantsToTrap, WantsToUse,
+    WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
+    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
 use crate::entity_option::EntityOption;
@@ -91,35 +91,37 @@ fn try_pickup_item(world: &mut World) {
 }
 
 fn try_open_door(world: &mut World) {
-    let mut positions = world.write_storage::<Position>();
-    let mut players = world.write_storage::<Player>();
-    let mut dungeon = world.fetch_mut::<Dungeon>();
+    let positions = world.write_storage::<Position>();
+    let mut wants_to_open_door = world.write_storage::<WantsToOpenDoor>();
+    let dungeon = world.fetch::<Dungeon>();
+    let player_entity = world.fetch::<Entity>();
     let player_level = utils::get_current_level_from_world(world);
-    let mut map = dungeon.get_level_mut(player_level).unwrap();
-    for (_player, pos) in (&mut players, &mut positions).join() {
-        let mut door_opened = false;
-        for x in (pos.x - 1)..=(pos.x + 1) {
-            for y in (pos.y - 1)..=(pos.y + 1) {
-                let open_door_index = level_utils::xy_idx(&map, x, y);
+    let map = dungeon.get_level(player_level).unwrap();
+    let mut inserted = false;
+    let pos = positions.get(*player_entity).unwrap();
+    for x in (pos.x - 1)..=(pos.x + 1) {
+        for y in (pos.y - 1)..=(pos.y + 1) {
+            let open_door_index = level_utils::xy_idx(&map, x, y);
 
-                if map.tiles[open_door_index as usize] == TileType::Door {
-                    level_utils::set_tile_to_floor(&mut map, open_door_index as usize);
-                    map.blocked[open_door_index as usize] = false;
-                    door_opened = true;
-                }
+            if map.tiles[open_door_index as usize] == TileType::Door {
+                wants_to_open_door
+                    .insert(
+                        *player_entity,
+                        WantsToOpenDoor {
+                            position: (x, y),
+                            level: player_level as usize,
+                        },
+                    )
+                    .expect("could not insert wants to open door for player");
+                inserted = true;
             }
         }
-        if door_opened {
-            let player_entity = world.fetch::<Entity>();
-            let mut viewsheds = world.write_storage::<Viewshed>();
-            let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
-            player_viewshed.dirty = true;
-        } else {
-            let mut gamelog = world.fetch_mut::<GameLog>();
-            gamelog
-                .entries
-                .insert(0, "there is no door nearby".to_string());
-        }
+    }
+    if !inserted {
+        let mut gamelog = world.fetch_mut::<GameLog>();
+        gamelog
+            .entries
+            .insert(0, "there is no door nearby".to_string());
     }
 }
 

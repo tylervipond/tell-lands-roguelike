@@ -76,7 +76,10 @@ pub fn is_exit_valid(level: &Level, x: i32, y: i32) -> bool {
         return false;
     }
     let idx = xy_idx(level, x, y);
-    !tile_is_blocked(idx, level)
+    let tile = level.tiles[idx as usize];
+    !(tile == TileType::Wall || tile == TileType::Column || tile == TileType::Ledge)
+
+    // !tile_is_blocked(idx, level)
 }
 
 pub fn clear_content_index(level: &mut Level) {
@@ -113,6 +116,23 @@ pub fn get_random_spawn_point(rect: &Rect, level: &Level, rng: &mut RandomNumber
         filter_water_from_tiles(get_walkable_tiles_in_rect(rect, level), level);
     let selected_index = rng.range(0, walkable_tiles_in_rect.len());
     walkable_tiles_in_rect[selected_index] as u16
+}
+
+pub fn get_random_floor_point(level: &Level, rng: &mut RandomNumberGenerator) -> Option<usize> {
+    let floor_tiles: Vec<usize> = level
+        .tiles
+        .iter()
+        .enumerate()
+        .filter(|(_i, t)| *t == &TileType::Floor)
+        .map(|(i, _t)| i)
+        .collect();
+    match floor_tiles.len() {
+        0 => None,
+        count => {
+            let idx = rng.range(0, count);
+            floor_tiles.get(idx).cloned()
+        }
+    }
 }
 
 pub fn get_spawn_points(

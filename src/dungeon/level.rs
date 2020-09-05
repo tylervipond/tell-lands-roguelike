@@ -40,6 +40,16 @@ impl Level {
             depth,
         }
     }
+    pub fn get_costs_for_tile(&self, idx: usize, diagonal: bool) -> f32 {
+        let cost = match diagonal {
+            true => 1.45,
+            false => 1.0,
+        };
+        match self.blocked[idx] {
+            true => cost + 1.0,
+            false => cost,
+        }
+    }
 }
 
 impl BaseMap for Level {
@@ -47,32 +57,39 @@ impl BaseMap for Level {
         let tile = self.tiles[idx as usize];
         tile == TileType::Wall || tile == TileType::Door || tile == TileType::Column
     }
+
     fn get_available_exits(&self, idx: usize) -> SmallVec<[(usize, f32); 10]> {
         let mut exits = SmallVec::new();
         let (x, y) = level_utils::idx_xy(self, idx as i32);
         if level_utils::is_exit_valid(self, x - 1, y) {
-            exits.push((idx - 1, 1.0))
+            exits.push((idx - 1, self.get_costs_for_tile(idx - 1, false)))
         }
         if level_utils::is_exit_valid(self, x + 1, y) {
-            exits.push((idx + 1, 1.0))
+            exits.push((idx + 1, self.get_costs_for_tile(idx + 1, false)))
         }
         if level_utils::is_exit_valid(self, x, y - 1) {
-            exits.push((idx - self.width as usize, 1.0))
+            let idx = idx - self.width as usize;
+            exits.push((idx, self.get_costs_for_tile(idx, false)))
         }
         if level_utils::is_exit_valid(self, x, y + 1) {
-            exits.push((idx + self.width as usize, 1.0))
+            let idx = idx + self.width as usize;
+            exits.push((idx, self.get_costs_for_tile(idx, false)))
         }
         if level_utils::is_exit_valid(self, x - 1, y - 1) {
-            exits.push(((idx - self.width as usize) - 1, 1.45))
+            let idx = (idx - self.width as usize) - 1;
+            exits.push((idx, self.get_costs_for_tile(idx, true)))
         }
         if level_utils::is_exit_valid(self, x + 1, y - 1) {
-            exits.push(((idx - self.width as usize) + 1, 1.45))
+            let idx = (idx - self.width as usize) + 1;
+            exits.push((idx, self.get_costs_for_tile(idx, true)))
         }
         if level_utils::is_exit_valid(self, x - 1, y + 1) {
-            exits.push(((idx + self.width as usize) - 1, 1.45))
+            let idx = (idx + self.width as usize) - 1;
+            exits.push((idx, self.get_costs_for_tile(idx, true)))
         }
         if level_utils::is_exit_valid(self, x + 1, y + 1) {
-            exits.push(((idx + self.width as usize) + 1, 1.45))
+            let idx = (idx + self.width as usize) + 1;
+            exits.push((idx, self.get_costs_for_tile(idx, true)))
         }
         exits
     }
