@@ -1,8 +1,8 @@
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
-    DungeonLevel, EntryTrigger, Flammable, Grabbable, Hidden, InflictsDamage, Item, Monster, Name,
-    Objective, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation,
-    Trap, Viewshed,
+    DungeonLevel, EntryTrigger, Flammable, Grabbable, Hidden, InflictsDamage, Item, Memory,
+    Monster, Name, Objective, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
+    SingleActivation, Trap, Viewshed,
 };
 use crate::dungeon::{
     level::Level,
@@ -22,6 +22,7 @@ use specs::{
 };
 use stamp_rs::StampPart::Use;
 use std::cmp;
+use std::collections::HashMap;
 
 pub const MAX_ITEMS_PER_ROOM: i32 = 4;
 pub const MAX_TRAPS_SET_PER_LEVEL: i32 = 10;
@@ -148,6 +149,10 @@ pub fn spawn_monster<S: ToString>(
             hp: 16,
             defense: 1,
             power: 4,
+        })
+        .with(Memory {
+            last_known_enemy_positions: HashMap::new(),
+            wander_destination: None,
         })
         .build()
 }
@@ -589,7 +594,6 @@ pub fn spawn_podium(world: &mut World, idx: i32, level: &mut Level) {
         .build();
     level.blocked[idx as usize] = true;
 }
-
 
 pub fn spawn_dresser(world: &mut World, idx: i32, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)

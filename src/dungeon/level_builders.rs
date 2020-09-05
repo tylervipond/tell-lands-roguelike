@@ -114,7 +114,7 @@ pub fn update_level_from_room_features(level: &mut Level, rng: &mut RandomNumber
     }
 }
 
-pub fn update_level_from_room_stamps(level: &mut Level, rng: &mut RandomNumberGenerator) {
+pub fn update_level_from_room_stamps(level: &mut Level) {
     let mut updates: Vec<(usize, usize, Option<TileType>)> = vec![];
     for room in level.rooms.iter() {
         for x in room.rect.x1..room.rect.x2 {

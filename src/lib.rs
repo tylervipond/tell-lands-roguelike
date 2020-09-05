@@ -6,6 +6,7 @@ use wasm_bindgen::prelude::*;
 #[macro_use]
 extern crate specs_derive;
 extern crate serde;
+mod ai;
 mod artwork;
 mod components;
 mod dungeon;
@@ -28,11 +29,11 @@ mod utils;
 use components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
     Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Grabbable, Grabbing,
-    Hidden, InBackpack, InflictsDamage, Item, Monster, Name, Objective, OnFire, ParticleLifetime,
-    Player, Position, Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper,
-    SingleActivation, SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDropItem,
-    WantsToGrab, WantsToMelee, WantsToMove, WantsToPickUpItem, WantsToReleaseGrabbed,
-    WantsToSearchHidden, WantsToTrap, WantsToUse,
+    Hidden, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective, OnFire,
+    ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged, Renderable, Saveable,
+    SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
+    WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor,
+    WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils, tile_type::TileType};
@@ -49,8 +50,8 @@ use systems::{
     FireSpreadSystem, GrabSystem, ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem,
     MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, ParticleSpawnSystem,
     ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem, RevealTrapsSystem,
-    SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
-    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
+    SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem,
+    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem, OpenDoorSystem
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -161,7 +162,7 @@ fn generate_dungeon(world: &mut World, levels: u8) -> Dungeon {
             }
             level_builders::update_room_stamps_from_level(&mut level, &mut rng);
             level_builders::decorate_level(&mut level, &mut rng);
-            level_builders::update_level_from_room_stamps(&mut level, &mut rng);
+            level_builders::update_level_from_room_stamps(&mut level);
             // refactor the above, it should really just be "decorate level, update level from room stamps"
             // basically this would involve moving the column generation into decorate level
         }
@@ -221,6 +222,8 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Grabbing>().clear();
     world.write_storage::<WantsToMove>().clear();
     world.write_storage::<WantsToReleaseGrabbed>();
+    world.write_storage::<Memory>().clear();
+    world.write_storage::<WantsToOpenDoor>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -280,6 +283,8 @@ impl State {
         remove_particles.run_now(&self.world);
         let mut vis = VisibilitySystem {};
         vis.run_now(&self.world);
+        let mut update_memories_system = UpdateMemoriesSystem {};
+        update_memories_system.run_now(&self.world);
         if self.run_state == RunState::MonsterTurn {
             let mut mob = MonsterAI {};
             mob.run_now(&self.world);
@@ -325,6 +330,8 @@ impl State {
             disarm_trap_system.run_now(&self.world);
             let mut grab_system = GrabSystem {};
             grab_system.run_now(&self.world);
+            let mut open_door_system = OpenDoorSystem {};
+            open_door_system.run_now(&self.world);
         }
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.world);
@@ -976,6 +983,7 @@ pub fn start() {
         world: World::new(),
         run_state: RunState::MainMenu { highlighted: 0 },
     };
+    gs.world.register::<Memory>();
     gs.world.register::<Position>();
     gs.world.register::<Renderable>();
     gs.world.register::<Player>();
@@ -1024,6 +1032,7 @@ pub fn start() {
     gs.world.register::<Grabbing>();
     gs.world.register::<WantsToMove>();
     gs.world.register::<WantsToReleaseGrabbed>();
+    gs.world.register::<WantsToOpenDoor>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
