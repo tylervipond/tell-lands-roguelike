@@ -71,15 +71,12 @@ pub fn point_not_in_map(level: &Level, point: &Point) -> bool {
     point.x < 0 || point.x >= level.width as i32 || point.y < 0 || point.y >= level.height as i32
 }
 
-pub fn is_exit_valid(level: &Level, x: i32, y: i32) -> bool {
-    if point_not_in_map(level, &Point::new(x, y)) {
+pub fn is_exit_valid(level: &Level, idx: usize) -> bool {
+    if idx > level.tiles.len() {
         return false;
     }
-    let idx = xy_idx(level, x, y);
-    let tile = level.tiles[idx as usize];
+    let tile = level.tiles[idx];
     !(tile == TileType::Wall || tile == TileType::Column || tile == TileType::Ledge)
-
-    // !tile_is_blocked(idx, level)
 }
 
 pub fn clear_content_index(level: &mut Level) {
@@ -118,12 +115,15 @@ pub fn get_random_spawn_point(rect: &Rect, level: &Level, rng: &mut RandomNumber
     walkable_tiles_in_rect[selected_index] as u16
 }
 
-pub fn get_random_floor_point(level: &Level, rng: &mut RandomNumberGenerator) -> Option<usize> {
+pub fn get_random_unblocked_floor_point(
+    level: &Level,
+    rng: &mut RandomNumberGenerator,
+) -> Option<usize> {
     let floor_tiles: Vec<usize> = level
         .tiles
         .iter()
         .enumerate()
-        .filter(|(_i, t)| *t == &TileType::Floor)
+        .filter(|(idx, t)| *t == &TileType::Floor && !level.blocked[*idx])
         .map(|(i, _t)| i)
         .collect();
     match floor_tiles.len() {

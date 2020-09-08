@@ -1,7 +1,7 @@
 use crate::components::{DungeonLevel, Player, Position, Viewshed};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::Point;
-use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
+use specs::{Entities, Join, ReadStorage, System, WriteExpect, WriteStorage};
 
 /**
  * Currently enemy AI won't take any actions if the player is not visible, so
@@ -16,17 +16,15 @@ impl<'a> System<'a> for VisibilitySystem {
     WriteStorage<'a, Viewshed>,
     WriteStorage<'a, Position>,
     ReadStorage<'a, Player>,
-    ReadExpect<'a, Entity>,
     ReadStorage<'a, DungeonLevel>,
   );
   fn run(&mut self, data: Self::SystemData) {
-    let (mut dungeon, entities, mut viewshed, position, player, player_ent, dungeon_levels) = data;
-    let player_level = dungeon_levels.get(*player_ent).unwrap();
-    let level = dungeon.get_level_mut(player_level.level).unwrap();
+    let (mut dungeon, entities, mut viewshed, position, player, dungeon_levels) = data;
     for (ent, viewshed, position, dungeon_level) in
       (&entities, &mut viewshed, &position, &dungeon_levels).join()
     {
-      if viewshed.dirty && dungeon_level.level == player_level.level {
+      if viewshed.dirty {
+        let level = dungeon.get_level_mut(dungeon_level.level).unwrap();
         viewshed.dirty = false;
         viewshed.visible_tiles.clear();
         viewshed.visible_tiles =

@@ -1,7 +1,7 @@
 use crate::components::{
-    CombatStats, DungeonLevel, Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap,
-    WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
-    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
+    DungeonLevel, Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap, WantsToGrab,
+    WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed,
+    WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
 use crate::entity_option::EntityOption;
