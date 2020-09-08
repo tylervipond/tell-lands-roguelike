@@ -151,7 +151,7 @@ pub fn decorate_level(level: &mut Level, rng: &mut RandomNumberGenerator) {
     });
 }
 
-pub fn update_room_stamps_from_level(level: &mut Level, rng: &mut RandomNumberGenerator) {
+pub fn update_room_stamps_from_level(level: &mut Level) {
     let mut updates: Vec<(usize, usize, usize, StampPart<RoomPart>)> = vec![];
     for (room_index, room) in level.rooms.iter().enumerate() {
         for x in room.rect.x1..room.rect.x2 {

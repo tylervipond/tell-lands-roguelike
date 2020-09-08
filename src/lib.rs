@@ -104,8 +104,8 @@ fn get_entity_with_component_at_point<T: Component>(
     world: &mut World,
     point: &Point,
 ) -> Option<Entity> {
-    let blah = world.read_storage::<T>();
-    let filter = |e| match blah.get(e) {
+    let storage = world.read_storage::<T>();
+    let filter = |e| match storage.get(e) {
         Some(_) => true,
         _ => false,
     };
@@ -147,7 +147,7 @@ fn generate_dungeon(world: &mut World, levels: u8) -> Dungeon {
             if floor_number != 0 {
                 level_builders::add_down_stairs(&mut level, &mut rng);
             }
-            level_builders::update_room_stamps_from_level(&mut level, &mut rng);
+            level_builders::update_room_stamps_from_level(&mut level);
             level_builders::decorate_level(&mut level, &mut rng);
             level_builders::update_level_from_room_stamps(&mut level);
             // refactor the above, it should really just be "decorate level, update level from room stamps"
