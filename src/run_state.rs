@@ -13,6 +13,7 @@ pub enum RunState {
     ShowTargetingOpenContainer,
     ShowTargetingDisarmTrap,
     ShowTargetingGrabFurniture,
+    ShowTargetingAttack,
     OpenContainerMenu {
         highlighted: usize,
         page: usize,

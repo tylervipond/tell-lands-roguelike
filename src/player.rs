@@ -1,5 +1,5 @@
 use crate::components::{
-    CombatStats, DungeonLevel, Item, Player, Position, Trap, Viewshed, WantsToDisarmTrap,
+    CombatStats, DungeonLevel, Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap,
     WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
     WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
@@ -18,7 +18,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
     let mut positions = world.write_storage::<Position>();
     let mut players = world.write_storage::<Player>();
     let mut wants_to_melee = world.write_storage::<WantsToMelee>();
-    let combat_stats = world.read_storage::<CombatStats>();
+    let monsters = world.read_storage::<Monster>();
     let entities = world.entities();
     let dungeon = world.fetch::<Dungeon>();
     let player_entity = world.fetch::<Entity>();
@@ -31,7 +31,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
         let destination_index = level_utils::xy_idx(&map, x, y);
         let target = map.tile_content[destination_index as usize]
             .iter()
-            .filter(|e| combat_stats.get(**e).is_some())
+            .filter(|e| monsters.get(**e).is_some())
             .next();
         match target {
             Some(target) => {
@@ -251,6 +251,14 @@ pub fn release_entity(world: &mut World) {
         .write_storage::<WantsToReleaseGrabbed>()
         .insert(*player_entity, WantsToReleaseGrabbed {})
         .expect("Unable to Insert Release Intent");
+}
+
+pub fn attack_entity(world: &mut World, entity: Entity) {
+    let player_entity = world.fetch::<Entity>();
+    let mut melee_intents = world.write_storage::<WantsToMelee>();
+    melee_intents
+        .insert(*player_entity, WantsToMelee { target: entity })
+        .expect("Unable to Insert Wants To Melee Intent");
 }
 
 pub fn player_action(world: &mut World, action: MapAction) {
