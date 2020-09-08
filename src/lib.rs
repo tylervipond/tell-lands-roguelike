@@ -28,8 +28,8 @@ mod user_actions;
 mod utils;
 use components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
-    Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Grabbable, Grabbing,
-    Hidden, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective, OnFire,
+    Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable,
+    Grabbing, Hidden, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective, OnFire,
     ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged, Renderable, Saveable,
     SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
     WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor,
@@ -44,14 +44,16 @@ use screens::{
     ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenMainMenu, ScreenMapGeneric,
     ScreenMapMenu, ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
 };
-use services::{BloodSpawner, GameLog, ItemSpawner, ParticleEffectSpawner, TrapSpawner};
+use services::{
+    BloodSpawner, DebrisSpawner, GameLog, ItemSpawner, ParticleEffectSpawner, TrapSpawner,
+};
 use systems::{
-    BloodSpawnSystem, DamageSystem, DisarmTrapSystem, FireBurnSystem, FireDieSystem,
-    FireSpreadSystem, GrabSystem, ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem,
-    MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, ParticleSpawnSystem,
-    ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem, RevealTrapsSystem,
-    SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem,
-    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem, OpenDoorSystem
+    BloodSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem, FireBurnSystem,
+    FireDieSystem, FireSpreadSystem, GrabSystem, ItemCollectionSystem, ItemDropSystem,
+    ItemSpawnSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, OpenDoorSystem,
+    ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
+    RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
+    UpdateMemoriesSystem, UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -98,27 +100,12 @@ fn get_entity_at_point_on_level(
         .next()
 }
 
-fn get_container_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
-    let containers = world.read_storage::<Container>();
-    let filter = |e| match containers.get(e) {
-        Some(_) => true,
-        _ => false,
-    };
-    get_entity_at_point_on_level(world, point, filter)
-}
-
-fn get_trap_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
-    let traps = world.read_storage::<Trap>();
-    let filter = |e| match traps.get(e) {
-        Some(trap) => trap.armed,
-        _ => false,
-    };
-    get_entity_at_point_on_level(world, point, filter)
-}
-
-fn get_grabbable_entity_at_point(world: &mut World, point: &Point) -> Option<Entity> {
-    let grabbables = world.read_storage::<Grabbable>();
-    let filter = |e| match grabbables.get(e) {
+fn get_entity_with_component_at_point<T: Component>(
+    world: &mut World,
+    point: &Point,
+) -> Option<Entity> {
+    let blah = world.read_storage::<T>();
+    let filter = |e| match blah.get(e) {
         Some(_) => true,
         _ => false,
     };
@@ -224,6 +211,7 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<WantsToReleaseGrabbed>();
     world.write_storage::<Memory>().clear();
     world.write_storage::<WantsToOpenDoor>().clear();
+    world.write_storage::<Furniture>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -341,6 +329,8 @@ impl State {
         trap_spawn_system.run_now(&self.world);
         let mut item_spawn_system = ItemSpawnSystem {};
         item_spawn_system.run_now(&self.world);
+        let mut debris_spawn_system = DebrisSpawnSystem {};
+        debris_spawn_system.run_now(&self.world);
         self.world.maintain();
     }
 }
@@ -608,8 +598,10 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingOpenContainer,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let container_entity =
-                            get_container_entity_at_point(&mut self.world, &target);
+                        let container_entity = get_entity_with_component_at_point::<Container>(
+                            &mut self.world,
+                            &target,
+                        );
                         match container_entity {
                             Some(e) => RunState::OpenContainerMenu {
                                 page: 0,
@@ -637,13 +629,40 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingDisarmTrap,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let trap_entity = get_trap_entity_at_point(&mut self.world, &target);
+                        let trap_entity =
+                            get_entity_with_component_at_point::<Trap>(&mut self.world, &target);
                         match trap_entity {
                             Some(e) => player::disarm_trap(&mut self.world, e),
                             None => {
                                 let mut game_log = self.world.fetch_mut::<GameLog>();
                                 game_log
                                     .add("There are no armed traps at this location.".to_string());
+                            }
+                        }
+                        RunState::PlayerTurn
+                    }
+                }
+            }
+            RunState::ShowTargetingAttack => {
+                let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
+                let target = ranged::get_target(&self.world, ctx, &visible_tiles);
+                ScreenMapTargeting::new(1, target, Some("Select thing to Attack".to_string()))
+                    .draw(ctx, &mut self.world);
+                let action = map_input_to_targeting_action(ctx, target);
+                match action {
+                    TargetingAction::NoAction => RunState::ShowTargetingAttack,
+                    TargetingAction::Exit => RunState::AwaitingInput,
+                    TargetingAction::Selected(target) => {
+                        let attack_entity = get_entity_with_component_at_point::<CombatStats>(
+                            &mut self.world,
+                            &target,
+                        );
+                        match attack_entity {
+                            Some(e) => player::attack_entity(&mut self.world, e),
+                            None => {
+                                let mut game_log = self.world.fetch_mut::<GameLog>();
+                                game_log
+                                    .add("There is nothing to attack at this location".to_string());
                             }
                         }
                         RunState::PlayerTurn
@@ -660,8 +679,11 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingGrabFurniture,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let trap_entity = get_grabbable_entity_at_point(&mut self.world, &target);
-                        match trap_entity {
+                        let grabbable_entity = get_entity_with_component_at_point::<Grabbable>(
+                            &mut self.world,
+                            &target,
+                        );
+                        match grabbable_entity {
                             Some(e) => player::grab_entity(&mut self.world, e),
                             None => {
                                 let mut game_log = self.world.fetch_mut::<GameLog>();
@@ -768,6 +790,7 @@ impl GameState for State {
                     "Disarm Trap",
                     "Grab Furniture",
                     "Release Furniture",
+                    "Attack",
                 ]
                 .iter()
                 .enumerate()
@@ -812,6 +835,7 @@ impl GameState for State {
                             player::release_entity(&mut self.world);
                             RunState::AwaitingInput
                         }
+                        7 => RunState::ShowTargetingAttack,
                         _ => RunState::ActionMenu { highlighted },
                     },
                     _ => RunState::ActionMenu { highlighted },
@@ -1033,6 +1057,7 @@ pub fn start() {
     gs.world.register::<WantsToMove>();
     gs.world.register::<WantsToReleaseGrabbed>();
     gs.world.register::<WantsToOpenDoor>();
+    gs.world.register::<Furniture>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
@@ -1041,6 +1066,7 @@ pub fn start() {
     gs.world.insert(rng);
     gs.world.insert(ParticleEffectSpawner::new());
     gs.world.insert(BloodSpawner::new());
+    gs.world.insert(DebrisSpawner::new());
     gs.world.insert(TrapSpawner::new());
     gs.world.insert(ItemSpawner::new());
     let context = RltkBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT)

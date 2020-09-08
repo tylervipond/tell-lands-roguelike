@@ -5,12 +5,12 @@
 // to replace the custom macros
 use crate::components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confusion, Consumable, Contained,
-    Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Grabbable, Grabbing, Hidden,
-    InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective, OnFire, ParticleLifetime,
-    Player, Position, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper,
-    SingleActivation, SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDropItem,
-    WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
-    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
+    Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable, Grabbing,
+    Hidden, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective, OnFire,
+    ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
+    SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
+    WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor,
+    WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -148,6 +148,7 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             WantsToReleaseGrabbed,
             Memory,
             WantsToOpenDoor,
+            Furniture,
             SerializationHelper
         );
     }
@@ -213,6 +214,7 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         WantsToReleaseGrabbed,
         Memory,
         WantsToOpenDoor,
+        Furniture,
         SerializationHelper
     );
 }
