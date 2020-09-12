@@ -1,10 +1,10 @@
 use super::ui::ui_map_screen::UIMapScreen;
 use super::utils::{get_render_data, get_render_offset, get_render_offset_for_xy};
-use crate::components::{CombatStats, DungeonLevel, Hidden, Name, Position};
+use crate::components::{CombatStats, DungeonLevel, Hidden, Name, Position, Hiding};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
 use rltk::Rltk;
-use specs::{Entity, Join, World, WorldExt};
+use specs::{Entity, Join, World, WorldExt, Entities};
 
 pub struct ScreenMapGeneric {}
 
@@ -20,7 +20,8 @@ impl ScreenMapGeneric {
         let player_level = levels.get(*player_ent).unwrap();
         let combat_stats = world.read_storage::<CombatStats>();
         let player_stats = combat_stats.get(*player_ent).unwrap();
-
+        let hiding = world.read_storage::<Hiding>();
+        let entities = world.entities();
         let names = world.read_storage::<Name>();
         let positions = world.read_storage::<Position>();
         let hidden = world.read_storage::<Hidden>();
@@ -36,19 +37,29 @@ impl ScreenMapGeneric {
         ) as usize)
         {
             Some(visible) => match visible {
-                true => (&names, &positions, &levels, (&hidden).maybe())
+                true => (&names, &positions, &levels, (&hidden).maybe(), (&hiding).maybe(), &entities)
                     .join()
-                    .filter(|(_name, position, level, hidden)| {
+                    .filter(|(_name, position, level, hidden, hiding, entity)| {
                         let visible_to_player = match hidden {
                             Some(h) => h.found_by.contains(&*player_ent),
                             None => true,
                         };
+                        let hiding = match hiding {
+                            Some(_) => *entity != *player_ent,
+                            None => false
+                        };
                         visible_to_player
+                            && !hiding
                             && level.level == player_level.level
                             && position.x == mouse_offset.0
                             && position.y == mouse_offset.1
                     })
-                    .map(|(name, _position, _level, _hidden)| name.name.to_owned())
+                    .map(|(name, _position, _level, _hidden, hiding, _entity)| {
+                        match hiding {
+                            Some(_) => format!("{} (hidden)", name.name.to_owned()),
+                            _ => name.name.to_owned()
+                        }
+                    })
                     .collect(),
                 false => Vec::new(),
             },
