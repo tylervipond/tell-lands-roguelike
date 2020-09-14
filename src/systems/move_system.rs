@@ -1,5 +1,5 @@
 use crate::components::{
-    BlocksTile, DungeonLevel, EntityMoved, Grabbing, Position, Viewshed, WantsToMove,
+    BlocksTile, DungeonLevel, EntityMoved, Grabbing, Hiding, Position, Viewshed, WantsToMove,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::Point;
@@ -20,6 +20,7 @@ impl<'a> System<'a> for MoveSystem {
         WriteExpect<'a, Point>,
         ReadExpect<'a, Entity>,
         ReadStorage<'a, BlocksTile>,
+        WriteStorage<'a, Hiding>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -35,6 +36,7 @@ impl<'a> System<'a> for MoveSystem {
             mut player_point,
             player_entity,
             blocks_tiles,
+            mut hidings,
         ) = data;
 
         for (entity, wants_to_move, dungeon_level, grabbing, viewshed) in (
@@ -99,6 +101,7 @@ impl<'a> System<'a> for MoveSystem {
                     player_point.x = wants_to_move.x;
                     player_point.y = wants_to_move.y;
                 }
+                hidings.remove(entity);
             }
         }
         wants_to_moves.clear();

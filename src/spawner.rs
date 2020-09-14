@@ -2,7 +2,7 @@ use crate::components::{
     AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
     DungeonLevel, EntryTrigger, Flammable, Furniture, Grabbable, Hidden, InflictsDamage, Item,
     Memory, Monster, Name, Objective, Player, Position, ProvidesHealing, Ranged, Renderable,
-    Saveable, SingleActivation, Trap, Viewshed,
+    Saveable, SingleActivation, Trap, Viewshed, HidingSpot
 };
 use crate::dungeon::{
     level::Level,
@@ -22,7 +22,7 @@ use specs::{
 };
 use stamp_rs::StampPart::Use;
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub const MAX_ITEMS_PER_ROOM: i32 = 4;
 pub const MAX_TRAPS_SET_PER_LEVEL: i32 = 10;
@@ -151,7 +151,8 @@ pub fn spawn_monster<S: ToString>(
             power: 4,
         })
         .with(Memory {
-            last_known_enemy_positions: HashMap::new(),
+            last_known_enemy_positions: HashSet::new(),
+            known_enemy_hiding_spots: HashSet::new(),
             wander_destination: None,
         })
         .build()
@@ -528,6 +529,7 @@ pub fn spawn_armoire(world: &mut World, idx: i32, level: &mut Level) {
         'a',
         RGB::named(rltk::BROWN4),
     )
+    .with(HidingSpot {})
     .build();
     level.blocked[idx as usize] = true;
 }
@@ -648,6 +650,7 @@ pub fn spawn_barrel(world: &mut World, idx: i32, level: &mut Level) {
         'B',
         RGB::named(rltk::YELLOW),
     )
+    .with(HidingSpot {})
     .build();
     level.blocked[idx as usize] = true;
 }
