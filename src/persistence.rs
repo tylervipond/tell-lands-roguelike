@@ -6,11 +6,12 @@
 use crate::components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confusion, Consumable, Contained,
     Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable, Grabbing,
-    Hidden, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective, OnFire,
-    ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
+    Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective,
+    OnFire, ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
     SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
-    WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor,
-    WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
+    WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee, WantsToMove,
+    WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap,
+    WantsToUse,
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -146,9 +147,12 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             Grabbing,
             WantsToMove,
             WantsToReleaseGrabbed,
-            Memory,
             WantsToOpenDoor,
             Furniture,
+            HidingSpot,
+            Hiding,
+            WantsToHide,
+            Memory,
             SerializationHelper
         );
     }
@@ -212,9 +216,12 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         Grabbing,
         WantsToMove,
         WantsToReleaseGrabbed,
-        Memory,
         WantsToOpenDoor,
         Furniture,
+        HidingSpot,
+        Hiding,
+        WantsToHide,
+        Memory,
         SerializationHelper
     );
 }

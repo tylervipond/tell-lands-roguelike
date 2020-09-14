@@ -1,5 +1,5 @@
 use crate::components::{
-    CombatStats, DungeonLevel, Monster, Name, Player, Position, Renderable, SufferDamage,
+    CombatStats, DungeonLevel, Hiding, Monster, Name, Player, Position, Renderable, SufferDamage,
 };
 use crate::services::{BloodSpawner, DebrisSpawner, GameLog};
 use rltk::RGB;
@@ -51,7 +51,25 @@ impl DamageSystem {
                 }
             }
         }
+
         for victim in dead {
+            {
+                let entities = ecs.entities();
+                let mut hiding = ecs.write_storage::<Hiding>();
+                let hiding_to_expose: Vec<Entity> = (&entities, &mut hiding)
+                    .join()
+                    .filter(|(_, h)| {
+                        if let Some(hiding_spot) = h.hiding_spot {
+                            return hiding_spot == victim;
+                        }
+                        false
+                    })
+                    .map(|(e, _h)| e)
+                    .collect();
+                hiding_to_expose.iter().for_each(|e| {
+                    hiding.remove(*e);
+                });
+            };
             ecs.delete_entity(victim).expect("Unable to delete");
         }
     }

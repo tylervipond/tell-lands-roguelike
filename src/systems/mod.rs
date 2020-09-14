@@ -27,6 +27,7 @@ pub mod update_particle_effects_system;
 pub mod use_item_system;
 pub mod visibility_system;
 pub mod debris_spawn_system;
+pub mod hide_system;
 
 pub use blood_spawn_system::BloodSpawnSystem;
 pub use damage_system::DamageSystem;
@@ -57,3 +58,4 @@ pub use update_particle_effects_system::UpdateParticleEffectsSystem;
 pub use use_item_system::UseItemSystem;
 pub use visibility_system::VisibilitySystem;
 pub use debris_spawn_system::DebrisSpawnSystem;
+pub use hide_system::HideSystem;

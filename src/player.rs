@@ -1,7 +1,7 @@
 use crate::components::{
     DungeonLevel, Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap, WantsToGrab,
-    WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed,
-    WantsToSearchHidden, WantsToTrap, WantsToUse,
+    WantsToHide, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
+    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
 use crate::entity_option::EntityOption;
@@ -259,6 +259,19 @@ pub fn attack_entity(world: &mut World, entity: Entity) {
     melee_intents
         .insert(*player_entity, WantsToMelee { target: entity })
         .expect("Unable to Insert Wants To Melee Intent");
+}
+
+pub fn hide_in_container(world: &mut World, entity: Entity) {
+    let player_entity = world.fetch::<Entity>();
+    let mut hide_intent = world.write_storage::<WantsToHide>();
+    hide_intent
+        .insert(
+            *player_entity,
+            WantsToHide {
+                hiding_spot: Some(entity),
+            },
+        )
+        .expect("Unable to Insert Hide in Container Intent");
 }
 
 pub fn player_action(world: &mut World, action: MapAction) {

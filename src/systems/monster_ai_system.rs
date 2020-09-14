@@ -1,6 +1,6 @@
 use crate::ai::{choose_action, reasoner, Action, WeightedAction};
 use crate::components::{
-    CombatStats, Confused, DungeonLevel, Furniture, Memory, Monster, Position, Viewshed,
+    CombatStats, Confused, DungeonLevel, Furniture, Hiding, Memory, Monster, Position, Viewshed,
     WantsToMelee, WantsToMove, WantsToOpenDoor,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
@@ -83,6 +83,7 @@ impl<'a> System<'a> for MonsterAI {
         WriteExpect<'a, RandomNumberGenerator>,
         WriteStorage<'a, WantsToOpenDoor>,
         ReadStorage<'a, Furniture>,
+        ReadStorage<'a, Hiding>,
     );
     // This is currently very limited. Monsters will only act if they can see a player, which means that they must
     // also be on the same level to act.
@@ -104,6 +105,7 @@ impl<'a> System<'a> for MonsterAI {
             mut rng,
             mut wants_to_open_door,
             furniture,
+            hiding,
         ) = data;
         let player_level = levels.get(*player_entity).unwrap();
         let level = dungeon.get_level_mut(player_level.level).unwrap();
@@ -132,25 +134,27 @@ impl<'a> System<'a> for MonsterAI {
             }
             let mut weighted_actions = vec![];
             let current_idx = level_utils::xy_idx(&level, position.x, position.y);
-            let distance =
-                Pythagoras.distance2d(Point::new(position.x, position.y), *player_position);
-            if distance < 1.5 {
-                weighted_actions.push(WeightedAction::new(
-                    Action::Attack(*player_entity),
-                    reasoner::attack_weight(player_hp),
-                ));
-            } else if viewshed.visible_tiles.contains(&*player_position) {
-                if let Some((next_step, step_count)) =
-                    get_next_step(&level, current_idx, player_idx)
-                {
-                    let (x, y) = level_utils::idx_xy(&level, next_step as i32);
+            if hiding.get(*player_entity).is_none() {
+                let distance =
+                    Pythagoras.distance2d(Point::new(position.x, position.y), *player_position);
+                if distance < 1.5 {
                     weighted_actions.push(WeightedAction::new(
-                        Action::Chase((x, y)),
-                        reasoner::chase_weight(player_hp, step_count as i32),
+                        Action::Attack(*player_entity),
+                        reasoner::attack_weight(player_hp),
                     ));
+                } else if viewshed.visible_tiles.contains(&*player_position) {
+                    if let Some((next_step, step_count)) =
+                        get_next_step(&level, current_idx, player_idx)
+                    {
+                        let (x, y) = level_utils::idx_xy(&level, next_step as i32);
+                        weighted_actions.push(WeightedAction::new(
+                            Action::Chase((x, y)),
+                            reasoner::chase_weight(player_hp, step_count as i32),
+                        ));
+                    }
                 }
             }
-            for (_, enemy_position) in memory.last_known_enemy_positions.iter() {
+            for enemy_position in memory.last_known_enemy_positions.iter() {
                 if enemy_position.level != dungeon_level.level as i32 {
                     continue;
                 }
@@ -161,6 +165,32 @@ impl<'a> System<'a> for MonsterAI {
                     weighted_actions.push(action);
                 }
             }
+            for memory_enemy_hiding_place in memory.known_enemy_hiding_spots.iter() {
+                let hiding_place = memory_enemy_hiding_place.hiding_spot;
+                if let Some(hiding_position) = positions.get(hiding_place) {
+                    let hiding_point = Point::new(hiding_position.x, hiding_position.y);
+                    let distance =
+                        Pythagoras.distance2d(Point::new(position.x, position.y), hiding_point);
+                    if distance < 1.5 {
+                        let hiding_place_hp = combat_stats.get(hiding_place).unwrap().hp;
+                        weighted_actions.push(WeightedAction::new(
+                            Action::Attack(hiding_place),
+                            reasoner::attack_weight(hiding_place_hp),
+                        ));
+                    } else if viewshed.visible_tiles.contains(&hiding_point) {
+                        if let Some((next_step, step_count)) =
+                            get_next_step(&level, current_idx, player_idx)
+                        {
+                            let (x, y) = level_utils::idx_xy(&level, next_step as i32);
+                            let hiding_place_hp = combat_stats.get(hiding_place).unwrap().hp;
+                            weighted_actions.push(WeightedAction::new(
+                                Action::Chase((x, y)),
+                                reasoner::chase_weight(hiding_place_hp, step_count as i32),
+                            ));
+                        }
+                    }
+                }
+            }
             if let Some(destination) = memory.wander_destination {
                 let idx2 = level_utils::xy_idx(&level, destination.x, destination.y);
                 if let Some(action) =
@@ -168,7 +198,8 @@ impl<'a> System<'a> for MonsterAI {
                 {
                     weighted_actions.push(action);
                 }
-            } else if let Some(destination) = level_utils::get_random_unblocked_floor_point(&level, &mut rng)
+            } else if let Some(destination) =
+                level_utils::get_random_unblocked_floor_point(&level, &mut rng)
             {
                 if let Some(action) =
                     get_move_action_from_path(&level, current_idx, destination as i32, &furniture)

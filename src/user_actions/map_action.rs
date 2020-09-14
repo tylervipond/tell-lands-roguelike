@@ -20,6 +20,7 @@ pub enum MapAction {
   DisarmTrap,
   GrabFurniture,
   ReleaseFurniture,
+  Hide,
   #[cfg(debug_assertions)]
   ShowDebugMenu,
   NoAction,
@@ -50,6 +51,7 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::R => MapAction::ShowDropMenu,
       VirtualKeyCode::M => MapAction::ShowActionMenu,
       VirtualKeyCode::H => MapAction::SearchHidden,
+      VirtualKeyCode::J => MapAction::Hide,
       VirtualKeyCode::T => MapAction::DisarmTrap,
       VirtualKeyCode::B => MapAction::GrabFurniture,
       VirtualKeyCode::N => MapAction::ReleaseFurniture,

@@ -29,11 +29,12 @@ mod utils;
 use components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
     Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable,
-    Grabbing, Hidden, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective, OnFire,
-    ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged, Renderable, Saveable,
-    SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
-    WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToMelee, WantsToMove, WantsToOpenDoor,
-    WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
+    Grabbing, Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster, Name,
+    Objective, OnFire, ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged,
+    Renderable, Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered,
+    Viewshed, WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee,
+    WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden,
+    WantsToTrap, WantsToUse,
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils, tile_type::TileType};
@@ -49,7 +50,7 @@ use services::{
 };
 use systems::{
     BloodSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem, FireBurnSystem,
-    FireDieSystem, FireSpreadSystem, GrabSystem, ItemCollectionSystem, ItemDropSystem,
+    FireDieSystem, FireSpreadSystem, GrabSystem, HideSystem, ItemCollectionSystem, ItemDropSystem,
     ItemSpawnSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, OpenDoorSystem,
     ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
     RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
@@ -212,6 +213,9 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Memory>().clear();
     world.write_storage::<WantsToOpenDoor>().clear();
     world.write_storage::<Furniture>().clear();
+    world.write_storage::<Hiding>().clear();
+    world.write_storage::<HidingSpot>().clear();
+    world.write_storage::<WantsToHide>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -320,6 +324,8 @@ impl State {
             grab_system.run_now(&self.world);
             let mut open_door_system = OpenDoorSystem {};
             open_door_system.run_now(&self.world);
+            let mut hide_system = HideSystem {};
+            hide_system.run_now(&self.world);
         }
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.world);
@@ -378,6 +384,7 @@ impl GameState for State {
                     MapAction::SearchContainer => RunState::ShowTargetingOpenContainer,
                     MapAction::GrabFurniture => RunState::ShowTargetingGrabFurniture,
                     MapAction::DisarmTrap => RunState::ShowTargetingDisarmTrap,
+                    MapAction::Hide => RunState::ShowTargetingHideInContainer,
                     _ => {
                         player_action(&mut self.world, action);
                         RunState::PlayerTurn
@@ -669,6 +676,33 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::ShowTargetingHideInContainer => {
+                let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
+                let target = ranged::get_target(&self.world, ctx, &visible_tiles);
+                ScreenMapTargeting::new(1, target, Some("Select container to hide in".to_string()))
+                    .draw(ctx, &mut self.world);
+                let action = map_input_to_targeting_action(ctx, target);
+                match action {
+                    TargetingAction::NoAction => RunState::ShowTargetingHideInContainer,
+                    TargetingAction::Exit => RunState::AwaitingInput,
+                    TargetingAction::Selected(target) => {
+                        let hide_entity = get_entity_with_component_at_point::<HidingSpot>(
+                            &mut self.world,
+                            &target,
+                        );
+                        match hide_entity {
+                            Some(e) => player::hide_in_container(&mut self.world, e),
+                            None => {
+                                let mut game_log = self.world.fetch_mut::<GameLog>();
+                                game_log.add(
+                                    "There is nothing to hide in at this location".to_string(),
+                                );
+                            }
+                        }
+                        RunState::PlayerTurn
+                    }
+                }
+            }
             RunState::ShowTargetingGrabFurniture => {
                 let visible_tiles = ranged::get_visible_tiles_in_range(&self.world, 1);
                 let target = ranged::get_target(&self.world, ctx, &visible_tiles);
@@ -791,6 +825,7 @@ impl GameState for State {
                     "Grab Furniture",
                     "Release Furniture",
                     "Attack",
+                    "Hide in Container",
                 ]
                 .iter()
                 .enumerate()
@@ -836,6 +871,7 @@ impl GameState for State {
                             RunState::AwaitingInput
                         }
                         7 => RunState::ShowTargetingAttack,
+                        8 => RunState::ShowTargetingHideInContainer,
                         _ => RunState::ActionMenu { highlighted },
                     },
                     _ => RunState::ActionMenu { highlighted },
@@ -1058,6 +1094,9 @@ pub fn start() {
     gs.world.register::<WantsToReleaseGrabbed>();
     gs.world.register::<WantsToOpenDoor>();
     gs.world.register::<Furniture>();
+    gs.world.register::<HidingSpot>();
+    gs.world.register::<Hiding>();
+    gs.world.register::<WantsToHide>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
