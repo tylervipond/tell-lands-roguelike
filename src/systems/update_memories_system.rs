@@ -74,10 +74,10 @@ impl<'a> System<'a> for UpdateMemoriesSystem {
             if reached_wander_destination {
                 memory.wander_destination = None;
             }
-            let found_mem_pos = memory.last_known_enemy_positions.iter().cloned().find(|memPos| {
-                memPos.x == position.x
-                    && memPos.y == position.y
-                    && memPos.level == dungeon_level.level as i32
+            let found_mem_pos = memory.last_known_enemy_positions.iter().cloned().find(|mem_pos| {
+                mem_pos.x == position.x
+                    && mem_pos.y == position.y
+                    && mem_pos.level == dungeon_level.level as i32
             });
 
             if let Some(found_mem_pos) = found_mem_pos {

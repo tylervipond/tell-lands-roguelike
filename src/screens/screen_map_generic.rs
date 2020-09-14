@@ -1,10 +1,10 @@
 use super::ui::ui_map_screen::UIMapScreen;
 use super::utils::{get_render_data, get_render_offset, get_render_offset_for_xy};
-use crate::components::{CombatStats, DungeonLevel, Hidden, Name, Position, Hiding};
+use crate::components::{CombatStats, DungeonLevel, Hidden, Hiding, Name, Position};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
 use rltk::Rltk;
-use specs::{Entity, Join, World, WorldExt, Entities};
+use specs::{Entity, Join, World, WorldExt};
 
 pub struct ScreenMapGeneric {}
 
@@ -37,7 +37,14 @@ impl ScreenMapGeneric {
         ) as usize)
         {
             Some(visible) => match visible {
-                true => (&names, &positions, &levels, (&hidden).maybe(), (&hiding).maybe(), &entities)
+                true => (
+                    &names,
+                    &positions,
+                    &levels,
+                    (&hidden).maybe(),
+                    (&hiding).maybe(),
+                    &entities,
+                )
                     .join()
                     .filter(|(_name, position, level, hidden, hiding, entity)| {
                         let visible_to_player = match hidden {
@@ -46,7 +53,7 @@ impl ScreenMapGeneric {
                         };
                         let hiding = match hiding {
                             Some(_) => *entity != *player_ent,
-                            None => false
+                            None => false,
                         };
                         visible_to_player
                             && !hiding
@@ -54,12 +61,12 @@ impl ScreenMapGeneric {
                             && position.x == mouse_offset.0
                             && position.y == mouse_offset.1
                     })
-                    .map(|(name, _position, _level, _hidden, hiding, _entity)| {
-                        match hiding {
+                    .map(
+                        |(name, _position, _level, _hidden, hiding, _entity)| match hiding {
                             Some(_) => format!("{} (hidden)", name.name.to_owned()),
-                            _ => name.name.to_owned()
-                        }
-                    })
+                            _ => name.name.to_owned(),
+                        },
+                    )
                     .collect(),
                 false => Vec::new(),
             },

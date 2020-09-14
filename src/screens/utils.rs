@@ -2,12 +2,9 @@ use super::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
     ui::ui_map::RenderData,
 };
-use crate::components::{
-    dungeon_level::DungeonLevel, hidden::Hidden, on_fire::OnFire, position::Position,
-    renderable::Renderable, Hiding
-};
+use crate::components::{DungeonLevel, Hidden, Hiding, OnFire, Position, Renderable};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
-use rltk::{Point, BLACK, ORANGE, RGB, GREY};
+use rltk::{Point, GREY, ORANGE, RGB};
 use specs::{Entity, Join, World, WorldExt};
 
 pub fn get_render_data(world: &World) -> Vec<RenderData> {
@@ -40,9 +37,12 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
             };
             let hiding = match hiding {
                 Some(_) => *entity != *player_ent,
-                _ => false
+                _ => false,
             };
-            return l.level == player_level.level && level.visible_tiles[idx] && is_visible && !hiding;
+            return l.level == player_level.level
+                && level.visible_tiles[idx]
+                && is_visible
+                && !hiding;
         })
         .map(|(p, r, _l, f, _h, hiding, entity)| {
             let mut fg = r.fg;

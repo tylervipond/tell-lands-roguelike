@@ -102,19 +102,19 @@ where
         let last_known_enemy_positions = self
             .last_known_enemy_positions
             .iter()
-            .map(|memoryPosition| MemoryDataPosition {
-                x: memoryPosition.x,
-                y: memoryPosition.y,
-                level: memoryPosition.level,
-                entity: ids(memoryPosition.entity).unwrap(),
+            .map(|memory_position| MemoryDataPosition {
+                x: memory_position.x,
+                y: memory_position.y,
+                level: memory_position.level,
+                entity: ids(memory_position.entity).unwrap(),
             })
             .collect();
         let known_enemy_hiding_spots = self
             .known_enemy_hiding_spots
             .iter()
-            .map(|memoryHidingSpot| MemoryDataHidingSpot {
-                enemy: ids(memoryHidingSpot.enemy).unwrap(),
-                hiding_spot: ids(memoryHidingSpot.hiding_spot).unwrap(),
+            .map(|memory_hiding_spot| MemoryDataHidingSpot {
+                enemy: ids(memory_hiding_spot.enemy).unwrap(),
+                hiding_spot: ids(memory_hiding_spot.hiding_spot).unwrap(),
             })
             .collect();
         Ok(MemoryData {
@@ -131,20 +131,20 @@ where
         let last_known_enemy_positions = data
             .last_known_enemy_positions
             .iter()
-            .map(|memoryDataPosition| MemoryPosition {
-                x: memoryDataPosition.x,
-                y: memoryDataPosition.y,
-                level: memoryDataPosition.level,
-                entity: ids(memoryDataPosition.entity).unwrap(),
+            .map(|memory_data_position| MemoryPosition {
+                x: memory_data_position.x,
+                y: memory_data_position.y,
+                level: memory_data_position.level,
+                entity: ids(memory_data_position.entity).unwrap(),
             })
             .collect();
 
         let known_enemy_hiding_spots = data
             .known_enemy_hiding_spots
             .iter()
-            .map(|memoryDataHidingSpot| MemoryHidingSpot {
-                enemy: ids(memoryDataHidingSpot.enemy).unwrap(),
-                hiding_spot: ids(memoryDataHidingSpot.hiding_spot).unwrap(),
+            .map(|memory_data_hiding_spot| MemoryHidingSpot {
+                enemy: ids(memory_data_hiding_spot.enemy).unwrap(),
+                hiding_spot: ids(memory_data_hiding_spot.hiding_spot).unwrap(),
             })
             .collect();
         Ok(Memory {
