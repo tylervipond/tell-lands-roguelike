@@ -29,8 +29,8 @@ mod utils;
 use components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
     Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable,
-    Grabbing, Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster, Name,
-    Objective, OnFire, ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged,
+    Grabbing, Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Light, Memory, Monster,
+    Name, Objective, OnFire, ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged,
     Renderable, Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered,
     Viewshed, WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee,
     WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden,
@@ -51,10 +51,11 @@ use services::{
 use systems::{
     BloodSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem, FireBurnSystem,
     FireDieSystem, FireSpreadSystem, GrabSystem, HideSystem, ItemCollectionSystem, ItemDropSystem,
-    ItemSpawnSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, OpenDoorSystem,
-    ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
-    RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
-    UpdateMemoriesSystem, UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
+    ItemSpawnSystem, LightSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem,
+    OpenDoorSystem, ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem,
+    RemoveTriggeredTrapsSystem, RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem,
+    TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem, UpdateParticleEffectsSystem,
+    UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -216,6 +217,7 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Hiding>().clear();
     world.write_storage::<HidingSpot>().clear();
     world.write_storage::<WantsToHide>().clear();
+    world.write_storage::<Light>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -273,10 +275,17 @@ impl State {
         update_particles.run_now(&self.world);
         let mut remove_particles = RemoveParticleEffectsSystem {};
         remove_particles.run_now(&self.world);
-        let mut vis = VisibilitySystem {};
-        vis.run_now(&self.world);
-        let mut update_memories_system = UpdateMemoriesSystem {};
-        update_memories_system.run_now(&self.world);
+        if self.run_state == RunState::PreRun
+            || self.run_state == RunState::PlayerTurn
+            || self.run_state == RunState::MonsterTurn
+        {
+            let mut light = LightSystem {};
+            light.run_now(&self.world);
+            let mut vis = VisibilitySystem {};
+            vis.run_now(&self.world);
+            let mut update_memories_system = UpdateMemoriesSystem {};
+            update_memories_system.run_now(&self.world);
+        }
         if self.run_state == RunState::MonsterTurn {
             let mut mob = MonsterAI {};
             mob.run_now(&self.world);
@@ -1097,6 +1106,7 @@ pub fn start() {
     gs.world.register::<HidingSpot>();
     gs.world.register::<Hiding>();
     gs.world.register::<WantsToHide>();
+    gs.world.register::<Light>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
