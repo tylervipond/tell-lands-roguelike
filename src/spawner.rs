@@ -1,10 +1,11 @@
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
-    DungeonLevel, EntryTrigger, Flammable, Furniture, Grabbable, Hidden, InflictsDamage, Item,
-    Memory, Monster, Name, Objective, Player, Position, ProvidesHealing, Ranged, Renderable,
-    Saveable, SingleActivation, Trap, Viewshed, HidingSpot
+    DungeonLevel, EntryTrigger, Flammable, Furniture, Grabbable, Hidden, HidingSpot,
+    InflictsDamage, Item, Light, Memory, Monster, Name, Objective, Player, Position,
+    ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed,
 };
 use crate::dungeon::{
+    constants::MAP_HEIGHT,
     level::Level,
     level_utils,
     rect::Rect,
@@ -103,10 +104,11 @@ pub fn spawn_player(world: &mut World, x: i32, y: i32, level: u8) -> Entity {
         .with(DungeonLevel { level })
         .with(Player {})
         .with(Viewshed {
-            range: 8,
+            range: (MAP_HEIGHT / 2) as i32,
             visible_tiles: vec![],
             dirty: true,
         })
+        .with(Light { range: 10 })
         .with(Name {
             name: "Player".to_owned(),
         })
@@ -136,9 +138,10 @@ pub fn spawn_monster<S: ToString>(
         })
         .with(Viewshed {
             visible_tiles: vec![],
-            range: 8,
+            range: (MAP_HEIGHT / 2) as i32,
             dirty: true,
         })
+        .with(Light { range: 10 })
         .with(Monster {})
         .with(Name {
             name: name.to_string(),

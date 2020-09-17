@@ -6,9 +6,9 @@
 use crate::components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confusion, Consumable, Contained,
     Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable, Grabbing,
-    Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster, Name, Objective,
-    OnFire, ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
-    SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
+    Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Light, Memory, Monster, Name,
+    Objective, OnFire, ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable,
+    Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
     WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee, WantsToMove,
     WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap,
     WantsToUse,
@@ -153,6 +153,7 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             Hiding,
             WantsToHide,
             Memory,
+            Light,
             SerializationHelper
         );
     }
@@ -222,6 +223,7 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         Hiding,
         WantsToHide,
         Memory,
+        Light,
         SerializationHelper
     );
 }
