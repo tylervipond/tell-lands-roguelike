@@ -34,7 +34,7 @@ impl<'a> System<'a> for VisibilitySystem {
                 )
                 .into_iter()
                 .filter(|p| {
-                    let idx = level_utils::xy_idx(&level, p.x, p.y) as usize;
+                    let idx = level_utils::xy_idx(level.width as i32, p.x, p.y) as usize;
                     level.lit_tiles[idx]
                 })
                 .collect();
@@ -43,7 +43,7 @@ impl<'a> System<'a> for VisibilitySystem {
                         *t = false
                     }
                     for vis in viewshed.visible_tiles.iter() {
-                        let idx = level_utils::xy_idx(&level, vis.x, vis.y) as usize;
+                        let idx = level_utils::xy_idx(level.width as i32, vis.x, vis.y) as usize;
                         level.revealed_tiles[idx] = true;
                         level.visible_tiles[idx] = true;
                     }

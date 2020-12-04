@@ -2,6 +2,7 @@ use rltk::{GameState, Point, RandomNumberGenerator, Rltk, RltkBuilder};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 use std::collections::HashMap;
+use std::iter;
 use wasm_bindgen::prelude::*;
 #[macro_use]
 extern crate specs_derive;
@@ -34,7 +35,7 @@ use components::{
     Renderable, Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered,
     Viewshed, WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee,
     WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden,
-    WantsToTrap, WantsToUse,
+    WantsToTrap, WantsToUse, Equipment, Equipable, equipable::EquipmentPositions, WantsToEquip, CausesDamage
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils, tile_type::TileType};
@@ -55,7 +56,7 @@ use systems::{
     OpenDoorSystem, ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem,
     RemoveTriggeredTrapsSystem, RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem,
     TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem, UpdateParticleEffectsSystem,
-    UseItemSystem, VisibilitySystem,
+    UseItemSystem, VisibilitySystem, EquipSystem
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -218,6 +219,10 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<HidingSpot>().clear();
     world.write_storage::<WantsToHide>().clear();
     world.write_storage::<Light>().clear();
+    world.write_storage::<Equipment>().clear();
+    world.write_storage::<Equipable>().clear();
+    world.write_storage::<WantsToEquip>().clear();
+    world.write_storage::<CausesDamage>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -228,11 +233,11 @@ fn initialize_new_game(world: &mut World) {
         .enumerate()
         .find(|(_, tile_type)| **tile_type == TileType::Exit)
         .unwrap();
-    let (player_x, player_y) = level_utils::idx_xy(level, player_idx as i32);
+    let (player_x, player_y) = level_utils::idx_xy(level.width as i32, player_idx as i32);
     world.remove::<Point>();
     world.insert(Point::new(player_x, player_y));
     world.remove::<Entity>();
-    let player_entity = spawner::spawn_player(world, player_x as i32, player_y as i32, 9);
+    let player_entity = spawner::spawn_player(world, player_idx as i32, level);
     world.insert(player_entity);
     let rng = world.get_mut::<RandomNumberGenerator>().unwrap();
     let objective_floor = utils::get_random_between_numbers(rng, 1, 9) as u8;
@@ -323,6 +328,8 @@ impl State {
         let mut release_system = ReleaseSystem {};
         release_system.run_now(&self.world);
         if self.run_state == RunState::PlayerTurn || self.run_state == RunState::MonsterTurn {
+            let mut equip_system = EquipSystem {};
+            equip_system.run_now(&self.world);
             let mut search_for_hidden_system = SearchForHiddenSystem {};
             search_for_hidden_system.run_now(&self.world);
             let mut set_trap_system = SetTrapSystem {};
@@ -377,6 +384,7 @@ impl GameState for State {
                         highlighted: 0,
                         page: 0,
                     },
+                    MapAction::ShowEquipmentMenu => RunState::EquipmentMenu { highlighted: 0 },
                     MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.world) {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
@@ -835,6 +843,7 @@ impl GameState for State {
                     "Release Furniture",
                     "Attack",
                     "Hide in Container",
+                    "Equipment Menu"
                 ]
                 .iter()
                 .enumerate()
@@ -881,11 +890,117 @@ impl GameState for State {
                         }
                         7 => RunState::ShowTargetingAttack,
                         8 => RunState::ShowTargetingHideInContainer,
+                        9 => RunState::EquipmentMenu { highlighted: 0 },
                         _ => RunState::ActionMenu { highlighted },
                     },
                     _ => RunState::ActionMenu { highlighted },
                 }
+            },
+            RunState::EquipMenu {highlighted, position } => {
+                let equipment: Vec<(String, Option<Entity>)> = {
+                    let player_ent = self.world.fetch::<Entity>();
+                    let equipment = self.world.read_storage::<Equipable>();
+                    let in_backpack = self.world.read_storage::<InBackpack>();
+                    let names= self.world.read_storage::<Name>();
+                    let entities = self.world.entities();
+                    iter::once((String::from("Nothing"), None))
+                    .chain((&equipment, &in_backpack, &names, &entities)
+                        .join()
+                        .filter(|(e,b, _n, _ent)| {
+                            let has_position = e.positions.iter().find(|p| **p == position).is_some();
+                            let owned_by_player = b.owner == *player_ent;
+                            has_position && owned_by_player
+                        })
+                        .map(|(_e, _b, n, ent)| (n.name.clone(), Some(ent)))
+                    )
+                    .collect()
+                };
+
+                let menu = equipment.iter()
+                .enumerate()
+                .map(|(index, (name, _))| {
+                    let state = match highlighted == index {
+                        true => MenuOptionState::Highlighted,
+                        false => MenuOptionState::Normal,
+                    };
+                    MenuOption::new(name, state)
+                })
+                .collect();
+
+                ScreenMapMenu::new(&menu, "Choose an Item to Equip", "Escape to Cancel")
+                .draw(ctx, &mut self.world);
+            let action = map_input_to_menu_action(ctx, highlighted);
+            match action {
+                MenuAction::MoveHighlightNext => RunState::EquipMenu {
+                    highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                    position
+                },
+                MenuAction::MoveHighlightPrev => RunState::EquipMenu {
+                    highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                    position
+                },
+                MenuAction::NoAction => RunState::EquipMenu { highlighted, position },
+                MenuAction::Exit => RunState::EquipmentMenu { highlighted: 0},
+                MenuAction::Select { option } => {
+                    let (_, entity) = equipment[option];
+                    player::equip_item(&mut self.world, entity, position);
+                    RunState::PlayerTurn
+                },
+                _ => RunState::EquipMenu { highlighted, position }
             }
+            },
+            RunState::EquipmentMenu { highlighted } => {
+                let slots: Vec<(String, EquipmentPositions)> = {
+                    let player_ent = self.world.fetch::<Entity>();
+                    let equipment = self.world.read_storage::<Equipment>();
+                    let player_equipment = equipment.get(*player_ent).unwrap();
+                    let names= self.world.read_storage::<Name>();
+                    let off_hand_item_name = match player_equipment.off_hand {
+                        Some(e) => &names.get(e).unwrap().name,
+                        None => "Empty"
+                    };
+                    let dominant_hand_item_name = match player_equipment.dominant_hand {
+                        Some(e) => &names.get(e).unwrap().name,
+                        None => "Empty"
+                    };
+                    vec![
+                        (format!("Dominant Hand: {}", dominant_hand_item_name), EquipmentPositions::DominantHand),
+                        (format!("Off Hand:  {}", off_hand_item_name), EquipmentPositions::OffHand),
+                    ]
+                };
+
+                let menu = slots.iter()
+                .enumerate()
+                .map(|(index, (text, _position))| {
+                    let state = match highlighted == index {
+                        true => MenuOptionState::Highlighted,
+                        false => MenuOptionState::Normal,
+                    };
+                    MenuOption::new(text, state)
+                })
+                .collect();
+
+                ScreenMapMenu::new(&menu, "Equipment", "Escape to Cancel")
+                    .draw(ctx, &mut self.world);
+                let action = map_input_to_menu_action(ctx, highlighted);
+                match action {
+                    MenuAction::MoveHighlightNext => RunState::EquipmentMenu {
+                        highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                    },
+                    MenuAction::MoveHighlightPrev => RunState::EquipmentMenu {
+                        highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                    },
+                    MenuAction::NoAction => RunState::EquipmentMenu { highlighted },
+                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Select { option } => {
+                        let position = slots[option as usize].1;
+                        match option {
+                            _ => RunState::EquipMenu { highlighted, position }
+                        }
+                    }
+                    _ => RunState::EquipmentMenu { highlighted }
+                }
+            },
             RunState::IntroScreen => {
                 ScreenIntro::new().draw(ctx);
                 let action = map_input_to_static_action(ctx);
@@ -1107,6 +1222,10 @@ pub fn start() {
     gs.world.register::<Hiding>();
     gs.world.register::<WantsToHide>();
     gs.world.register::<Light>();
+    gs.world.register::<Equipment>();
+    gs.world.register::<Equipable>();
+    gs.world.register::<WantsToEquip>();
+    gs.world.register::<CausesDamage>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],

@@ -29,7 +29,7 @@ impl<'a> System<'a> for LightSystem {
                 })
                 .flatten()
                 .filter(|p| Pythagoras.distance2d(start_point, *p) < light.range as f32)
-                .map(|p| level_utils::xy_idx(level, p.x, p.y))
+                .map(|p| level_utils::xy_idx(level.width as i32, p.x, p.y))
                 .collect::<Vec<i32>>();
             for index in lit_points {
                 match level.lit_tiles.get_mut(index as usize) {

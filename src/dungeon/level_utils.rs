@@ -2,16 +2,16 @@ use super::{level::Level, rect::Rect, tile_type::TileType};
 use rltk::{DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
 use specs::Entity;
 
-pub fn xy_idx(level: &Level, x: i32, y: i32) -> i32 {
-    y * level.width as i32 + x
+pub fn xy_idx(width: i32, x: i32, y: i32) -> i32 {
+    y * width + x
 }
 
-pub fn idx_xy(level: &Level, idx: i32) -> (i32, i32) {
-    (idx % level.width as i32, idx / level.width as i32)
+pub fn idx_xy(width: i32, idx: i32) -> (i32, i32) {
+    (idx % width, idx / width)
 }
 
 pub fn get_tile_at_xy(level: &Level, x: i32, y: i32) -> Option<&TileType> {
-    level.tiles.get(xy_idx(level, x, y) as usize)
+    level.tiles.get(xy_idx(level.width as i32, x, y) as usize)
 }
 
 pub fn tile_at_xy_is_wall(level: &Level, x: i32, y: i32) -> bool {
@@ -50,7 +50,7 @@ pub fn set_tile_to_door(level: &mut Level, idx: usize) {
 }
 
 pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
-    let idx = xy_idx(level, x, y);
+    let idx = xy_idx(level.width as i32, x, y);
     level.tile_content[idx as usize].to_vec()
 }
 
@@ -93,7 +93,7 @@ pub fn get_walkable_tiles_in_rect(rect: &Rect, level: &Level) -> Vec<i32> {
                 .collect::<Vec<(i32, i32)>>()
         })
         .flatten()
-        .map(|(x, y)| xy_idx(level, x, y))
+        .map(|(x, y)| xy_idx(level.width as i32, x, y))
         .filter(|idx| {
             level.tiles[*idx as usize] == TileType::Floor && !tile_is_blocked(*idx, level)
         })
@@ -151,7 +151,7 @@ pub fn get_all_unblocked_tiles_in_radius(
     center_idx: i32,
     radius_length: i32,
 ) -> Vec<i32> {
-    let center_xy = idx_xy(level, center_idx);
+    let center_xy = idx_xy(level.width as i32, center_idx);
     let center_point = Point::new(center_xy.0, center_xy.1);
     return level
         .tiles
@@ -159,7 +159,7 @@ pub fn get_all_unblocked_tiles_in_radius(
         .enumerate()
         .map(|(tile_idx, _tile_type)| tile_idx as i32)
         .filter(|tile_idx| {
-            let this_xy = idx_xy(level, *tile_idx);
+            let this_xy = idx_xy(level.width as i32, *tile_idx);
             let this_point = Point::new(this_xy.0, this_xy.1);
             Pythagoras.distance2d(center_point, this_point) <= radius_length as f32
                 && !tile_is_blocked(*tile_idx, level)

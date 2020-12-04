@@ -1,7 +1,7 @@
 use crate::components::{
     DungeonLevel, Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap, WantsToGrab,
     WantsToHide, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
-    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
+    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse, equipable::EquipmentPositions, WantsToEquip
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
 use crate::entity_option::EntityOption;
@@ -24,12 +24,13 @@ fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
     let player_entity = world.fetch::<Entity>();
     let dungeon_levels = world.read_storage::<DungeonLevel>();
     let player_level = dungeon_levels.get(*player_entity).unwrap();
-    let map = dungeon.get_level(player_level.level).unwrap();
+    let level = dungeon.get_level(player_level.level).unwrap();
+    let level_width = level.width as i32;
     for (entity, _player, pos) in (&entities, &mut players, &mut positions).join() {
         let x = pos.x + delta_x;
         let y = pos.y + delta_y;
-        let destination_index = level_utils::xy_idx(&map, x, y);
-        let target = map.tile_content[destination_index as usize]
+        let destination_index = level_utils::xy_idx(level_width, x, y);
+        let target = level.tile_content[destination_index as usize]
             .iter()
             .filter(|e| monsters.get(**e).is_some())
             .next();
@@ -96,14 +97,15 @@ fn try_open_door(world: &mut World) {
     let dungeon = world.fetch::<Dungeon>();
     let player_entity = world.fetch::<Entity>();
     let player_level = utils::get_current_level_from_world(world);
-    let map = dungeon.get_level(player_level).unwrap();
+    let level = dungeon.get_level(player_level).unwrap();
+    let level_width = level.width as i32;
     let mut inserted = false;
     let pos = positions.get(*player_entity).unwrap();
     for x in (pos.x - 1)..=(pos.x + 1) {
         for y in (pos.y - 1)..=(pos.y + 1) {
-            let open_door_index = level_utils::xy_idx(&map, x, y);
+            let open_door_index = level_utils::xy_idx(level_width, x, y);
 
-            if map.tiles[open_door_index as usize] == TileType::Door {
+            if level.tiles[open_door_index as usize] == TileType::Door {
                 wants_to_open_door
                     .insert(
                         *player_entity,
@@ -272,6 +274,20 @@ pub fn hide_in_container(world: &mut World, entity: Entity) {
             },
         )
         .expect("Unable to Insert Hide in Container Intent");
+}
+
+pub fn equip_item(world:&mut World, entity: Option<Entity>, position: EquipmentPositions) {
+    let player_entity = world.fetch::<Entity>();
+    let mut equip_intent = world.write_storage::<WantsToEquip>();
+    equip_intent
+    .insert(
+        *player_entity,
+        WantsToEquip {
+            equipment: entity,
+            position
+        },
+    )
+    .expect("Unable to Insert Hide in Container Intent");
 }
 
 pub fn player_action(world: &mut World, action: MapAction) {

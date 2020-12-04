@@ -57,19 +57,20 @@ impl<'a> System<'a> for MoveSystem {
                 wants_to_move.x - ent_position.0,
                 wants_to_move.y - ent_position.1,
             );
-            let current_idx = level_utils::xy_idx(&level, ent_position.0, ent_position.1);
-            let ent_destination_idx = level_utils::xy_idx(&level, wants_to_move.x, wants_to_move.y);
+            let width = level.width as i32;
+            let current_idx = level_utils::xy_idx(width, ent_position.0, ent_position.1);
+            let ent_destination_idx = level_utils::xy_idx(width, wants_to_move.x, wants_to_move.y);
             if let Some(grabbing) = grabbing {
                 let mut thing_pos = positions.get_mut(grabbing.thing).unwrap();
                 let thing_destination_x = thing_pos.x + delta.0;
                 let thing_destination_y = thing_pos.y + delta.1;
                 let thing_destination_idx =
-                    level_utils::xy_idx(&level, thing_destination_x, thing_destination_y);
+                    level_utils::xy_idx(width, thing_destination_x, thing_destination_y);
                 let thing_destination_is_ent_position = thing_destination_idx == current_idx;
                 let thing_destination_is_blocked =
                     level_utils::tile_is_blocked(thing_destination_idx, &level)
                         && !thing_destination_is_ent_position;
-                let thing_current_idx = level_utils::xy_idx(&level, thing_pos.x, thing_pos.y);
+                let thing_current_idx = level_utils::xy_idx(width, thing_pos.x, thing_pos.y);
                 let ent_destination_is_thing_position = ent_destination_idx == thing_current_idx;
                 let ent_destination_is_blocked =
                     level_utils::tile_is_blocked(ent_destination_idx, &level)

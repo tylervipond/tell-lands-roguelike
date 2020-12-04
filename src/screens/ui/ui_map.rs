@@ -12,7 +12,7 @@ pub struct RenderData {
 }
 
 pub fn is_revealed_and_wall_or_door(level: &Level, x: i32, y: i32) -> bool {
-    let idx = level_utils::xy_idx(level, x, y) as usize;
+    let idx = level_utils::xy_idx(level.width as i32, x, y) as usize;
     match level.tiles.get(idx) {
         Some(tile) => {
             (*tile == TileType::Wall || *tile == TileType::Door) && level.revealed_tiles[idx]
@@ -22,7 +22,7 @@ pub fn is_revealed_and_wall_or_door(level: &Level, x: i32, y: i32) -> bool {
 }
 
 fn is_revealed_and_ledge(level: &Level, x: i32, y: i32) -> bool {
-    let idx = level_utils::xy_idx(level, x, y) as usize;
+    let idx = level_utils::xy_idx(level.width as i32, x, y) as usize;
     match level.tiles.get(idx) {
         Some(tile) => (*tile == TileType::Ledge) && level.revealed_tiles[idx],
         None => false,
