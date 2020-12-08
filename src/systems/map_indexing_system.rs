@@ -26,7 +26,7 @@ impl<'a> System<'a> for MapIndexingSystem {
     level_utils::clear_content_index(&mut level);
     for (position, entity, dungeon_level) in (&positions, &entities, &dungeon_levels).join() {
       if dungeon_level.level == player_level.level {
-        let idx = level_utils::xy_idx(&level, position.x, position.y) as usize;
+        let idx = level_utils::xy_idx(level.width as i32, position.x, position.y) as usize;
         let blocked = blockers.get(entity);
         if let Some(_) = blocked {
           level.blocked[idx] = true

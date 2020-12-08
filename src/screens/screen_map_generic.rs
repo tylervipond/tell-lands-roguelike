@@ -31,7 +31,7 @@ impl ScreenMapGeneric {
         let render_offset = get_render_offset(world);
         let mouse_offset = get_render_offset_for_xy(world, (mouse_x, mouse_y));
         let tool_tip_lines = match level.visible_tiles.get(level_utils::xy_idx(
-            &level,
+            level.width as i32,
             mouse_offset.0,
             mouse_offset.1,
         ) as usize)

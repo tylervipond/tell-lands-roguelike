@@ -102,12 +102,13 @@ pub fn update_level_from_room_features(level: &mut Level, rng: &mut RandomNumber
             &mut updates.append(&mut additional_updates);
         }
     }
+    let level_width = level.width as i32;
     for (xy, tile_type) in &updates {
         if !level_utils::tile_at_xy_is_wall(level, xy.0, xy.1)
             && !level_utils::tile_is_between_walls(level, xy.0, xy.1)
             && !level_utils::tile_is_door_adjacent(level, xy.0, xy.1)
         {
-            let idx = level_utils::xy_idx(level, xy.0, xy.1);
+            let idx = level_utils::xy_idx(level_width, xy.0, xy.1);
             level.tiles[idx as usize] = *tile_type;
             level.blocked[idx as usize] = true;
         }
@@ -130,8 +131,9 @@ pub fn update_level_from_room_stamps(level: &mut Level) {
             }
         }
     }
+    let width = level.width as i32;
     updates.iter().for_each(|(x, y, tile_type)| {
-        let idx = level_utils::xy_idx(level, *x as i32, *y as i32);
+        let idx = level_utils::xy_idx(width, *x as i32, *y as i32);
         match tile_type {
             Some(TileType::Ledge) => {
                 level.tiles[idx as usize] = TileType::Ledge;
@@ -189,9 +191,10 @@ pub fn update_room_stamps_from_level(level: &mut Level) {
 }
 
 fn add_rectangular_room(level: &mut Level, room: &Rect) {
+    let width = level.width as i32;
     for y in room.y1 + 1..room.y2 {
         for x in room.x1 + 1..room.x2 {
-            let idx = level_utils::xy_idx(level, x, y) as usize;
+            let idx = level_utils::xy_idx(width, x, y) as usize;
             level_utils::set_tile_to_floor(level, idx);
         }
     }
@@ -200,11 +203,12 @@ fn add_rectangular_room(level: &mut Level, room: &Rect) {
 fn add_circular_room(level: &mut Level, room: &Rect) {
     let radius = i32::min(room.x2 - room.x1, room.y2 - room.y1) as f32 / 2.0;
     let center_point = Point::from(room.center());
+    let width = level.width as i32;
     for y in room.y1 + 1..room.y2 {
         for x in room.x1 + 1..room.x2 {
             let distance = Pythagoras.distance2d(center_point, rltk::Point::new(x, y));
             if distance < radius {
-                let idx = level_utils::xy_idx(level, x, y);
+                let idx = level_utils::xy_idx(width, x, y);
                 level_utils::set_tile_to_floor(level, idx as usize);
             }
         }
@@ -212,18 +216,22 @@ fn add_circular_room(level: &mut Level, room: &Rect) {
 }
 
 fn add_horizontal_tunnel(level: &mut Level, x1: i32, x2: i32, y: i32) {
+    let width = level.width as i32;
+    let tile_count = level.tiles.len() as i32;
     for x in cmp::min(x1, x2)..=cmp::max(x1, x2) {
-        let idx = level_utils::xy_idx(level, x, y);
-        if idx > 0 && idx < level.tiles.len() as i32 {
+        let idx = level_utils::xy_idx(width, x, y);
+        if idx > 0 && idx < tile_count {
             level_utils::set_tile_to_floor(level, idx as usize);
         }
     }
 }
 
 fn add_vertical_tunnel(level: &mut Level, x: i32, y1: i32, y2: i32) {
+    let width = level.width as i32;
+    let tile_count = level.tiles.len() as i32;
     for y in cmp::min(y1, y2)..=cmp::max(y1, y2) {
-        let idx = level_utils::xy_idx(level, x, y);
-        if idx > 0 && idx < level.tiles.len() as i32 {
+        let idx = level_utils::xy_idx(width, x, y);
+        if idx > 0 && idx < tile_count {
             level_utils::set_tile_to_floor(level, idx as usize);
         }
     }
@@ -272,6 +280,7 @@ fn add_nearest_neighbor_corridors(level: &mut Level, rng: &mut RandomNumberGener
 
 fn add_doors_to_rooms(level: &mut Level) {
     let mut door_idxs: Vec<i32> = Vec::new();
+    let level_width = level.width as i32;
     for room in level.rooms.iter() {
         for x in room.rect.x1..=room.rect.x2 {
             for y in room.rect.y1..=room.rect.y2 {
@@ -280,7 +289,7 @@ fn add_doors_to_rooms(level: &mut Level) {
                     if !level_utils::tile_at_xy_is_wall(&level, x, y)
                         && level_utils::tile_is_between_walls_vertical(&level, x, y)
                     {
-                        door_idxs.push(level_utils::xy_idx(&level, x, y));
+                        door_idxs.push(level_utils::xy_idx(level_width, x, y));
                     }
                 }
 
@@ -289,7 +298,7 @@ fn add_doors_to_rooms(level: &mut Level) {
                     if !level_utils::tile_at_xy_is_wall(&level, x, y)
                         && level_utils::tile_is_between_walls_horizontal(level, x, y)
                     {
-                        door_idxs.push(level_utils::xy_idx(&level, x, y));
+                        door_idxs.push(level_utils::xy_idx(level_width, x, y));
                     }
                 }
             }
@@ -335,7 +344,7 @@ pub fn build(depth: u8) -> Level {
 pub fn add_exit(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let rect = level.rooms[0].rect;
     let exit_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
-    let exit_position = level_utils::idx_xy(level, exit_idx);
+    let exit_position = level_utils::idx_xy(level.width as i32, exit_idx);
     level.tiles[exit_idx as usize] = TileType::Exit;
     level.exit = Some(Point::new(exit_position.0, exit_position.1));
 }
@@ -343,7 +352,7 @@ pub fn add_exit(level: &mut Level, rng: &mut RandomNumberGenerator) {
 pub fn add_down_stairs(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let rect = level.rooms[level.rooms.len() - 1].rect;
     let stairs_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
-    let stairs_position = level_utils::idx_xy(level, stairs_idx);
+    let stairs_position = level_utils::idx_xy(level.width as i32, stairs_idx);
     level.tiles[stairs_idx as usize] = TileType::DownStairs;
     level.stairs_down = Some(Point::new(stairs_position.0, stairs_position.1));
 }
@@ -351,7 +360,7 @@ pub fn add_down_stairs(level: &mut Level, rng: &mut RandomNumberGenerator) {
 pub fn add_up_stairs(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let rect = level.rooms[0].rect;
     let stairs_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
-    let stairs_position = level_utils::idx_xy(level, stairs_idx);
+    let stairs_position = level_utils::idx_xy(level.width as i32, stairs_idx);
     level.tiles[stairs_idx as usize] = TileType::UpStairs;
     level.stairs_up = Some(Point::new(stairs_position.0, stairs_position.1));
 }

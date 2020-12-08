@@ -18,7 +18,7 @@ impl<'a> System<'a> for OpenDoorSystem {
         let mut levels_with_door_open = HashSet::new();
         for desire in (&wants_to_open_door).join() {
             let mut level = dungeon.get_level_mut(desire.level as u8).unwrap();
-            let open_door_index = level_utils::xy_idx(level, desire.position.0, desire.position.1);
+            let open_door_index = level_utils::xy_idx(level.width as i32, desire.position.0, desire.position.1);
 
             if level.tiles[open_door_index as usize] == TileType::Door {
                 level_utils::set_tile_to_floor(&mut level, open_door_index as usize);

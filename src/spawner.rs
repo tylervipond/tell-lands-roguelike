@@ -1,9 +1,10 @@
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
-    DungeonLevel, EntryTrigger, Flammable, Furniture, Grabbable, Hidden, HidingSpot,
-    InflictsDamage, Item, Light, Memory, Monster, Name, Objective, Player, Position,
-    ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed,
+    DungeonLevel, EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Hidden,
+    HidingSpot, InflictsDamage, Item, Light, Memory, Monster, Name, Objective, Player, Position,
+    ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed, CausesDamage
 };
+use crate::components::equipable::EquipmentPositions;
 use crate::dungeon::{
     constants::MAP_HEIGHT,
     level::Level,
@@ -66,42 +67,80 @@ fn get_random_spawn_points_for_level(
         .collect()
 }
 
+fn create_marked_entity<'a>(world: &'a mut World) -> EntityBuilder<'a> {
+    world.create_entity().marked::<SimpleMarker<Saveable>>()
+}
+
 fn create_marked_entity_with_position<'a>(
     world: &'a mut World,
     map_idx: i32,
     level: &'a Level,
 ) -> EntityBuilder<'a> {
-    let (x, y) = level_utils::idx_xy(level, map_idx);
-    world
-        .create_entity()
+    let (x, y) = level_utils::idx_xy(level.width as i32, map_idx);
+    create_marked_entity(world)
         .with(Position { x, y })
         .with(DungeonLevel { level: level.depth })
-        .marked::<SimpleMarker<Saveable>>()
 }
 
 fn create_marked_entity_in_container<'a>(
     world: &'a mut World,
     container_entity: Entity,
 ) -> EntityBuilder<'a> {
-    world
-        .create_entity()
-        .with(Contained {
-            container: container_entity,
-        })
-        .marked::<SimpleMarker<Saveable>>()
+    create_marked_entity(world).with(Contained {
+        container: container_entity,
+    })
 }
 
-pub fn spawn_player(world: &mut World, x: i32, y: i32, level: u8) -> Entity {
-    world
-        .create_entity()
-        .with(Position { x, y })
+fn make_entity_weapon<'a>(builder: EntityBuilder<'a>, min: i32, max: i32, bonus:i32) -> EntityBuilder<'a> {
+    builder
+    .with(CausesDamage {min, max, bonus})
+    .with(Item {})
+    .with(Equipable { positions: Box::new([EquipmentPositions::DominantHand, EquipmentPositions::OffHand])})
+}
+
+fn make_entity_sword<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+    make_entity_weapon(builder, 1, 6, 0)
+        .with(Name {
+            name: "Sword".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('/'),
+            fg: RGB::named(rltk::LIGHT_BLUE),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+}
+
+fn make_entity_club<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+    make_entity_weapon(builder, 1, 4, 0)
+    .with(Name {
+        name: "Club".to_string(),
+    })
+    .with(Renderable {
+        glyph: to_cp437('/'),
+        fg: RGB::named(rltk::BROWN3),
+        bg: RGB::named(rltk::BLACK),
+        layer: 1,
+    })
+}
+
+fn spawn_sword_as_equipment(world: &mut World) -> Entity {
+    make_entity_sword(create_marked_entity(world)).build()
+}
+
+fn spawn_club_as_equipment(world: &mut World) -> Entity {
+    make_entity_club(create_marked_entity(world)).build()
+}
+
+pub fn spawn_player(world: &mut World, idx: i32, level: &Level) -> Entity {
+    let sword = spawn_sword_as_equipment(world);
+    create_marked_entity_with_position(world, idx, level)
         .with(Renderable {
             glyph: to_cp437('@'),
             fg: RGB::named(rltk::YELLOW),
             bg: RGB::named(rltk::BLACK),
             layer: 0,
         })
-        .with(DungeonLevel { level })
         .with(Player {})
         .with(Viewshed {
             range: (MAP_HEIGHT / 2) as i32,
@@ -115,10 +154,13 @@ pub fn spawn_player(world: &mut World, x: i32, y: i32, level: u8) -> Entity {
         .with(CombatStats {
             max_hp: 30,
             hp: 30,
-            power: 5,
-            defense: 2,
+            power: 2,
+            defense: 0,
         })
-        .marked::<SimpleMarker<Saveable>>()
+        .with(Equipment {
+            dominant_hand: Some(sword),
+            off_hand: None,
+        })
         .build()
 }
 
@@ -129,6 +171,7 @@ pub fn spawn_monster<S: ToString>(
     name: S,
     level: &Level,
 ) -> Entity {
+    let club = spawn_club_as_equipment(world);
     create_marked_entity_with_position(world, idx, level)
         .with(Renderable {
             glyph,
@@ -150,8 +193,12 @@ pub fn spawn_monster<S: ToString>(
         .with(CombatStats {
             max_hp: 16,
             hp: 16,
-            defense: 1,
-            power: 4,
+            defense: 0,
+            power: 1,
+        })
+        .with(Equipment {
+            dominant_hand: Some(club),
+            off_hand: None,
         })
         .with(Memory {
             last_known_enemy_positions: HashSet::new(),
@@ -693,11 +740,12 @@ pub fn spawn_entities_for_room(world: &mut World, room: &Room, level: &mut Level
 pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut Level) {
     let room_x = room.rect.x1;
     let room_y = room.rect.y1;
+    let level_width = level.width as i32;
     for (y, row) in room.stamp.pattern.iter().enumerate() {
         for (x, tile) in row.iter().enumerate() {
             let this_x = room_x + x as i32;
             let this_y = room_y + y as i32;
-            let idx = level_utils::xy_idx(level, this_x, this_y);
+            let idx = level_utils::xy_idx(level_width, this_x, this_y);
             match tile {
                 Use(RoomPart::Bed) => spawn_bed(world, idx, level),
                 Use(RoomPart::BedsideTable) => spawn_bedside_table(world, idx, level),

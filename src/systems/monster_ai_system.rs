@@ -13,7 +13,7 @@ fn get_move_action(
     step_count: i32,
     furniture_storage: &ReadStorage<Furniture>,
 ) -> WeightedAction {
-    let (x, y) = level_utils::idx_xy(&level, move_idx);
+    let (x, y) = level_utils::idx_xy(level.width as i32, move_idx);
     if level.tiles[move_idx as usize] == TileType::Door {
         return WeightedAction::new(
             Action::OpenDoor((x, y)),
@@ -110,7 +110,7 @@ impl<'a> System<'a> for MonsterAI {
         let player_level = levels.get(*player_entity).unwrap();
         let level = dungeon.get_level_mut(player_level.level).unwrap();
         let player_hp = combat_stats.get(*player_entity).unwrap().hp;
-        let player_idx = level_utils::xy_idx(&level, player_position.x, player_position.y);
+        let player_idx = level_utils::xy_idx(level.width as i32, player_position.x, player_position.y);
 
         for (_monsters, entity, viewshed, position, dungeon_level, memory) in (
             &monsters,
@@ -133,7 +133,7 @@ impl<'a> System<'a> for MonsterAI {
                 continue;
             }
             let mut weighted_actions = vec![];
-            let current_idx = level_utils::xy_idx(&level, position.x, position.y);
+            let current_idx = level_utils::xy_idx(level.width as i32, position.x, position.y);
             if hiding.get(*player_entity).is_none() {
                 let distance =
                     Pythagoras.distance2d(Point::new(position.x, position.y), *player_position);
@@ -146,7 +146,7 @@ impl<'a> System<'a> for MonsterAI {
                     if let Some((next_step, step_count)) =
                         get_next_step(&level, current_idx, player_idx)
                     {
-                        let (x, y) = level_utils::idx_xy(&level, next_step as i32);
+                        let (x, y) = level_utils::idx_xy(level.width as i32, next_step as i32);
                         weighted_actions.push(WeightedAction::new(
                             Action::Chase((x, y)),
                             reasoner::chase_weight(player_hp, step_count as i32),
@@ -158,7 +158,7 @@ impl<'a> System<'a> for MonsterAI {
                 if enemy_position.level != dungeon_level.level as i32 {
                     continue;
                 }
-                let idx2 = level_utils::xy_idx(&level, enemy_position.x, enemy_position.y);
+                let idx2 = level_utils::xy_idx(level.width as i32, enemy_position.x, enemy_position.y);
                 if let Some(action) =
                     get_move_action_from_path(&level, current_idx, idx2, &furniture)
                 {
@@ -181,7 +181,7 @@ impl<'a> System<'a> for MonsterAI {
                         if let Some((next_step, step_count)) =
                             get_next_step(&level, current_idx, player_idx)
                         {
-                            let (x, y) = level_utils::idx_xy(&level, next_step as i32);
+                            let (x, y) = level_utils::idx_xy(level.width as i32, next_step as i32);
                             let hiding_place_hp = combat_stats.get(hiding_place).unwrap().hp;
                             weighted_actions.push(WeightedAction::new(
                                 Action::Chase((x, y)),
@@ -192,7 +192,7 @@ impl<'a> System<'a> for MonsterAI {
                 }
             }
             if let Some(destination) = memory.wander_destination {
-                let idx2 = level_utils::xy_idx(&level, destination.x, destination.y);
+                let idx2 = level_utils::xy_idx(level.width as i32, destination.x, destination.y);
                 if let Some(action) =
                     get_move_action_from_path(&level, current_idx, idx2, &furniture)
                 {

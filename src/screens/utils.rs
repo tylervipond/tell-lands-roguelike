@@ -30,7 +30,7 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
     )
         .join()
         .filter(|(p, _r, l, _f, h, hiding, entity)| {
-            let idx = level_utils::xy_idx(&level, p.x, p.y) as usize;
+            let idx = level_utils::xy_idx(level.width as i32, p.x, p.y) as usize;
             let is_visible = match h {
                 Some(h) => h.found_by.contains(&*player_ent),
                 None => true,
