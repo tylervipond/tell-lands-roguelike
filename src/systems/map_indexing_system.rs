@@ -1,4 +1,4 @@
-use crate::components::{BlocksTile, DungeonLevel, Position};
+use crate::components::{BlocksTile, Position};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect};
 
@@ -16,22 +16,20 @@ impl<'a> System<'a> for MapIndexingSystem {
     ReadStorage<'a, Position>,
     ReadStorage<'a, BlocksTile>,
     Entities<'a>,
-    ReadStorage<'a, DungeonLevel>,
   );
   fn run(&mut self, data: Self::SystemData) {
-    let (mut dungeon, player_ent, positions, blockers, entities, dungeon_levels) = data;
-    let player_level = dungeon_levels.get(*player_ent).unwrap();
-    let mut level = dungeon.get_level_mut(player_level.level).unwrap();
+    let (mut dungeon, player_ent, positions, blockers, entities) = data;
+    let player_level = positions.get(*player_ent).unwrap().level;
+    let mut level = dungeon.get_level_mut(player_level).unwrap();
     level_utils::populate_blocked(&mut level);
     level_utils::clear_content_index(&mut level);
-    for (position, entity, dungeon_level) in (&positions, &entities, &dungeon_levels).join() {
-      if dungeon_level.level == player_level.level {
-        let idx = level_utils::xy_idx(level.width as i32, position.x, position.y) as usize;
+    for (position, entity) in (&positions, &entities).join() {
+      if position.level == player_level {
         let blocked = blockers.get(entity);
         if let Some(_) = blocked {
-          level.blocked[idx] = true
+          level.blocked[position.idx] = true
         }
-        level.tile_content[idx].push(entity);
+        level.tile_content[position.idx].push(entity);
       }
     }
   }

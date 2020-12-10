@@ -1,4 +1,4 @@
-use crate::components::{CombatStats, DungeonLevel, Name, Position, SufferDamage, WantsToMelee, Equipment, CausesDamage};
+use crate::components::{CombatStats, Name, Position, SufferDamage, WantsToMelee, Equipment, CausesDamage};
 use crate::services::{GameLog, ParticleEffectSpawner};
 use rltk::RandomNumberGenerator;
 use specs::{
@@ -27,7 +27,6 @@ impl<'a> System<'a> for MeleeCombatSystem {
     WriteExpect<'a, GameLog>,
     WriteExpect<'a, ParticleEffectSpawner>,
     ReadStorage<'a, Position>,
-    ReadStorage<'a, DungeonLevel>,
     WriteExpect<'a, RandomNumberGenerator>
   );
 
@@ -43,7 +42,6 @@ impl<'a> System<'a> for MeleeCombatSystem {
       mut log,
       mut particle_effect_spawner,
       positions,
-      levels,
       mut rng
     ) = data;
 
@@ -56,8 +54,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
           let mut total_damage = 0;
           let target_name = names.get(wants_to_melee.target).unwrap();
           let position = positions.get(entity).unwrap();
-          let level = levels.get(entity).unwrap();
-          particle_effect_spawner.request_attack_particle(position.x, position.y, level.level);
+          particle_effect_spawner.request_attack_particle(position.idx, position.level);
           // dominant hand attack
           let (dominant_weapon_name, dominant_weapon_damage) = match equipment.dominant_hand {
             Some(e) => (names.get(e), causes_damage.get(e)),

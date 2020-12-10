@@ -1,4 +1,4 @@
-use rltk::{GameState, Point, RandomNumberGenerator, Rltk, RltkBuilder};
+use rltk::{GameState, RandomNumberGenerator, Rltk, RltkBuilder};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 use std::collections::HashMap;
@@ -29,13 +29,14 @@ mod user_actions;
 mod utils;
 use components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
-    Contained, Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable,
-    Grabbing, Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Light, Memory, Monster,
+    Contained, Container, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable,
+    Grabbing, Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster,
     Name, Objective, OnFire, ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged,
     Renderable, Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered,
     Viewshed, WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee,
     WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden,
-    WantsToTrap, WantsToUse, Equipment, Equipable, equipable::EquipmentPositions, WantsToEquip, CausesDamage
+    WantsToTrap, WantsToUse, Equipment, Equipable, equipable::EquipmentPositions, WantsToEquip,
+    CausesDamage, CausesLight
 };
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils, tile_type::TileType};
@@ -68,11 +69,14 @@ fn player_can_leave_dungeon(world: &mut World) -> bool {
     let player_level = utils::get_current_level_from_world(world);
     let dungeon = world.fetch::<Dungeon>();
     let level = dungeon.get_level(player_level).unwrap();
-    if let Some(exit_point) = level.exit {
-        let player_point = world.fetch::<Point>();
-        return player_point.x == exit_point.x && player_point.y == exit_point.y;
+    match level.exit {
+        Some(exit_idx) => {
+            let player_entity = world.fetch::<Entity>();
+            let player_position = world.read_storage::<Position>().get(*player_entity).unwrap().idx;
+            player_position == exit_idx
+        },
+        None => false
     }
-    false
 }
 
 fn has_objective_in_backpack(world: &World) -> bool {
@@ -87,15 +91,15 @@ fn has_objective_in_backpack(world: &World) -> bool {
     false
 }
 
-fn get_entity_at_point_on_level(
+fn get_entity_at_idx_on_level(
     world: &World,
-    point: &Point,
+    idx: usize,
     filter: impl Fn(Entity) -> bool,
 ) -> Option<Entity> {
     let player_level = utils::get_current_level_from_world(world);
     let dungeon = world.fetch::<Dungeon>();
     let level = dungeon.get_level(player_level).unwrap();
-    let entities = level_utils::entities_at_xy(level, point.x, point.y);
+    let entities = level_utils::entities_at_idx(level, idx);
     entities
         .iter()
         .filter(|e| filter(**e))
@@ -103,16 +107,16 @@ fn get_entity_at_point_on_level(
         .next()
 }
 
-fn get_entity_with_component_at_point<T: Component>(
+fn get_entity_with_component_at_idx<T: Component>(
     world: &mut World,
-    point: &Point,
+    idx: usize,
 ) -> Option<Entity> {
     let storage = world.read_storage::<T>();
     let filter = |e| match storage.get(e) {
         Some(_) => true,
         _ => false,
     };
-    get_entity_at_point_on_level(world, point, filter)
+    get_entity_at_idx_on_level(world, idx, filter)
 }
 
 #[cfg(debug_assertions)]
@@ -189,7 +193,6 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Confused>().clear();
     world.write_storage::<SimpleMarker<Saveable>>().clear();
     world.write_storage::<SerializationHelper>().clear();
-    world.write_storage::<DungeonLevel>().clear();
     world.write_storage::<Blood>().clear();
     world.write_storage::<ParticleLifetime>().clear();
     world.write_storage::<Hidden>().clear();
@@ -218,11 +221,11 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Hiding>().clear();
     world.write_storage::<HidingSpot>().clear();
     world.write_storage::<WantsToHide>().clear();
-    world.write_storage::<Light>().clear();
     world.write_storage::<Equipment>().clear();
     world.write_storage::<Equipable>().clear();
     world.write_storage::<WantsToEquip>().clear();
     world.write_storage::<CausesDamage>().clear();
+    world.write_storage::<CausesLight>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -233,11 +236,8 @@ fn initialize_new_game(world: &mut World) {
         .enumerate()
         .find(|(_, tile_type)| **tile_type == TileType::Exit)
         .unwrap();
-    let (player_x, player_y) = level_utils::idx_xy(level.width as i32, player_idx as i32);
-    world.remove::<Point>();
-    world.insert(Point::new(player_x, player_y));
     world.remove::<Entity>();
-    let player_entity = spawner::spawn_player(world, player_idx as i32, level);
+    let player_entity = spawner::spawn_player(world, player_idx, level);
     world.insert(player_entity);
     let rng = world.get_mut::<RandomNumberGenerator>().unwrap();
     let objective_floor = utils::get_random_between_numbers(rng, 1, 9) as u8;
@@ -284,6 +284,8 @@ impl State {
             || self.run_state == RunState::PlayerTurn
             || self.run_state == RunState::MonsterTurn
         {
+            let mut equip_system = EquipSystem {};
+            equip_system.run_now(&self.world);
             let mut light = LightSystem {};
             light.run_now(&self.world);
             let mut vis = VisibilitySystem {};
@@ -328,8 +330,6 @@ impl State {
         let mut release_system = ReleaseSystem {};
         release_system.run_now(&self.world);
         if self.run_state == RunState::PlayerTurn || self.run_state == RunState::MonsterTurn {
-            let mut equip_system = EquipSystem {};
-            equip_system.run_now(&self.world);
             let mut search_for_hidden_system = SearchForHiddenSystem {};
             search_for_hidden_system.run_now(&self.world);
             let mut set_trap_system = SetTrapSystem {};
@@ -607,7 +607,7 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargeting { range, item },
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        player::use_item(&mut self.world, item, Some(target));
+                        player::use_item(&mut self.world, item, Some(target as usize));
                         RunState::PlayerTurn
                     }
                 }
@@ -622,9 +622,9 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingOpenContainer,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let container_entity = get_entity_with_component_at_point::<Container>(
+                        let container_entity = get_entity_with_component_at_idx::<Container>(
                             &mut self.world,
-                            &target,
+                            target as usize,
                         );
                         match container_entity {
                             Some(e) => RunState::OpenContainerMenu {
@@ -654,7 +654,7 @@ impl GameState for State {
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
                         let trap_entity =
-                            get_entity_with_component_at_point::<Trap>(&mut self.world, &target);
+                            get_entity_with_component_at_idx::<Trap>(&mut self.world, target as usize);
                         match trap_entity {
                             Some(e) => player::disarm_trap(&mut self.world, e),
                             None => {
@@ -677,9 +677,9 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingAttack,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let attack_entity = get_entity_with_component_at_point::<CombatStats>(
+                        let attack_entity = get_entity_with_component_at_idx::<CombatStats>(
                             &mut self.world,
-                            &target,
+                            target as usize,
                         );
                         match attack_entity {
                             Some(e) => player::attack_entity(&mut self.world, e),
@@ -703,9 +703,9 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingHideInContainer,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let hide_entity = get_entity_with_component_at_point::<HidingSpot>(
+                        let hide_entity = get_entity_with_component_at_idx::<HidingSpot>(
                             &mut self.world,
-                            &target,
+                            target as usize,
                         );
                         match hide_entity {
                             Some(e) => player::hide_in_container(&mut self.world, e),
@@ -730,9 +730,9 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingGrabFurniture,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let grabbable_entity = get_entity_with_component_at_point::<Grabbable>(
+                        let grabbable_entity = get_entity_with_component_at_idx::<Grabbable>(
                             &mut self.world,
-                            &target,
+                            target as usize,
                         );
                         match grabbable_entity {
                             Some(e) => player::grab_entity(&mut self.world, e),
@@ -995,7 +995,7 @@ impl GameState for State {
                     MenuAction::Select { option } => {
                         let position = slots[option as usize].1;
                         match option {
-                            _ => RunState::EquipMenu { highlighted, position }
+                            _ => RunState::EquipMenu { highlighted: 0, position }
                         }
                     }
                     _ => RunState::EquipmentMenu { highlighted }
@@ -1193,7 +1193,6 @@ pub fn start() {
     gs.world.register::<Confused>();
     gs.world.register::<SimpleMarker<Saveable>>();
     gs.world.register::<SerializationHelper>();
-    gs.world.register::<DungeonLevel>();
     gs.world.register::<Blood>();
     gs.world.register::<ParticleLifetime>();
     gs.world.register::<Hidden>();
@@ -1221,11 +1220,11 @@ pub fn start() {
     gs.world.register::<HidingSpot>();
     gs.world.register::<Hiding>();
     gs.world.register::<WantsToHide>();
-    gs.world.register::<Light>();
     gs.world.register::<Equipment>();
     gs.world.register::<Equipable>();
     gs.world.register::<WantsToEquip>();
     gs.world.register::<CausesDamage>();
+    gs.world.register::<CausesLight>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],

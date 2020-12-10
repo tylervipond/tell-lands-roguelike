@@ -344,23 +344,20 @@ pub fn build(depth: u8) -> Level {
 pub fn add_exit(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let rect = level.rooms[0].rect;
     let exit_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
-    let exit_position = level_utils::idx_xy(level.width as i32, exit_idx);
     level.tiles[exit_idx as usize] = TileType::Exit;
-    level.exit = Some(Point::new(exit_position.0, exit_position.1));
+    level.exit = Some(exit_idx as usize);
 }
 
 pub fn add_down_stairs(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let rect = level.rooms[level.rooms.len() - 1].rect;
     let stairs_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
-    let stairs_position = level_utils::idx_xy(level.width as i32, stairs_idx);
     level.tiles[stairs_idx as usize] = TileType::DownStairs;
-    level.stairs_down = Some(Point::new(stairs_position.0, stairs_position.1));
+    level.stairs_down = Some(stairs_idx as usize);
 }
 
 pub fn add_up_stairs(level: &mut Level, rng: &mut RandomNumberGenerator) {
     let rect = level.rooms[0].rect;
     let stairs_idx = level_utils::get_random_spawn_point(&rect, level, rng) as i32;
-    let stairs_position = level_utils::idx_xy(level.width as i32, stairs_idx);
     level.tiles[stairs_idx as usize] = TileType::UpStairs;
-    level.stairs_up = Some(Point::new(stairs_position.0, stairs_position.1));
+    level.stairs_up = Some(stairs_idx as usize);
 }

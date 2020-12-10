@@ -1,5 +1,5 @@
 use crate::components::{
-    CombatStats, DungeonLevel, Hiding, Monster, Name, Player, Position, Renderable, SufferDamage,
+    CombatStats, Hiding, Monster, Name, Player, Position, Renderable, SufferDamage,
 };
 use crate::services::{BloodSpawner, DebrisSpawner, GameLog};
 use rltk::RGB;
@@ -17,7 +17,6 @@ impl DamageSystem {
             let monsters = ecs.read_storage::<Monster>();
             let renderables = ecs.read_storage::<Renderable>();
             let positions = ecs.read_storage::<Position>();
-            let dungeon_levels = ecs.read_storage::<DungeonLevel>();
             let players = ecs.read_storage::<Player>();
             let names = ecs.read_storage::<Name>();
             let entities = ecs.entities();
@@ -32,17 +31,15 @@ impl DamageSystem {
                         log.add(format!("{} has died", name.name));
                         dead.push(entity);
                     } else {
-                        let dungeon_level = dungeon_levels.get(entity).unwrap();
                         let renderable = renderables.get(entity).unwrap();
                         let position = positions.get(entity).unwrap();
                         let name = names.get(entity).unwrap();
                         debris_spawner.request(
-                            position.x,
-                            position.y,
+                            position.idx,
                             renderable.fg,
                             renderable.bg,
                             35,
-                            dungeon_level.level,
+                            position.level,
                             format!("{} debris", name.name),
                         );
                         log.add(format!("{} has been destroyed", name.name));
@@ -81,7 +78,6 @@ impl<'a> System<'a> for DamageSystem {
         WriteStorage<'a, CombatStats>,
         WriteStorage<'a, SufferDamage>,
         ReadStorage<'a, Position>,
-        ReadStorage<'a, DungeonLevel>,
         WriteExpect<'a, BloodSpawner>,
         ReadStorage<'a, Monster>,
         ReadStorage<'a, Player>,
@@ -93,7 +89,6 @@ impl<'a> System<'a> for DamageSystem {
             mut stats,
             mut suffer_damage,
             positions,
-            levels,
             mut blood_spawner,
             monsters,
             players,
@@ -102,15 +97,13 @@ impl<'a> System<'a> for DamageSystem {
             stats.hp -= suffer_damage.amount;
             // create blood
             if monsters.get(ent).is_some() || players.get(ent).is_some() {
-                let position = positions.get(ent).unwrap().clone();
-                let level = levels.get(ent).unwrap().clone();
+                let position = positions.get(ent).unwrap();
                 blood_spawner.request(
-                    position.x,
-                    position.y,
+                    position.idx,
                     RGB::from_f32(0.85, 0., 0.),
                     RGB::from_f32(0.50, 0., 0.),
                     177,
-                    level.level,
+                    position.level,
                 );
             }
         }

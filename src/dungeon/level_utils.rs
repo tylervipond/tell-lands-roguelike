@@ -10,6 +10,15 @@ pub fn idx_xy(width: i32, idx: i32) -> (i32, i32) {
     (idx % width, idx / width)
 }
 
+pub fn add_xy_to_idx(width: i32, x: i32, y: i32, idx: i32) -> i32 {
+    idx + x + width * y
+}
+
+pub fn idx_point(width: i32, idx: i32) -> Point {
+    let (x, y) = idx_xy(width, idx);
+    Point::new(x, y)
+}
+
 pub fn get_tile_at_xy(level: &Level, x: i32, y: i32) -> Option<&TileType> {
     level.tiles.get(xy_idx(level.width as i32, x, y) as usize)
 }
@@ -49,9 +58,8 @@ pub fn set_tile_to_door(level: &mut Level, idx: usize) {
     level.tiles[idx] = TileType::Door;
 }
 
-pub fn entities_at_xy(level: &Level, x: i32, y: i32) -> Vec<Entity> {
-    let idx = xy_idx(level.width as i32, x, y);
-    level.tile_content[idx as usize].to_vec()
+pub fn entities_at_idx(level: &Level, idx: usize) -> Vec<Entity> {
+    level.tile_content[idx].to_vec()
 }
 
 pub fn populate_blocked(level: &mut Level) {
@@ -67,8 +75,8 @@ pub fn tile_is_blocked(idx: i32, level: &Level) -> bool {
     level.blocked[idx as usize]
 }
 
-pub fn point_not_in_map(level: &Level, point: &Point) -> bool {
-    point.x < 0 || point.x >= level.width as i32 || point.y < 0 || point.y >= level.height as i32
+pub fn idx_not_in_map(level: &Level, idx: i32) -> bool {
+    idx < 0 || idx >= level.tiles.len() as i32
 }
 
 pub fn is_exit_valid(level: &Level, idx: usize) -> bool {
@@ -176,4 +184,34 @@ pub fn get_all_spawnable_tiles_in_radius(
         get_all_unblocked_tiles_in_radius(level, center_idx, radius_length),
         level,
     )
+}
+
+pub fn get_field_of_view_from_idx(level: &Level, idx: i32, radius: i32) -> Vec<i32> {
+    rltk::field_of_view(
+        idx_point(level.width as i32, idx),
+        radius,
+        &*level
+    )
+    .iter()
+    .map(|p| xy_idx(level.width as i32, p.x, p.y))
+    .collect()
+}
+
+pub fn get_distance_between_idxs(level: &Level, idx1: usize, idx2:usize) -> f32 {
+    let point1 = idx_point(level.width as i32, idx1 as i32);
+    let point2 = idx_point(level.width as i32, idx2 as i32);
+    Pythagoras.distance2d(point1, point2)
+}
+
+pub fn get_neighbors_for_idx(level_width: i32, idx: i32) -> [i32; 8] {
+    [
+        idx + 1,
+        idx - 1,
+        idx - level_width,
+        idx + level_width,
+        idx + 1 -level_width,
+        idx + 1 + level_width,
+        idx - 1 - level_width,
+        idx - 1 + level_width
+    ]
 }

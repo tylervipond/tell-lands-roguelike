@@ -3,8 +3,7 @@ use crate::screens::constants::MAP_WIDTH;
 use rltk::{Rltk, RGB};
 
 pub struct RenderData {
-    pub x: i32,
-    pub y: i32,
+    pub idx: usize,
     pub fg: RGB,
     pub bg: RGB,
     pub layer: i32,
@@ -118,6 +117,8 @@ impl<'a> UIMap<'a> {
     }
 
     pub fn draw(&mut self, ctx: &mut Rltk) {
+        // this could be better, the level knows what ents are there and we can get the renderables from there
+        // why bother collecting them beforehand?
         for (i, tile) in self.level.tiles.iter().enumerate() {
             if self.level.revealed_tiles[i] {
                 let x = i % MAP_WIDTH as usize;
@@ -147,9 +148,10 @@ impl<'a> UIMap<'a> {
             }
         }
         for r in self.renderables.iter() {
+            let (x, y) = level_utils::idx_xy(self.level.width as i32, r.idx as i32);
             ctx.set(
-                r.x - self.render_offset.0,
-                r.y - self.render_offset.1,
+                x - self.render_offset.0,
+                y - self.render_offset.1,
                 r.fg,
                 r.bg,
                 r.glyph,

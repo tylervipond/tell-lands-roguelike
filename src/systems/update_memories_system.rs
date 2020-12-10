@@ -1,8 +1,7 @@
 use crate::components::{
     memory::{MemoryDestination, MemoryHidingSpot, MemoryPosition},
-    DungeonLevel, Hiding, Memory, Position, Viewshed, WantsToHide,
+    Hiding, Memory, Position, Viewshed, WantsToHide,
 };
-use rltk::Point;
 use specs::{Entity, Join, ReadExpect, ReadStorage, System, WriteStorage};
 pub struct UpdateMemoriesSystem {}
 
@@ -10,9 +9,7 @@ impl<'a> System<'a> for UpdateMemoriesSystem {
     type SystemData = (
         WriteStorage<'a, Memory>,
         ReadStorage<'a, Viewshed>,
-        ReadStorage<'a, DungeonLevel>,
         ReadExpect<'a, Entity>,
-        ReadExpect<'a, Point>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, WantsToHide>,
         ReadStorage<'a, Hiding>,
@@ -22,27 +19,24 @@ impl<'a> System<'a> for UpdateMemoriesSystem {
         let (
             mut memories,
             viewsheds,
-            dungeon_levels,
             player_entity,
-            player_position,
             positions,
             hide_intents,
             hiding,
         ) = data;
-        for (memory, viewshed, dungeon_level, position) in
-            (&mut memories, &viewsheds, &dungeon_levels, &positions).join()
+        let player_position = positions.get(*player_entity).unwrap();
+        for (memory, viewshed, position) in (&mut memories, &viewsheds, &positions).join()
         {
             if hiding.get(*player_entity).is_none() {
-                if let Some(point) = viewshed
+                if let Some(idx) = viewshed
                     .visible_tiles
                     .iter()
-                    .find(|p| p.x == player_position.x && p.y == player_position.y)
+                    .find(|idx| {**idx as usize == player_position.idx})
                 {
                     if hiding.get(*player_entity).is_none() {}
                     memory.last_known_enemy_positions.insert(MemoryPosition {
-                        x: point.x,
-                        y: point.y,
-                        level: dungeon_level.level as i32,
+                        idx: *idx,
+                        level: position.level as i32,
                         entity: *player_entity,
                     });
                     if let Some(hide_intent) = hide_intents.get(*player_entity) {
@@ -67,17 +61,16 @@ impl<'a> System<'a> for UpdateMemoriesSystem {
 
             let reached_wander_destination = match memory.wander_destination {
                 None => false,
-                Some(MemoryDestination { x, y, level }) => {
-                    x == position.x && y == position.y && level == dungeon_level.level as i32
+                Some(MemoryDestination { idx, level }) => {
+                    idx as usize == position.idx && level == position.level as i32
                 }
             };
             if reached_wander_destination {
                 memory.wander_destination = None;
             }
             let found_mem_pos = memory.last_known_enemy_positions.iter().cloned().find(|mem_pos| {
-                mem_pos.x == position.x
-                    && mem_pos.y == position.y
-                    && mem_pos.level == dungeon_level.level as i32
+                mem_pos.idx == position.idx as i32
+                    && mem_pos.level == position.level as i32
             });
 
             if let Some(found_mem_pos) = found_mem_pos {

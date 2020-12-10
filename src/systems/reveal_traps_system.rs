@@ -1,4 +1,4 @@
-use crate::components::{DungeonLevel, Hidden, Name, Viewshed};
+use crate::components::{Position, Hidden, Name, Viewshed};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
 use rltk::RandomNumberGenerator;
@@ -9,7 +9,7 @@ pub struct RevealTrapsSystem {}
 impl<'a> System<'a> for RevealTrapsSystem {
     type SystemData = (
         ReadStorage<'a, Viewshed>,
-        ReadStorage<'a, DungeonLevel>,
+        ReadStorage<'a, Position>,
         ReadExpect<'a, Dungeon>,
         ReadExpect<'a, Entity>,
         WriteStorage<'a, Hidden>,
@@ -21,7 +21,7 @@ impl<'a> System<'a> for RevealTrapsSystem {
     fn run(&mut self, data: Self::SystemData) {
         let (
             viewsheds,
-            dungeon_levels,
+            positions,
             dungeon,
             player_ent,
             mut hidden,
@@ -29,13 +29,13 @@ impl<'a> System<'a> for RevealTrapsSystem {
             names,
             mut log,
         ) = data;
-        let dungeon_level = dungeon_levels.get(*player_ent).unwrap();
+        let dungeon_level = positions.get(*player_ent).unwrap();
         let level = dungeon.get_level(dungeon_level.level).unwrap();
         let player_viewshed = viewsheds.get(*player_ent).unwrap();
         player_viewshed
             .visible_tiles
             .iter()
-            .map(|p| level_utils::entities_at_xy(&level, p.x, p.y))
+            .map(|idx| level_utils::entities_at_idx(&level, *idx as usize))
             .flatten()
             .for_each(|e| {
                 if let Some(this_hidden) = hidden.get_mut(e) {

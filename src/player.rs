@@ -1,5 +1,5 @@
 use crate::components::{
-    DungeonLevel, Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap, WantsToGrab,
+    Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap, WantsToGrab,
     WantsToHide, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
     WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse, equipable::EquipmentPositions, WantsToEquip
 };
@@ -7,43 +7,37 @@ use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::Til
 use crate::entity_option::EntityOption;
 use crate::services::game_log::GameLog;
 use crate::user_actions::MapAction;
-use crate::utils;
-use rltk::Point;
 use specs::{Entity, Join, World, WorldExt};
 
 // It's not really "try move player" though, it's more like "player act"
 // because the function does more than just move the player. Should probably
 // break this up a bit.
 fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
-    let mut positions = world.write_storage::<Position>();
-    let mut players = world.write_storage::<Player>();
-    let mut wants_to_melee = world.write_storage::<WantsToMelee>();
+    let positions = world.read_storage::<Position>();
+    let players = world.read_storage::<Player>();
     let monsters = world.read_storage::<Monster>();
     let entities = world.entities();
     let dungeon = world.fetch::<Dungeon>();
     let player_entity = world.fetch::<Entity>();
-    let dungeon_levels = world.read_storage::<DungeonLevel>();
-    let player_level = dungeon_levels.get(*player_entity).unwrap();
-    let level = dungeon.get_level(player_level.level).unwrap();
+    let player_position = positions.get(*player_entity).unwrap();
+    let level = dungeon.get_level(player_position.level).unwrap();
     let level_width = level.width as i32;
-    for (entity, _player, pos) in (&entities, &mut players, &mut positions).join() {
-        let x = pos.x + delta_x;
-        let y = pos.y + delta_y;
-        let destination_index = level_utils::xy_idx(level_width, x, y);
+    for (entity, _player, pos) in (&entities, &players, &positions).join() {
+        let destination_index = level_utils::add_xy_to_idx(level_width as i32, delta_x as i32, delta_y as i32, pos.idx as i32);
         let target = level.tile_content[destination_index as usize]
             .iter()
             .filter(|e| monsters.get(**e).is_some())
             .next();
         match target {
             Some(target) => {
-                wants_to_melee
+                world.write_storage::<WantsToMelee>()
                     .insert(entity, WantsToMelee { target: *target })
                     .expect("Add target failed");
             }
             None => {
                 world
                     .write_storage::<WantsToMove>()
-                    .insert(entity, WantsToMove { x, y })
+                    .insert(entity, WantsToMove { idx: destination_index as usize })
                     .expect("couldn't insert player move intent");
             }
         };
@@ -51,21 +45,15 @@ fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
 }
 
 fn try_pickup_item(world: &mut World) {
-    let player_pos = world.fetch::<Point>();
     let player_entity = world.fetch::<Entity>();
     let entities = world.entities();
     let items = world.read_storage::<Item>();
     let positions = world.read_storage::<Position>();
-    let levels = world.read_storage::<DungeonLevel>();
+    let player_pos = positions.get(*player_entity).unwrap();
     let mut gamelog = world.fetch_mut::<GameLog>();
-    let player_level = levels.get(*player_entity).unwrap();
-
-    let target_item: Option<Entity> = (&entities, &items, &positions, &levels).join().find_map(
-        |(ent, _item, position, level)| {
-            if position.x == player_pos.x
-                && position.y == player_pos.y
-                && level.level == player_level.level
-            {
+    let target_item: Option<Entity> = (&entities, &items, &positions).join().find_map(
+        |(ent, _item, position)| {
+            if position.idx == player_pos.idx && position.level == player_pos.level {
                 return Some(ent);
             }
             return None;
@@ -96,22 +84,20 @@ fn try_open_door(world: &mut World) {
     let mut wants_to_open_door = world.write_storage::<WantsToOpenDoor>();
     let dungeon = world.fetch::<Dungeon>();
     let player_entity = world.fetch::<Entity>();
-    let player_level = utils::get_current_level_from_world(world);
-    let level = dungeon.get_level(player_level).unwrap();
+    let pos = positions.get(*player_entity).unwrap();
+    let level = dungeon.get_level(pos.level).unwrap();
     let level_width = level.width as i32;
     let mut inserted = false;
-    let pos = positions.get(*player_entity).unwrap();
-    for x in (pos.x - 1)..=(pos.x + 1) {
-        for y in (pos.y - 1)..=(pos.y + 1) {
-            let open_door_index = level_utils::xy_idx(level_width, x, y);
-
+    for x in -1..=1 {
+        for y in -1..=1 {
+            let open_door_index = level_utils::add_xy_to_idx(level_width as i32, x, y, pos.idx as i32);
             if level.tiles[open_door_index as usize] == TileType::Door {
                 wants_to_open_door
                     .insert(
                         *player_entity,
                         WantsToOpenDoor {
-                            position: (x, y),
-                            level: player_level as usize,
+                            idx: open_door_index as usize,
+                            level: pos.level as usize,
                         },
                     )
                     .expect("could not insert wants to open door for player");
@@ -127,72 +113,58 @@ fn try_open_door(world: &mut World) {
     }
 }
 
-fn points_match(point_a: &Point, point_b: &Point) -> bool {
-    point_a.x == point_b.x && point_a.y == point_b.y
-}
-
-fn can_go_up(current_level: &Level, player_point: &Point) -> bool {
-    if let Some(stairs_up_coords) = current_level.stairs_up {
-        return points_match(&stairs_up_coords, player_point);
+fn can_go_up(current_level: &Level, player_idx: usize) -> bool {
+    match current_level.stairs_up {
+        Some(idx) => idx == player_idx,
+        None => false
     }
-    return false;
 }
 
-fn can_go_down(current_level: &Level, player_point: &Point) -> bool {
-    if let Some(stairs_down_coords) = current_level.stairs_down {
-        return points_match(&stairs_down_coords, player_point);
+fn can_go_down(current_level: &Level, player_idx: usize) -> bool {
+    match current_level.stairs_down {
+        Some(idx) => idx == player_idx,
+        None => false
     }
-    return false;
 }
 
+// most of this should be moved into a go down stairs system
 fn try_go_down_stairs(world: &mut World) {
-    let mut player_point = world.write_resource::<Point>();
-    let mut levels = world.write_storage::<DungeonLevel>();
     let player_entity = world.fetch::<Entity>();
-    let mut player_level = levels.get_mut(*player_entity).unwrap();
+    let mut positions = world.write_storage::<Position>();
+    let mut player_position = positions.get_mut(*player_entity).unwrap();
     let dungeon = world.fetch::<Dungeon>();
-    let current_level = dungeon.get_level(player_level.level).unwrap();
-    if !can_go_down(current_level, &player_point) {
+    let current_level = dungeon.get_level(player_position.level).unwrap();
+    if !can_go_down(current_level, player_position.idx) {
         return;
     }
-    let next_level_number = player_level.level - 1;
+    let next_level_number = player_position.level - 1;
     let next_map = dungeon.get_level(next_level_number);
     if let Some(next_map) = next_map {
         let stairs_up_coords = next_map.stairs_up.unwrap();
-        let mut positions = world.write_storage::<Position>();
-        let mut player_position = positions.get_mut(*player_entity).unwrap();
-        player_position.x = stairs_up_coords.x;
-        player_position.y = stairs_up_coords.y;
-        player_level.level = next_level_number;
-        player_point.x = stairs_up_coords.x;
-        player_point.y = stairs_up_coords.y;
+        player_position.idx = stairs_up_coords;
+        player_position.level = next_level_number;
         let mut viewsheds = world.write_storage::<Viewshed>();
         let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
         player_viewshed.dirty = true;
     }
 }
 
+// most of this should be moved into a go up stairs system
 fn try_go_up_stairs(world: &mut World) {
-    let mut player_point = world.write_resource::<Point>();
-    let mut levels = world.write_storage::<DungeonLevel>();
     let player_entity = world.fetch::<Entity>();
-    let mut player_level = levels.get_mut(*player_entity).unwrap();
+    let mut positions = world.write_storage::<Position>();
+    let mut player_position = positions.get_mut(*player_entity).unwrap();
     let dungeon = world.fetch::<Dungeon>();
-    let current_level = dungeon.get_level(player_level.level).unwrap();
-    if !can_go_up(current_level, &player_point) {
+    let current_level = dungeon.get_level(player_position.level).unwrap();
+    if !can_go_up(current_level, player_position.idx) {
         return;
     }
-    let next_level_number = player_level.level + 1;
+    let next_level_number = player_position.level + 1;
     let next_map = dungeon.get_level(next_level_number);
     if let Some(next_map) = next_map {
         let stairs_down_coords = next_map.stairs_down.unwrap();
-        let mut positions = world.write_storage::<Position>();
-        let mut player_position = positions.get_mut(*player_entity).unwrap();
-        player_position.x = stairs_down_coords.x;
-        player_position.y = stairs_down_coords.y;
-        player_level.level = next_level_number;
-        player_point.x = stairs_down_coords.x;
-        player_point.y = stairs_down_coords.y;
+        player_position.idx = stairs_down_coords;
+        player_position.level = next_level_number;
         let mut viewsheds = world.write_storage::<Viewshed>();
         let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
         player_viewshed.dirty = true;
@@ -207,7 +179,7 @@ fn search_hidden(world: &mut World) {
         .expect("could not insert wants to search hidden for player");
 }
 
-pub fn use_item(world: &mut World, item: Entity, target: Option<Point>) {
+pub fn use_item(world: &mut World, item: Entity, target: Option<usize>) {
     let player_entity = world.fetch::<Entity>();
     let traps = world.read_storage::<Trap>();
     match traps.get(item) {

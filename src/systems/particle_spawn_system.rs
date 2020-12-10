@@ -1,4 +1,4 @@
-use crate::components::{DungeonLevel, ParticleLifetime, Position, Renderable};
+use crate::components::{ParticleLifetime, Position, Renderable};
 use crate::services::particle_effect_spawner::ParticleEffectSpawner;
 use specs::{Entities, System, WriteExpect, WriteStorage};
 
@@ -7,14 +7,13 @@ impl<'a> System<'a> for ParticleSpawnSystem {
     type SystemData = (
         Entities<'a>,
         WriteStorage<'a, Position>,
-        WriteStorage<'a, DungeonLevel>,
         WriteStorage<'a, ParticleLifetime>,
         WriteStorage<'a, Renderable>,
         WriteExpect<'a, ParticleEffectSpawner>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (entities, mut positions, mut levels, mut lifetimes, mut renderables, mut spawner) =
+        let (entities, mut positions, mut lifetimes, mut renderables, mut spawner) =
             data;
         for request in spawner.requests.iter() {
             let p = entities.create();
@@ -22,8 +21,8 @@ impl<'a> System<'a> for ParticleSpawnSystem {
                 .insert(
                     p,
                     Position {
-                        x: request.x,
-                        y: request.y,
+                        idx: request.idx,
+                        level: request.level
                     },
                 )
                 .expect("failed inserting position for particle");
@@ -38,15 +37,6 @@ impl<'a> System<'a> for ParticleSpawnSystem {
                     },
                 )
                 .expect("failed inserting renderable for particle");
-            levels
-                .insert(
-                    p,
-                    DungeonLevel {
-                        level: request.level,
-                    },
-                )
-                .expect("failed inserting level for particle");
-
             lifetimes
                 .insert(
                     p,

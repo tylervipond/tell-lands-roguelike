@@ -1,5 +1,5 @@
 use crate::components::{
-    DungeonLevel, EntryTrigger, Hidden, InflictsDamage, Name, Position, Renderable, Saveable,
+    EntryTrigger, Hidden, InflictsDamage, Name, Position, Renderable, Saveable,
     SingleActivation, Trap,
 };
 use crate::entity_set::EntitySet;
@@ -16,7 +16,6 @@ impl<'a> System<'a> for TrapSpawnSystem {
     type SystemData = (
         Entities<'a>,
         WriteStorage<'a, Position>,
-        WriteStorage<'a, DungeonLevel>,
         WriteStorage<'a, Renderable>,
         WriteStorage<'a, Name>,
         WriteStorage<'a, Hidden>,
@@ -33,7 +32,6 @@ impl<'a> System<'a> for TrapSpawnSystem {
         let (
             entities,
             mut positions,
-            mut levels,
             mut renderables,
             mut names,
             mut hiddens,
@@ -51,8 +49,8 @@ impl<'a> System<'a> for TrapSpawnSystem {
                 .insert(
                     new_trap,
                     Position {
-                        x: request.x,
-                        y: request.y,
+                        idx: request.idx,
+                        level: request.level,
                     },
                 )
                 .expect("failed inserting position for new trap");
@@ -67,14 +65,6 @@ impl<'a> System<'a> for TrapSpawnSystem {
                     },
                 )
                 .expect("failed inserting renderable for new trap");
-            levels
-                .insert(
-                    new_trap,
-                    DungeonLevel {
-                        level: request.level,
-                    },
-                )
-                .expect("failed inserting level for new trap");
             entry_triggers
                 .insert(new_trap, EntryTrigger {})
                 .expect("failed inserting entry trigger for new trap");
@@ -116,7 +106,6 @@ impl<'a> System<'a> for TrapSpawnSystem {
                     .expect("failed inserting single activation for new trap");
             }
             marker_allocator.mark(new_trap, &mut markers);
-            // need to mark entity
         }
         spawner.requests.clear();
     }

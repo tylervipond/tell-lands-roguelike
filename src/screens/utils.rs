@@ -2,35 +2,32 @@ use super::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
     ui::ui_map::RenderData,
 };
-use crate::components::{DungeonLevel, Hidden, Hiding, OnFire, Position, Renderable};
-use crate::dungeon::{dungeon::Dungeon, level_utils};
-use rltk::{Point, GREY, ORANGE, RGB};
+use crate::components::{Hidden, Hiding, OnFire, Position, Renderable};
+use crate::dungeon::dungeon::Dungeon;
+use rltk::{GREY, ORANGE, RGB};
 use specs::{Entity, Join, World, WorldExt};
 
 pub fn get_render_data(world: &World) -> Vec<RenderData> {
     let positions = world.read_storage::<Position>();
     let hidden = world.read_storage::<Hidden>();
     let renderables = world.read_storage::<Renderable>();
-    let levels = world.read_storage::<DungeonLevel>();
     let on_fire = world.read_storage::<OnFire>();
     let hiding = world.read_storage::<Hiding>();
     let entities = world.entities();
     let player_ent = world.fetch::<Entity>();
-    let player_level = levels.get(*player_ent).unwrap();
+    let player_level = positions.get(*player_ent).unwrap().level;
     let dungeon = world.fetch::<Dungeon>();
-    let level = dungeon.levels.get(&player_level.level).unwrap();
+    let level = dungeon.levels.get(&player_level).unwrap();
     let mut render_data: Vec<RenderData> = (
         &positions,
         &renderables,
-        &levels,
         (&on_fire).maybe(),
         (&hidden).maybe(),
         (&hiding).maybe(),
         &entities,
     )
         .join()
-        .filter(|(p, _r, l, _f, h, hiding, entity)| {
-            let idx = level_utils::xy_idx(level.width as i32, p.x, p.y) as usize;
+        .filter(|(p, _r, _f, h, hiding, entity)| {
             let is_visible = match h {
                 Some(h) => h.found_by.contains(&*player_ent),
                 None => true,
@@ -39,12 +36,12 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
                 Some(_) => *entity != *player_ent,
                 _ => false,
             };
-            return l.level == player_level.level
-                && level.visible_tiles[idx]
+            return p.level == player_level
+                && level.visible_tiles[p.idx]
                 && is_visible
                 && !hiding;
         })
-        .map(|(p, r, _l, f, _h, hiding, entity)| {
+        .map(|(p, r, f, _h, hiding, entity)| {
             let mut fg = r.fg;
             if f.is_some() {
                 fg = RGB::named(ORANGE);
@@ -53,8 +50,7 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
                 fg = RGB::named(GREY);
             }
             RenderData {
-                x: p.x,
-                y: p.y,
+                idx: p.idx,
                 fg,
                 bg: r.bg,
                 glyph: r.glyph,
@@ -66,16 +62,15 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
     return render_data;
 }
 
-pub fn get_render_offset(world: &World) -> (i32, i32) {
-    let player_position = world.fetch::<Point>();
-    let offset_x = player_position.x - MAP_WIDTH as i32 / 2;
-    let offset_y = player_position.y - MAP_HEIGHT as i32 / 2;
+pub fn get_render_offset(center_x: i32, center_y: i32) -> (i32, i32) {
+    let offset_x = center_x - MAP_WIDTH as i32 / 2;
+    let offset_y = center_y - MAP_HEIGHT as i32 / 2;
     (offset_x, offset_y)
 }
 
-pub fn get_render_offset_for_xy(world: &World, xy: (i32, i32)) -> (i32, i32) {
-    let render_offset = get_render_offset(world);
-    let offset_x = xy.0 + render_offset.0;
-    let offset_y = xy.1 + render_offset.1;
+pub fn get_render_offset_for_xy(center_x: i32, center_y: i32, x: i32, y: i32) -> (i32, i32) {
+    let (center_offset_x, center_offset_y) = get_render_offset(center_x, center_y);
+    let offset_x = x + center_offset_x;
+    let offset_y = y + center_offset_y;
     (offset_x, offset_y)
 }

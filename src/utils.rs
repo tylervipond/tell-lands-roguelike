@@ -1,4 +1,4 @@
-use crate::components::dungeon_level::DungeonLevel;
+use crate::components::position::Position;
 use rltk::RandomNumberGenerator;
 use specs::{Entity, World, WorldExt};
 
@@ -26,7 +26,6 @@ pub fn get_random_element<'a, T>(rng: &mut RandomNumberGenerator, elements: &'a 
 
 pub fn get_current_level_from_world(world: &World) -> u8 {
     let player_ent = world.fetch::<Entity>();
-    let dungeon_level = world.read_storage::<DungeonLevel>();
-    let player_level = dungeon_level.get(*player_ent).unwrap();
-    player_level.level
+    let dungeon_level = world.read_storage::<Position>();
+    dungeon_level.get(*player_ent).unwrap().level
 }

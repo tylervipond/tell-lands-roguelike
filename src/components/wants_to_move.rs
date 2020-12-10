@@ -7,6 +7,5 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct WantsToMove {
-  pub x: i32,
-  pub y: i32,
+  pub idx: usize,
 }

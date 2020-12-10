@@ -1,5 +1,5 @@
 use crate::components::{
-    DungeonLevel, EntityMoved, EntryTrigger, Hidden, InflictsDamage, Name, Position, SufferDamage,
+    EntityMoved, EntryTrigger, Hidden, InflictsDamage, Name, Position, SufferDamage,
     Triggered,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
@@ -15,7 +15,6 @@ impl<'a> System<'a> for TriggerSystem {
     type SystemData = (
         ReadExpect<'a, Dungeon>,
         ReadExpect<'a, Entity>,
-        ReadStorage<'a, DungeonLevel>,
         WriteStorage<'a, EntityMoved>,
         ReadStorage<'a, EntryTrigger>,
         ReadStorage<'a, Position>,
@@ -33,7 +32,6 @@ impl<'a> System<'a> for TriggerSystem {
         let (
             dungeon,
             player_ent,
-            levels,
             mut moved,
             entry_triggers,
             positions,
@@ -46,10 +44,10 @@ impl<'a> System<'a> for TriggerSystem {
             mut log,
             ents,
         ) = data;
-        let player_level = levels.get(*player_ent).unwrap();
-        let level = dungeon.get_level(player_level.level).unwrap();
+        let player_level = positions.get(*player_ent).unwrap().level;
+        let level = dungeon.get_level(player_level).unwrap();
         for (entity, mut _ent_moved, pos) in (&ents, &mut moved, &positions).join() {
-            for maybe_triggered in level_utils::entities_at_xy(&level, pos.x, pos.y)
+            for maybe_triggered in level_utils::entities_at_idx(&level, pos.idx)
                 .iter()
                 .filter(|e| *e != &entity)
             {
@@ -66,9 +64,8 @@ impl<'a> System<'a> for TriggerSystem {
                         if let Some(damage_to_suffer) = suffer_damage.get_mut_or_default(entity) {
                             damage_to_suffer.amount += damage.amount;
                             particle_spawner.request_attack_particle(
-                                pos.x,
-                                pos.y,
-                                player_level.level,
+                                pos.idx,
+                                pos.level,
                             );
                         }
                     }

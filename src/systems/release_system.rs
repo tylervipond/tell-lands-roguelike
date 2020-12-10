@@ -1,5 +1,6 @@
 use crate::components::{Grabbable, Grabbing, Name, Position, WantsToReleaseGrabbed};
 use crate::services::GameLog;
+use crate::dungeon::dungeon::Dungeon;
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 pub struct ReleaseSystem {}
@@ -14,6 +15,7 @@ impl<'a> System<'a> for ReleaseSystem {
         ReadStorage<'a, Name>,
         ReadExpect<'a, Entity>,
         WriteExpect<'a, GameLog>,
+        ReadExpect<'a, Dungeon>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -26,22 +28,22 @@ impl<'a> System<'a> for ReleaseSystem {
             names,
             player_entity,
             mut log,
+            dungeon,
         ) = data;
-        let grabbings_to_release: Vec<Entity> = (&entities, (&mut release_intents).maybe())
+        let grabbings_to_release: Vec<Entity> = (&entities, (&mut release_intents).maybe(), (&grabbings).maybe())
             .join()
-            .filter(|(entity, release_intent)| {
-                let out_of_sync = match grabbings.get(*entity) {
+            .filter(|(entity, release_intent, grabbing)| {
+                let out_of_sync = match grabbing {
                     Some(grabbing) => {
                         let ent_position = positions.get(*entity).unwrap();
+                        let level = dungeon.get_level(ent_position.level).unwrap();
                         match positions.get(grabbing.thing) {
                             Some(pos) => {
-                                let same_x = pos.x == ent_position.x;
-                                let same_y = pos.y == ent_position.y;
                                 let neighbor_x =
-                                    pos.x == ent_position.x + 1 || pos.x == ent_position.x - 1;
+                                    pos.idx == ent_position.idx + 1 || pos.idx == ent_position.idx - 1;
                                 let neighbor_y =
-                                    pos.y == ent_position.y + 1 || pos.y == ent_position.y - 1;
-                                !(same_x && neighbor_y || same_y && neighbor_x)
+                                    pos.idx == ent_position.idx + level.width as usize || pos.idx == ent_position.idx - level.width as usize;
+                                !(neighbor_y || neighbor_x)
                             }
                             None => false,
                         }
@@ -52,7 +54,7 @@ impl<'a> System<'a> for ReleaseSystem {
                     Some(_) => true,
                     None => false,
                 };
-                let no_longer_grabbable = match grabbings.get(*entity) {
+                let no_longer_grabbable = match grabbing {
                     Some(grabbing) => match grabbables.get(grabbing.thing) {
                         Some(_) => false,
                         None => true,
@@ -61,7 +63,7 @@ impl<'a> System<'a> for ReleaseSystem {
                 };
                 wants_to_release || no_longer_grabbable || out_of_sync
             })
-            .map(|(e, _)| e)
+            .map(|(e, _, _)| e)
             .collect();
         grabbings_to_release.iter().for_each(|entity| {
             if *entity == *player_entity {

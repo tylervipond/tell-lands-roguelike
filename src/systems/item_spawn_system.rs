@@ -1,5 +1,5 @@
 use crate::components::{
-    Consumable, DungeonLevel, Item, Name, Position, Ranged, Renderable, Saveable, Trap,
+    Consumable, Item, Name, Position, Ranged, Renderable, Saveable, Trap,
 };
 use crate::services::ItemSpawner;
 use crate::types::item_type;
@@ -14,7 +14,6 @@ impl<'a> System<'a> for ItemSpawnSystem {
     type SystemData = (
         Entities<'a>,
         WriteStorage<'a, Position>,
-        WriteStorage<'a, DungeonLevel>,
         WriteStorage<'a, Renderable>,
         WriteStorage<'a, Name>,
         WriteStorage<'a, Item>,
@@ -30,7 +29,6 @@ impl<'a> System<'a> for ItemSpawnSystem {
         let (
             entities,
             mut positions,
-            mut levels,
             mut renderables,
             mut names,
             mut items,
@@ -47,8 +45,8 @@ impl<'a> System<'a> for ItemSpawnSystem {
                 .insert(
                     new_item,
                     Position {
-                        x: request.x,
-                        y: request.y,
+                        idx: request.idx,
+                        level: request.level
                     },
                 )
                 .expect("failed inserting position for new item");
@@ -63,14 +61,6 @@ impl<'a> System<'a> for ItemSpawnSystem {
                     },
                 )
                 .expect("failed inserting renderable for new item");
-            levels
-                .insert(
-                    new_item,
-                    DungeonLevel {
-                        level: request.level,
-                    },
-                )
-                .expect("failed inserting level for new item");
             names
                 .insert(
                     new_item,

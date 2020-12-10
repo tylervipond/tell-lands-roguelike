@@ -1,53 +1,51 @@
-use crate::components::{DungeonLevel, InBackpack, Name, Position, WantsToDropItem};
+use crate::components::{InBackpack, Name, Position, WantsToDropItem};
 use crate::services::GameLog;
-use specs::{Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
+use specs::{Entity, Entities, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 pub struct ItemDropSystem {}
 
 impl<'a> System<'a> for ItemDropSystem {
   type SystemData = (
+    Entities<'a>,
     ReadExpect<'a, Entity>,
     WriteExpect<'a, GameLog>,
     WriteStorage<'a, WantsToDropItem>,
     ReadStorage<'a, Name>,
     WriteStorage<'a, Position>,
     WriteStorage<'a, InBackpack>,
-    WriteStorage<'a, DungeonLevel>,
   );
   fn run(&mut self, data: Self::SystemData) {
     let (
+      entities,
       player_entity,
       mut game_log,
       mut wants_to_drop,
       names,
       mut positions,
       mut backpacks,
-      mut levels,
     ) = data;
-    let mut entities_with_positions: Vec<(Entity, Position, u8)> =
-      (&wants_to_drop, &positions, &levels)
-        .join()
-        .map(|(to_drop, pos, level)| (to_drop.item, pos.clone(), level.level))
-        .collect();
-
-    entities_with_positions
-      .drain(0..)
-      .for_each(|(ent, pos, level)| {
-        positions
-          .insert(ent, pos)
-          .expect("failed to add ent to positions");
-        levels
-          .insert(ent, DungeonLevel { level })
-          .expect("failed to add ent to levels");
-        backpacks
-          .remove(ent)
-          .expect("failed to remove ent from backpacks");
-        if ent == *player_entity {
-          game_log
-            .entries
-            .insert(0, format!("You drop the {}.", names.get(ent).unwrap().name))
-        }
-      });
+      (&wants_to_drop, &entities).join()
+        .for_each(|(to_drop, dropping_ent)| {
+          let dropped_ent = to_drop.item;
+          let (dropping_ent_idx, dropping_ent_level) = {
+            let pos = positions.get(dropping_ent).unwrap();
+            (pos.idx, pos.level)
+          };
+          positions
+            .insert(dropped_ent, Position {
+              idx: dropping_ent_idx,
+              level: dropping_ent_level
+            })
+            .expect("failed to add dropped_ent to positions");
+          backpacks
+            .remove(dropped_ent)
+            .expect("failed to remove dropped_ent from backpacks");
+          if dropping_ent == *player_entity {
+            game_log
+              .entries
+              .insert(0, format!("You drop the {}.", names.get(dropped_ent).unwrap().name))
+          }
+       });
     wants_to_drop.clear();
   }
 }

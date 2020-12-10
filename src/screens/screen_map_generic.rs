@@ -1,6 +1,6 @@
 use super::ui::ui_map_screen::UIMapScreen;
 use super::utils::{get_render_data, get_render_offset, get_render_offset_for_xy};
-use crate::components::{CombatStats, DungeonLevel, Hidden, Hiding, Name, Position};
+use crate::components::{CombatStats, Hidden, Hiding, Name, Position};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
 use rltk::Rltk;
@@ -16,8 +16,6 @@ impl ScreenMapGeneric {
     pub fn draw(&self, ctx: &mut Rltk, world: &mut World) {
         let log = world.fetch::<GameLog>();
         let player_ent = world.fetch::<Entity>();
-        let levels = world.read_storage::<DungeonLevel>();
-        let player_level = levels.get(*player_ent).unwrap();
         let combat_stats = world.read_storage::<CombatStats>();
         let player_stats = combat_stats.get(*player_ent).unwrap();
         let hiding = world.read_storage::<Hiding>();
@@ -27,26 +25,29 @@ impl ScreenMapGeneric {
         let hidden = world.read_storage::<Hidden>();
         let (mouse_x, mouse_y) = ctx.mouse_pos();
         let dungeon = world.fetch::<Dungeon>();
-        let level = dungeon.levels.get(&player_level.level).unwrap();
-        let render_offset = get_render_offset(world);
-        let mouse_offset = get_render_offset_for_xy(world, (mouse_x, mouse_y));
-        let tool_tip_lines = match level.visible_tiles.get(level_utils::xy_idx(
-            level.width as i32,
+        let player_position = positions.get(*player_ent).unwrap();
+        let level = dungeon.levels.get(&player_position.level).unwrap();
+        let level_width = level.width as i32;
+        let (center_x, center_y) = level_utils::idx_xy(level_width, player_position.idx as i32);
+        let render_offset = get_render_offset(center_x, center_y);
+        let mouse_offset = get_render_offset_for_xy(center_x, center_y, mouse_x, mouse_y);
+        let mouse_idx = level_utils::xy_idx(
+            level_width,
             mouse_offset.0,
             mouse_offset.1,
-        ) as usize)
+        ) as usize;
+        let tool_tip_lines = match level.visible_tiles.get(mouse_idx)
         {
             Some(visible) => match visible {
                 true => (
                     &names,
                     &positions,
-                    &levels,
                     (&hidden).maybe(),
                     (&hiding).maybe(),
                     &entities,
                 )
                     .join()
-                    .filter(|(_name, position, level, hidden, hiding, entity)| {
+                    .filter(|(_name, position, hidden, hiding, entity)| {
                         let visible_to_player = match hidden {
                             Some(h) => h.found_by.contains(&*player_ent),
                             None => true,
@@ -57,12 +58,11 @@ impl ScreenMapGeneric {
                         };
                         visible_to_player
                             && !hiding
-                            && level.level == player_level.level
-                            && position.x == mouse_offset.0
-                            && position.y == mouse_offset.1
+                            && position.level == player_position.level
+                            && position.idx == mouse_idx
                     })
                     .map(
-                        |(name, _position, _level, _hidden, hiding, _entity)| match hiding {
+                        |(name, _position, _hidden, hiding, _entity)| match hiding {
                             Some(_) => format!("{} (hidden)", name.name.to_owned()),
                             _ => name.name.to_owned(),
                         },
@@ -79,7 +79,7 @@ impl ScreenMapGeneric {
             mouse_y,
             &tool_tip_lines,
             &log.entries,
-            player_level.level,
+            player_position.level,
             player_stats.hp,
             player_stats.max_hp,
             level,
