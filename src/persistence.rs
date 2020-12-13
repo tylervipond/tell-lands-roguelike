@@ -5,13 +5,13 @@
 // to replace the custom macros
 use crate::components::{
     AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confusion, Consumable, Contained,
-    Container, DungeonLevel, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable, Grabbing,
-    Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Light, Memory, Monster, Name,
+    Container, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable, Grabbing,
+    Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster, Name,
     Objective, OnFire, ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable,
     Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
     WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee, WantsToMove,
     WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap,
-    WantsToUse, Equipment, Equipable, WantsToEquip, CausesDamage
+    WantsToUse, Equipment, Equipable, WantsToEquip, CausesDamage, CausesLight
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -124,7 +124,6 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             WantsToPickUpItem,
             WantsToUse,
             WantsToDropItem,
-            DungeonLevel,
             Blood,
             ParticleLifetime,
             Hidden,
@@ -153,11 +152,11 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             Hiding,
             WantsToHide,
             Memory,
-            Light,
             Equipment,
             Equipable,
             WantsToEquip,
             CausesDamage,
+            CausesLight,
             SerializationHelper
         );
     }
@@ -198,7 +197,6 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         WantsToPickUpItem,
         WantsToUse,
         WantsToDropItem,
-        DungeonLevel,
         Blood,
         ParticleLifetime,
         Hidden,
@@ -227,11 +225,11 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         Hiding,
         WantsToHide,
         Memory,
-        Light,
         Equipment,
         Equipable,
         WantsToEquip,
         CausesDamage,
+        CausesLight,
         SerializationHelper
     );
 }
@@ -256,19 +254,17 @@ fn populate_map_from_helper(world: &mut World) {
     world.insert(dungeon);
 }
 
-fn get_player_parts(world: &mut World) -> (i32, i32, Entity) {
+fn get_player_parts(world: &mut World) -> Entity {
     let entities = world.entities();
     let player = world.read_storage::<Player>();
-    let position = world.read_storage::<Position>();
-    let parts: Vec<(Entity, &Player, &Position)> = (&entities, &player, &position).join().collect();
+    let parts: Vec<(Entity, &Player)> = (&entities, &player).join().collect();
     let player_part = parts.get(0).unwrap();
-    (player_part.2.x, player_part.2.y, player_part.0)
+    player_part.0
 }
 
 fn populate_player(world: &mut World) {
-    let player_parts = get_player_parts(world);
-    world.insert(rltk::Point::new(player_parts.0, player_parts.1));
-    world.insert(player_parts.2);
+    let player_ent = get_player_parts(world);
+    world.insert(player_ent);
 }
 
 fn load_game_from_string(world: &mut World, game_string: String) {

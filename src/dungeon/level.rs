@@ -17,9 +17,9 @@ pub struct Level {
     pub lit_tiles: Vec<bool>,
     pub blocked: Vec<bool>,
     pub depth: u8,
-    pub stairs_down: Option<Point>,
-    pub stairs_up: Option<Point>,
-    pub exit: Option<Point>,
+    pub stairs_down: Option<usize>,
+    pub stairs_up: Option<usize>,
+    pub exit: Option<usize>,
     #[serde(skip_serializing, skip_deserializing)]
     pub tile_content: Vec<Vec<Entity>>,
 }

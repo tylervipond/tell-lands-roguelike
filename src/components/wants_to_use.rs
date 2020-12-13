@@ -1,4 +1,3 @@
-use rltk::Point;
 use serde::{Deserialize, Serialize};
 use specs::{
     error::NoError,
@@ -9,5 +8,5 @@ use specs::{
 #[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct WantsToUse {
     pub item: Entity,
-    pub target: Option<Point>,
+    pub target: Option<usize>,
 }

@@ -1,8 +1,7 @@
 use rltk::{RGB, to_cp437, ORANGE, BLACK, BLUE};
 
 pub struct ParticleEffectSpawnerRequest {
-    pub x: i32,
-    pub y: i32,
+    pub idx: usize,
     pub fg: RGB,
     pub bg: RGB,
     pub glyph: u16,
@@ -23,8 +22,7 @@ impl ParticleEffectSpawner {
 
     pub fn request(
         &mut self,
-        x: i32,
-        y: i32,
+        idx: usize,
         fg: RGB,
         bg: RGB,
         glyph: u16,
@@ -32,8 +30,7 @@ impl ParticleEffectSpawner {
         level: u8,
     ) {
         self.requests.push(ParticleEffectSpawnerRequest {
-            x,
-            y,
+            idx,
             fg,
             bg,
             glyph,
@@ -42,10 +39,9 @@ impl ParticleEffectSpawner {
         })
     }
 
-    pub fn request_attack_particle(&mut self, x: i32, y: i32, level: u8) {
+    pub fn request_attack_particle(&mut self, idx: usize, level: u8) {
         self.request(
-            x,
-            y,
+            idx,
             RGB::named(ORANGE),
             RGB::named(BLACK),
             to_cp437('‼'),
@@ -54,10 +50,9 @@ impl ParticleEffectSpawner {
           );
     }
 
-    pub fn request_search_particle(&mut self, x: i32, y: i32, level: u8) {
+    pub fn request_search_particle(&mut self, idx: usize, level: u8) {
         self.request(
-            x,
-            y,
+            idx,
             RGB::named(BLUE),
             RGB::named(BLACK),
             to_cp437('?'),

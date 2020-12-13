@@ -1,8 +1,9 @@
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
-    DungeonLevel, EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Hidden,
-    HidingSpot, InflictsDamage, Item, Light, Memory, Monster, Name, Objective, Player, Position,
-    ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed, CausesDamage
+    EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Hidden,
+    HidingSpot, InflictsDamage, Item, Memory, Monster, Name, Objective, Player, Position,
+    ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed, CausesDamage,
+    CausesLight
 };
 use crate::components::equipable::EquipmentPositions;
 use crate::dungeon::{
@@ -73,13 +74,11 @@ fn create_marked_entity<'a>(world: &'a mut World) -> EntityBuilder<'a> {
 
 fn create_marked_entity_with_position<'a>(
     world: &'a mut World,
-    map_idx: i32,
+    position_idx: usize,
     level: &'a Level,
 ) -> EntityBuilder<'a> {
-    let (x, y) = level_utils::idx_xy(level.width as i32, map_idx);
     create_marked_entity(world)
-        .with(Position { x, y })
-        .with(DungeonLevel { level: level.depth })
+        .with(Position { idx: position_idx, level: level.depth })
 }
 
 fn create_marked_entity_in_container<'a>(
@@ -124,6 +123,22 @@ fn make_entity_club<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
     })
 }
 
+fn make_entity_torch<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+    builder
+    .with(Item {})
+    .with(Equipable { positions: Box::new([EquipmentPositions::DominantHand, EquipmentPositions::OffHand])})
+    .with(CausesLight {radius: 10})
+    .with(Name {
+        name: "Torch".to_string(),
+    })
+    .with(Renderable {
+        glyph: to_cp437('/'),
+        fg: RGB::named(rltk::BROWN4),
+        bg: RGB::named(rltk::BLACK),
+        layer: 1,
+    })
+}
+
 fn spawn_sword_as_equipment(world: &mut World) -> Entity {
     make_entity_sword(create_marked_entity(world)).build()
 }
@@ -132,8 +147,13 @@ fn spawn_club_as_equipment(world: &mut World) -> Entity {
     make_entity_club(create_marked_entity(world)).build()
 }
 
-pub fn spawn_player(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_torch_as_equipment(world: &mut World) -> Entity {
+    make_entity_torch(create_marked_entity(world)).build()
+}
+
+pub fn spawn_player(world: &mut World, idx: usize, level: &Level) -> Entity {
     let sword = spawn_sword_as_equipment(world);
+    let torch = spawn_torch_as_equipment(world);
     create_marked_entity_with_position(world, idx, level)
         .with(Renderable {
             glyph: to_cp437('@'),
@@ -144,10 +164,10 @@ pub fn spawn_player(world: &mut World, idx: i32, level: &Level) -> Entity {
         .with(Player {})
         .with(Viewshed {
             range: (MAP_HEIGHT / 2) as i32,
+            los_tiles: vec![],
             visible_tiles: vec![],
             dirty: true,
         })
-        .with(Light { range: 10 })
         .with(Name {
             name: "Player".to_owned(),
         })
@@ -159,19 +179,20 @@ pub fn spawn_player(world: &mut World, idx: i32, level: &Level) -> Entity {
         })
         .with(Equipment {
             dominant_hand: Some(sword),
-            off_hand: None,
+            off_hand: Some(torch),
         })
         .build()
 }
 
 pub fn spawn_monster<S: ToString>(
     world: &mut World,
-    idx: i32,
+    idx: usize,
     glyph: u16,
     name: S,
     level: &Level,
 ) -> Entity {
     let club = spawn_club_as_equipment(world);
+    let torch = spawn_torch_as_equipment(world);
     create_marked_entity_with_position(world, idx, level)
         .with(Renderable {
             glyph,
@@ -180,11 +201,11 @@ pub fn spawn_monster<S: ToString>(
             layer: 0,
         })
         .with(Viewshed {
+            los_tiles: vec![],
             visible_tiles: vec![],
             range: (MAP_HEIGHT / 2) as i32,
             dirty: true,
         })
-        .with(Light { range: 10 })
         .with(Monster {})
         .with(Name {
             name: name.to_string(),
@@ -198,7 +219,7 @@ pub fn spawn_monster<S: ToString>(
         })
         .with(Equipment {
             dominant_hand: Some(club),
-            off_hand: None,
+            off_hand: Some(torch),
         })
         .with(Memory {
             last_known_enemy_positions: HashSet::new(),
@@ -208,7 +229,7 @@ pub fn spawn_monster<S: ToString>(
         .build()
 }
 
-fn spawn_objective(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_objective(world: &mut World, idx: usize, level: &Level) -> Entity {
     create_marked_entity_with_position(world, idx, level)
         .with(Name {
             name: "The Talisman".to_string(),
@@ -224,7 +245,7 @@ fn spawn_objective(world: &mut World, idx: i32, level: &Level) -> Entity {
         .build()
 }
 
-pub fn spawn_goblin(world: &mut World, idx: i32, level: &Level) -> Entity {
+pub fn spawn_goblin(world: &mut World, idx: usize, level: &Level) -> Entity {
     spawn_monster(world, idx, to_cp437('g'), "Goblin", level)
 }
 
@@ -244,7 +265,7 @@ fn make_entity_health_potion<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a
         .with(ProvidesHealing { amount: 8 })
 }
 
-pub fn spawn_health_potion(world: &mut World, idx: i32, level: &Level) -> Entity {
+pub fn spawn_health_potion(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_health_potion(create_marked_entity_with_position(world, idx, level)).build()
 }
 
@@ -269,7 +290,7 @@ fn make_entity_magic_missile_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBui
         .with(InflictsDamage { amount: 8 })
 }
 
-fn spawn_magic_missile_scroll(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_magic_missile_scroll(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_magic_missile_scroll(create_marked_entity_with_position(world, idx, level)).build()
 }
 
@@ -297,7 +318,7 @@ fn make_entity_fireball_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<
         .with(AreaOfEffect { radius: 3 })
 }
 
-fn spawn_fireball_scroll(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_fireball_scroll(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_fireball_scroll(create_marked_entity_with_position(world, idx, level)).build()
 }
 
@@ -322,7 +343,7 @@ fn make_entity_confusion_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder
         .with(Confusion { turns: 4 })
 }
 
-fn spawn_confusion_scroll(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_confusion_scroll(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_confusion_scroll(create_marked_entity_with_position(world, idx, level)).build()
 }
 
@@ -350,7 +371,7 @@ fn make_entity_bear_trap<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
         })
 }
 
-fn spawn_bear_trap(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_bear_trap(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_bear_trap(create_marked_entity_with_position(world, idx, level)).build()
 }
 
@@ -378,7 +399,7 @@ fn make_entity_caltrops<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
         })
 }
 
-fn spawn_caltrops(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_caltrops(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_caltrops(create_marked_entity_with_position(world, idx, level)).build()
 }
 
@@ -439,7 +460,7 @@ fn make_entity_furniture<'a>(
         })
 }
 
-fn spawn_set_bear_trap(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_set_bear_trap(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_set_trap(
         create_marked_entity_with_position(world, idx, level),
         &TrapType::BearTrap,
@@ -448,7 +469,7 @@ fn spawn_set_bear_trap(world: &mut World, idx: i32, level: &Level) -> Entity {
     .build()
 }
 
-fn spawn_set_caltrops(world: &mut World, idx: i32, level: &Level) -> Entity {
+fn spawn_set_caltrops(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_set_trap(
         create_marked_entity_with_position(world, idx, level),
         &TrapType::Caltrops,
@@ -456,7 +477,7 @@ fn spawn_set_caltrops(world: &mut World, idx: i32, level: &Level) -> Entity {
     .build()
 }
 
-fn spawn_set_traps(world: &mut World, idx: i32, level: &Level) {
+fn spawn_set_traps(world: &mut World, idx: usize, level: &Level) {
     let roll = get_random_from_world(world, 0, 2);
     match roll {
         1 => spawn_set_bear_trap(world, idx, level),
@@ -464,7 +485,7 @@ fn spawn_set_traps(world: &mut World, idx: i32, level: &Level) {
     };
 }
 
-fn spawn_random_item(world: &mut World, idx: i32, level: &Level) {
+fn spawn_random_item(world: &mut World, idx: usize, level: &Level) {
     let roll = get_random_from_world(world, 0, 7);
     match roll {
         1 | 2 => spawn_health_potion(world, idx, level),
@@ -488,19 +509,22 @@ fn spawn_random_item_in_container(world: &mut World, container_entity: Entity) {
     };
 }
 
-fn get_containers_in_room(world: &World, room: &Room) -> Vec<Entity> {
+fn get_containers_in_room(world: &World, room: &Room, level_width: i32) -> Vec<Entity> {
     let containers = world.read_storage::<Container>();
     let positions = world.read_storage::<Position>();
     let entities = world.entities();
     (&containers, &positions, &entities)
         .join()
-        .filter(|(_c, p, _e)| room.rect.contains(p.x, p.y))
+        .filter(|(_c, p, _e)| {
+            let p = level_utils::idx_xy(level_width, p.idx as i32);
+            room.rect.contains(p.0, p.1)
+        })
         .map(|(_c, _p, e)| e)
         .collect()
 }
 
 pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Level) {
-    let containers_in_room = get_containers_in_room(world, room);
+    let containers_in_room = get_containers_in_room(world, room, level.width as i32);
     let min_items = match room.room_type {
         Some(RoomType::TreasureRoom) => 2,
         _ => 0,
@@ -519,7 +543,7 @@ pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Leve
             level_utils::get_spawn_points(&room.rect, level, &mut rng, num_items_not_in_containers)
         };
         for idx in spawn_points.iter() {
-            spawn_random_item(world, (*idx) as i32, level);
+            spawn_random_item(world, *idx as usize, level);
         }
         for _ in 0..num_items_in_containers {
             let container_idx = get_random_from_world(world, 0, containers_in_room.len() as i32);
@@ -528,7 +552,7 @@ pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Leve
     }
 }
 
-pub fn spawn_bed(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_bed(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Bed".to_string(),
@@ -539,7 +563,7 @@ pub fn spawn_bed(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_bedside_table(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_bedside_table(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Bedside Table".to_string(),
@@ -550,7 +574,7 @@ pub fn spawn_bedside_table(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_chair(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_chair(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Chair".to_string(),
@@ -561,7 +585,7 @@ pub fn spawn_chair(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_desk(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_desk(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Desk".to_string(),
@@ -572,7 +596,7 @@ pub fn spawn_desk(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_armoire(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_armoire(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Armoire".to_string(),
@@ -584,7 +608,7 @@ pub fn spawn_armoire(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_towel_rack(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_towel_rack(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Towel Rack".to_string(),
@@ -595,7 +619,7 @@ pub fn spawn_towel_rack(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_throne(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_throne(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Throne".to_string(),
@@ -606,7 +630,7 @@ pub fn spawn_throne(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_podium(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_podium(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Podium".to_string(),
@@ -617,7 +641,7 @@ pub fn spawn_podium(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_dresser(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_dresser(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Dresser".to_string(),
@@ -628,7 +652,7 @@ pub fn spawn_dresser(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_shelf(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_shelf(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Shelf".to_string(),
@@ -639,7 +663,7 @@ pub fn spawn_shelf(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_table(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_table(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Table".to_string(),
@@ -650,7 +674,7 @@ pub fn spawn_table(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_counter(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_counter(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Counter".to_string(),
@@ -661,7 +685,7 @@ pub fn spawn_counter(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_stove(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_stove(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Stove".to_string(),
@@ -672,7 +696,7 @@ pub fn spawn_stove(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_cupboard(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_cupboard(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Cupboard".to_string(),
@@ -682,7 +706,7 @@ pub fn spawn_cupboard(world: &mut World, idx: i32, level: &mut Level) {
     .build();
     level.blocked[idx as usize] = true;
 }
-pub fn spawn_weapon_rack(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_weapon_rack(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Weapon Rack".to_string(),
@@ -693,7 +717,7 @@ pub fn spawn_weapon_rack(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_barrel(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_barrel(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Barrel".to_string(),
@@ -705,7 +729,7 @@ pub fn spawn_barrel(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_treasure_chest(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_treasure_chest(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
         create_marked_entity_with_position(world, idx, level),
         "Trasure Chest".to_string(),
@@ -717,7 +741,7 @@ pub fn spawn_treasure_chest(world: &mut World, idx: i32, level: &mut Level) {
     level.blocked[idx as usize] = true;
 }
 
-pub fn spawn_debris(world: &mut World, idx: i32, level: &mut Level) {
+pub fn spawn_debris(world: &mut World, idx: usize, level: &mut Level) {
     create_marked_entity_with_position(world, idx, level)
         .with(Name {
             name: "Debris".to_string(),
@@ -745,7 +769,7 @@ pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut
         for (x, tile) in row.iter().enumerate() {
             let this_x = room_x + x as i32;
             let this_y = room_y + y as i32;
-            let idx = level_utils::xy_idx(level_width, this_x, this_y);
+            let idx = level_utils::xy_idx(level_width, this_x, this_y) as usize;
             match tile {
                 Use(RoomPart::Bed) => spawn_bed(world, idx, level),
                 Use(RoomPart::BedsideTable) => spawn_bedside_table(world, idx, level),
@@ -774,7 +798,7 @@ pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut
 fn spawn_set_traps_for_level(world: &mut World, level: &mut Level) {
     get_random_spawn_points_for_level(world, level, 4, MAX_TRAPS_SET_PER_LEVEL)
         .iter()
-        .for_each(|idx| spawn_set_traps(world, *idx as i32, level));
+        .for_each(|idx| spawn_set_traps(world, *idx, level));
 }
 
 fn spawn_goblins_for_level(world: &mut World, level: &mut Level) {
@@ -799,7 +823,7 @@ fn spawn_goblins_for_level(world: &mut World, level: &mut Level) {
             )
         };
         spawn_points.iter().for_each(|idx| {
-            spawn_goblin(world, *idx, level);
+            spawn_goblin(world, *idx as usize, level);
         });
     });
 }
@@ -820,5 +844,5 @@ pub fn spawn_objective_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
         level_utils::get_random_spawn_point(rect, level, &mut rng)
     };
-    spawn_objective(ecs, idx as i32, level);
+    spawn_objective(ecs, idx as usize, level);
 }

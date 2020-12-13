@@ -1,8 +1,7 @@
 use rltk::RGB;
 
 pub struct DebrisSpawnerRequest {
-    pub x: i32,
-    pub y: i32,
+    pub idx: usize,
     pub fg: RGB,
     pub bg: RGB,
     pub glyph: u16,
@@ -23,8 +22,7 @@ impl DebrisSpawner {
 
     pub fn request(
         &mut self,
-        x: i32,
-        y: i32,
+        idx: usize,
         fg: RGB,
         bg: RGB,
         glyph: u16,
@@ -32,8 +30,7 @@ impl DebrisSpawner {
         name: String,
     ) {
         self.requests.push(DebrisSpawnerRequest {
-            x,
-            y,
+            idx,
             fg,
             bg,
             glyph,

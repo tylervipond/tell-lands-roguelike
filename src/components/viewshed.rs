@@ -1,4 +1,3 @@
-use rltk::Point;
 use serde::{Deserialize, Serialize};
 use specs::{
   error::NoError,
@@ -8,7 +7,8 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct Viewshed {
-  pub visible_tiles: Vec<Point>,
+  pub los_tiles: Vec<i32>,
+  pub visible_tiles: Vec<i32>,
   pub range: i32,
   pub dirty: bool,
 }

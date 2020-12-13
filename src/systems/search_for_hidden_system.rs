@@ -1,7 +1,7 @@
-use crate::components::{DungeonLevel, Hidden, Name, Position, Viewshed, WantsToSearchHidden};
+use crate::components::{Hidden, Name, Position, Viewshed, WantsToSearchHidden};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};
-use rltk::{DistanceAlg::Pythagoras, Point, RandomNumberGenerator};
+use rltk::RandomNumberGenerator;
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 pub struct SearchForHiddenSystem {}
@@ -12,7 +12,6 @@ impl<'a> System<'a> for SearchForHiddenSystem {
         WriteStorage<'a, Hidden>,
         WriteStorage<'a, WantsToSearchHidden>,
         WriteExpect<'a, RandomNumberGenerator>,
-        ReadStorage<'a, DungeonLevel>,
         ReadExpect<'a, Dungeon>,
         ReadExpect<'a, Entity>,
         WriteExpect<'a, GameLog>,
@@ -28,7 +27,6 @@ impl<'a> System<'a> for SearchForHiddenSystem {
             mut hiddens,
             mut wants_to_search_hiddens,
             mut rng,
-            dungeon_levels,
             dungeon,
             player_entity,
             mut log,
@@ -37,28 +35,27 @@ impl<'a> System<'a> for SearchForHiddenSystem {
             viewsheds,
             mut particle_effect_spawner,
         ) = data;
-        for (entity, dungeon_level, position, viewshed, _wants_to_search) in (
+        let player_level = positions.get(*player_entity).unwrap().level;
+
+        for (entity, position, viewshed, _wants_to_search) in (
             &entities,
-            &dungeon_levels,
             &positions,
             &viewsheds,
             &mut wants_to_search_hiddens,
         )
             .join()
         {
-            let level = dungeon.get_level(dungeon_level.level).unwrap();
+            let level = dungeon.get_level(position.level).unwrap();
             let is_player = *player_entity == entity;
-            let player_level = dungeon_levels.get(*player_entity).unwrap();
-
             viewshed
                 .visible_tiles
                 .iter()
                 .cloned()
                 .filter(|tile_idx| {
-                    Pythagoras.distance2d(Point::new(position.x, position.y), *tile_idx) <= 2.0
+                    level_utils::get_distance_between_idxs(level, position.idx, *tile_idx as usize) <= 2.0
                 })
-                .for_each(|point| {
-                    for hidden_entity in level_utils::entities_at_xy(level, point.x, point.y).iter()
+                .for_each(|tile_idx| {
+                    for hidden_entity in level_utils::entities_at_idx(level, tile_idx as usize).iter()
                     {
                         if let Some(hidden) = hiddens.get_mut(*hidden_entity) {
                             match rng.range(1, 6) {
@@ -77,11 +74,10 @@ impl<'a> System<'a> for SearchForHiddenSystem {
                             }
                         }
                     }
-                    if dungeon_level.level == player_level.level {
+                    if position.level == player_level {
                         particle_effect_spawner.request_search_particle(
-                            point.x,
-                            point.y,
-                            dungeon_level.level,
+                            tile_idx as usize,
+                            position.level,
                         );
                     }
                 });

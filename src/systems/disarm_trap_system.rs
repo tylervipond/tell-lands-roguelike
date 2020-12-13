@@ -1,4 +1,4 @@
-use crate::components::{DungeonLevel, Position, Trap, WantsToDisarmTrap};
+use crate::components::{Position, Trap, WantsToDisarmTrap};
 use crate::services::{GameLog, ItemSpawner};
 use crate::types::{item_type, ItemType, TrapType};
 use rltk::RandomNumberGenerator;
@@ -13,7 +13,6 @@ impl<'a> System<'a> for DisarmTrapSystem {
         WriteExpect<'a, RandomNumberGenerator>,
         WriteExpect<'a, ItemSpawner>,
         ReadStorage<'a, Position>,
-        ReadStorage<'a, DungeonLevel>,
         ReadStorage<'a, Trap>,
         ReadExpect<'a, Entity>,
         WriteExpect<'a, GameLog>,
@@ -26,7 +25,6 @@ impl<'a> System<'a> for DisarmTrapSystem {
             mut rng,
             mut spawner,
             positions,
-            levels,
             traps,
             player_entity,
             mut log,
@@ -44,8 +42,7 @@ impl<'a> System<'a> for DisarmTrapSystem {
                 }
                 _ => {
                     let position = positions.get(intent.trap).unwrap();
-                    let level = levels.get(intent.trap).unwrap().level;
-                    spawner.request(position.x, position.y, level, item_type);
+                    spawner.request(position.idx, position.level, item_type);
                     if *player_entity == entity {
                         log.add(format!("You disarmed the {}.", item_name));
                     }

@@ -1,8 +1,7 @@
 use rltk::RGB;
 
 pub struct BloodSpawnerRequest {
-    pub x: i32,
-    pub y: i32,
+    pub idx: usize,
     pub fg: RGB,
     pub bg: RGB,
     pub glyph: u16,
@@ -20,10 +19,9 @@ impl BloodSpawner {
         }
     }
 
-    pub fn request(&mut self, x: i32, y: i32, fg: RGB, bg: RGB, glyph: u16, level: u8) {
+    pub fn request(&mut self, idx: usize, fg: RGB, bg: RGB, glyph: u16, level: u8) {
         self.requests.push(BloodSpawnerRequest {
-            x,
-            y,
+            idx,
             fg,
             bg,
             glyph,

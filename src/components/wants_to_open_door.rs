@@ -7,6 +7,6 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct WantsToOpenDoor {
-    pub position: (i32, i32),
+    pub idx: usize,
     pub level: usize,
 }

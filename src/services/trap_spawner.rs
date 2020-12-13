@@ -2,8 +2,7 @@ use crate::types::TrapType;
 use specs::Entity;
 
 pub struct TrapSpawnerRequest {
-    pub x: i32,
-    pub y: i32,
+    pub idx: usize,
     pub level: u8,
     pub set_by: Entity,
     pub trap_type: TrapType,
@@ -20,10 +19,9 @@ impl TrapSpawner {
         }
     }
 
-    pub fn request(&mut self, x: i32, y: i32, level: u8, set_by: Entity, trap_type: TrapType) {
+    pub fn request(&mut self, idx: usize, level: u8, set_by: Entity, trap_type: TrapType) {
         self.requests.push(TrapSpawnerRequest {
-            x,
-            y,
+            idx,
             level,
             set_by,
             trap_type,

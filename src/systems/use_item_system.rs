@@ -1,5 +1,5 @@
 use crate::components::{
-    AreaOfEffect, CausesFire, CombatStats, Confused, Confusion, Consumable, DungeonLevel,
+    AreaOfEffect, CausesFire, CombatStats, Confused, Confusion, Consumable,
     Flammable, InflictsDamage, Name, OnFire, Position, ProvidesHealing, SufferDamage, WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
@@ -28,7 +28,6 @@ impl<'a> System<'a> for UseItemSystem {
         ReadStorage<'a, AreaOfEffect>,
         ReadStorage<'a, Confusion>,
         WriteStorage<'a, Confused>,
-        ReadStorage<'a, DungeonLevel>,
         WriteExpect<'a, ParticleEffectSpawner>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, CausesFire>,
@@ -51,24 +50,23 @@ impl<'a> System<'a> for UseItemSystem {
             aoe,
             causes_confusion,
             mut is_confused,
-            dungeon_levels,
             mut particle_spawner,
             positions,
             causes_fire,
             flammables,
             mut on_fire,
         ) = data;
-        let player_level = dungeon_levels.get(*player_entity).unwrap();
-        let level = dungeon.get_level(player_level.level).unwrap();
+        let player_position = positions.get(*player_entity).unwrap();
+        let level = dungeon.get_level(player_position.level).unwrap();
         for (to_use, entity) in (&wants_to_use, &entities).join() {
             let targets = match to_use.target {
                 None => vec![*player_entity],
                 Some(target) => match aoe.get(to_use.item) {
-                    None => level_utils::entities_at_xy(&level, target.x, target.y),
-                    Some(area) => rltk::field_of_view(target, area.radius, &*level)
+                    None => level_utils::entities_at_idx(&level, target),
+                    Some(area) => level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
                         .iter()
-                        .filter(|p| !level_utils::point_not_in_map(&level, p))
-                        .map(|p| level_utils::entities_at_xy(&level, p.x, p.y))
+                        .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
+                        .map(|idx| level_utils::entities_at_idx(&level, *idx as usize))
                         .flatten()
                         .collect(),
                 },
@@ -79,19 +77,18 @@ impl<'a> System<'a> for UseItemSystem {
                 Some(target) => match aoe.get(to_use.item) {
                     None => {}
                     Some(area) => {
-                        let dungeon_level = dungeon_levels.get(entity).unwrap();
-                        rltk::field_of_view(target, area.radius, &*level)
+                        let position = positions.get(entity).unwrap();
+                        level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
                             .iter()
-                            .filter(|p| !level_utils::point_not_in_map(&level, p))
-                            .for_each(|p| {
+                            .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
+                            .for_each(|idx| {
                                 particle_spawner.request(
-                                    p.x,
-                                    p.y,
+                                    *idx as usize,
                                     RGB::named(ORANGE),
                                     RGB::named(RED),
                                     rltk::to_cp437('░'),
                                     200.0,
-                                    dungeon_level.level,
+                                    position.level,
                                 )
                             })
                     }
@@ -104,7 +101,6 @@ impl<'a> System<'a> for UseItemSystem {
             let burns = causes_fire.get(to_use.item);
             for target in targets {
                 let pos = positions.get(target).unwrap();
-                let dungeon_level = dungeon_levels.get(target).unwrap();
                 if burns.is_some() && flammables.get(target).is_some() {
                     on_fire
                         .insert(target, OnFire {})
@@ -115,13 +111,12 @@ impl<'a> System<'a> for UseItemSystem {
                             suffer_damage.amount += damages.amount;
                         }
                         particle_spawner.request(
-                            pos.x,
-                            pos.y,
+                            pos.idx,
                             RGB::named(RED),
                             RGB::named(BLACK),
                             rltk::to_cp437('‼'),
                             200.0,
-                            dungeon_level.level,
+                            pos.level,
                         );
                         if entity == *player_entity {
                             if let Some(mob_name) = names.get(target) {
@@ -140,13 +135,12 @@ impl<'a> System<'a> for UseItemSystem {
                             stats.hp = i32::min(stats.max_hp, stats.hp + heals.amount);
                         }
                         particle_spawner.request(
-                            pos.x,
-                            pos.y,
+                            pos.idx,
                             RGB::named(RED),
                             RGB::named(BLACK),
                             rltk::to_cp437('♥'),
                             200.0,
-                            dungeon_level.level,
+                            pos.level,
                         );
                         if entity == *player_entity {
                             game_log.add(format!(
@@ -167,13 +161,12 @@ impl<'a> System<'a> for UseItemSystem {
                             )
                             .expect("Failed to confuse target");
                         particle_spawner.request(
-                            pos.x,
-                            pos.y,
+                            pos.idx,
                             RGB::named(MAGENTA),
                             RGB::named(BLACK),
                             rltk::to_cp437('?'),
                             200.0,
-                            dungeon_level.level,
+                            pos.level,
                         );
                         if entity == *player_entity {
                             let mob_name = names.get(target).unwrap();

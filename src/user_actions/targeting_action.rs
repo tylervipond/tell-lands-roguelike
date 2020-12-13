@@ -1,15 +1,15 @@
-use rltk::{Point, Rltk, VirtualKeyCode};
+use rltk::{Rltk, VirtualKeyCode};
 
 pub enum TargetingAction {
   NoAction,
   Exit,
-  Selected(Point)
+  Selected(i32)
 }
 
-pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<&Point>) -> TargetingAction {
+pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<i32>) -> TargetingAction {
   if ctx.left_click {
     return match target {
-      Some(point) => TargetingAction::Selected(*point),
+      Some(idx) => TargetingAction::Selected(idx),
       None => TargetingAction::Exit,
     };
   }

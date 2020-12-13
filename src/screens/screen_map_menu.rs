@@ -1,9 +1,10 @@
 use super::ui::{ui_hud::UIHud, ui_map::UIMap};
 use super::utils::{get_render_data, get_render_offset};
-use crate::components::{CombatStats, DungeonLevel};
+use crate::components::{CombatStats, Position};
 use crate::dungeon::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
     dungeon::Dungeon,
+    level_utils
 };
 use crate::menu_option::MenuOption;
 use crate::services::GameLog;
@@ -30,20 +31,22 @@ impl<'a> ScreenMapMenu<'a> {
         ctx.cls();
         let log = world.fetch::<GameLog>();
         let player_ent = world.fetch::<Entity>();
-        let levels = world.read_storage::<DungeonLevel>();
-        let player_level = levels.get(*player_ent).unwrap();
+        let positions = world.read_storage::<Position>();
+        let player_position = positions.get(*player_ent).unwrap();
         let combat_stats = world.read_storage::<CombatStats>();
         let player_stats = combat_stats.get(*player_ent).unwrap();
 
         let dungeon = world.fetch::<Dungeon>();
-        let level = dungeon.levels.get(&player_level.level).unwrap();
+        let level = dungeon.levels.get(&player_position.level).unwrap();
         let render_data = get_render_data(world);
-        let render_offset = get_render_offset(world);
+        let positions = world.read_storage::<Position>();
+        let player_position = positions.get(*player_ent).unwrap();
+        let (center_x, center_y) = level_utils::idx_xy(level.width as i32, player_position.idx as i32);
+        let render_offset = get_render_offset(center_x, center_y);
 
-        ctx.cls();
         UIMap::new(level, &render_data, render_offset).draw(ctx);
         UIHud::new(
-            player_level.level,
+            player_position.level,
             player_stats.hp,
             player_stats.max_hp,
             &log.entries,

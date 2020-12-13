@@ -7,6 +7,6 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct Position {
-  pub x: i32,
-  pub y: i32,
+  pub idx: usize,
+  pub level: u8,
 }

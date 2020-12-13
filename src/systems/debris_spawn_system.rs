@@ -1,4 +1,4 @@
-use crate::components::{DungeonLevel, Flammable, Grabbable, Name, Position, Renderable, Saveable};
+use crate::components::{Flammable, Grabbable, Name, Position, Renderable, Saveable};
 use crate::services::DebrisSpawner;
 use specs::{
     saveload::{MarkerAllocator, SimpleMarker, SimpleMarkerAllocator},
@@ -10,7 +10,6 @@ impl<'a> System<'a> for DebrisSpawnSystem {
     type SystemData = (
         Entities<'a>,
         WriteStorage<'a, Position>,
-        WriteStorage<'a, DungeonLevel>,
         WriteStorage<'a, Renderable>,
         WriteStorage<'a, Name>,
         WriteStorage<'a, Grabbable>,
@@ -24,7 +23,6 @@ impl<'a> System<'a> for DebrisSpawnSystem {
         let (
             entities,
             mut positions,
-            mut levels,
             mut renderables,
             mut names,
             mut grababbles,
@@ -47,8 +45,8 @@ impl<'a> System<'a> for DebrisSpawnSystem {
                 .insert(
                     new_debris,
                     Position {
-                        x: request.x,
-                        y: request.y,
+                        idx: request.idx,
+                        level: request.level
                     },
                 )
                 .expect("failed inserting Position for debris");
@@ -63,14 +61,6 @@ impl<'a> System<'a> for DebrisSpawnSystem {
                     },
                 )
                 .expect("failed inserting renderable for debris");
-            levels
-                .insert(
-                    new_debris,
-                    DungeonLevel {
-                        level: request.level,
-                    },
-                )
-                .expect("failed inserting level for debris");
             grababbles
                 .insert(new_debris, Grabbable {})
                 .expect("failed inserting grabbable for debris");

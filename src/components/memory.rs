@@ -12,15 +12,13 @@ use std::{
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub struct MemoryDestination {
-    pub x: i32,
-    pub y: i32,
+    pub idx: i32,
     pub level: i32,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct MemoryPosition {
-    pub x: i32,
-    pub y: i32,
+    pub idx: i32,
     pub level: i32,
     pub entity: Entity,
 }
@@ -69,8 +67,7 @@ pub struct Memory {
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub struct MemoryDataPosition<M: Eq + Copy> {
-    pub x: i32,
-    pub y: i32,
+    pub idx: i32,
     pub level: i32,
     pub entity: M,
 }
@@ -103,8 +100,7 @@ where
             .last_known_enemy_positions
             .iter()
             .map(|memory_position| MemoryDataPosition {
-                x: memory_position.x,
-                y: memory_position.y,
+                idx: memory_position.idx,
                 level: memory_position.level,
                 entity: ids(memory_position.entity).unwrap(),
             })
@@ -132,8 +128,7 @@ where
             .last_known_enemy_positions
             .iter()
             .map(|memory_data_position| MemoryPosition {
-                x: memory_data_position.x,
-                y: memory_data_position.y,
+                idx: memory_data_position.idx,
                 level: memory_data_position.level,
                 entity: ids(memory_data_position.entity).unwrap(),
             })

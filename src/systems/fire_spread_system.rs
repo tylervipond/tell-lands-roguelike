@@ -1,4 +1,4 @@
-use crate::components::{CombatStats, DungeonLevel, Flammable, OnFire, Position, SufferDamage};
+use crate::components::{CombatStats, Flammable, OnFire, Position, SufferDamage};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::RandomNumberGenerator;
 use specs::{
@@ -14,7 +14,6 @@ impl<'a> System<'a> for FireSpreadSystem {
         ReadStorage<'a, Position>,
         ReadStorage<'a, Flammable>,
         ReadStorage<'a, CombatStats>,
-        ReadStorage<'a, DungeonLevel>,
         ReadExpect<'a, Dungeon>,
         WriteStorage<'a, SufferDamage>,
         WriteExpect<'a, RandomNumberGenerator>,
@@ -26,38 +25,20 @@ impl<'a> System<'a> for FireSpreadSystem {
             positions,
             flammables,
             combat_stats,
-            dungeon_levels,
             dungeon,
             mut suffer_damage,
             mut rng,
         ) = data;
 
-        let affected_entities: Vec<Entity> = (&mut on_fires, &positions, &dungeon_levels)
+        let affected_entities: Vec<Entity> = (&mut on_fires, &positions)
             .join()
-            .map(|(_, position, dungeon_level)| {
-                let x = position.x;
-                let y = position.y;
-                let coords = [
-                    (x - 1, y - 1),
-                    (x, y - 1),
-                    (x + 1, y - 1),
-                    (x - 1, y),
-                    (x, y),
-                    (x + 1, y),
-                    (x - 1, y + 1),
-                    (x, y + 1),
-                    (x + 1, y + 1),
-                ];
-
-                let ents: Vec<Entity> = coords
+            .map(|(_, position)| {
+                let level = dungeon.get_level(position.level).unwrap();
+                level_utils::get_neighbors_for_idx(level.width as i32, position.idx as i32)
                     .iter()
-                    .map(|(x, y)| {
-                        let level = dungeon.get_level(dungeon_level.level).unwrap();
-                        level_utils::entities_at_xy(&level, *x, *y)
-                    })
+                    .map(|idx| level_utils::entities_at_idx(level, *idx as usize))
                     .flatten()
-                    .collect();
-                ents
+                    .collect::<Vec<Entity>>()
             })
             .flatten()
             .collect();
