@@ -1,4 +1,4 @@
-use super::ui_text_line::UITextLine;
+use super::{Style, UITextLine};
 use rltk::{Rltk, BLACK, YELLOW};
 
 pub struct UITextLineCTA<'a> {
@@ -13,6 +13,15 @@ impl<'a> UITextLineCTA<'a> {
     }
 
     pub fn draw(&self, ctx: &mut Rltk) {
-        UITextLine::new(self.x, self.y, YELLOW, BLACK, self.text).draw(ctx);
+        UITextLine::new(
+            self.x,
+            self.y,
+            self.text,
+            Some(Style {
+                fg: YELLOW,
+                bg: BLACK,
+            }),
+        )
+        .draw(ctx);
     }
 }

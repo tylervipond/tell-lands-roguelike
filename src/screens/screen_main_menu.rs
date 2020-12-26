@@ -1,10 +1,8 @@
 use super::constants::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::artwork::INTRO_ARTWORK;
 use crate::menu_option::MenuOption;
-use crate::ui_components::{
-    ui_menu_item_group_horizontal::UIMenuItemGroupHorizontal, ui_text_line::UITextLine,
-};
-use rltk::{Rltk, BLACK, WHITE};
+use crate::ui_components::{UIMenuItemGroupHorizontal, UITextLine};
+use rltk::Rltk;
 
 pub struct ScreenMainMenu<'a> {
     menu_options: &'a Vec<MenuOption<'a>>,
@@ -22,9 +20,8 @@ impl<'a> ScreenMainMenu<'a> {
             UITextLine::new(
                 (half_screen_width - line.chars().count() as u8 / 2) as i32,
                 idx as i32 + 1,
-                WHITE,
-                BLACK,
                 line,
+                None,
             )
             .draw(ctx)
         });

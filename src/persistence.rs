@@ -4,14 +4,15 @@
 // It might be good in the future to look into making a custom impl for SerializeComponents
 // to replace the custom macros
 use crate::components::{
-    AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confusion, Consumable, Contained,
-    Container, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable, Grabbing,
-    Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster, Name,
-    Objective, OnFire, ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable,
-    Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
-    WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee, WantsToMove,
-    WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap,
-    WantsToUse, Equipment, Equipable, WantsToEquip, CausesDamage, CausesLight
+    AreaOfEffect, BlocksTile, Blood, CausesDamage, CausesFire, CausesLight, CombatStats, Confusion,
+    Consumable, Contained, Container, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment,
+    Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, InBackpack,
+    InflictsDamage, Info, Item, Lightable, Memory, Monster, Name, Objective, OnFire,
+    ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
+    SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
+    WantsToDisarmTrap, WantsToDouse, WantsToDropItem, WantsToEquip, WantsToGrab, WantsToHide,
+    WantsToLight, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
+    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -157,6 +158,11 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             WantsToEquip,
             CausesDamage,
             CausesLight,
+            Info,
+            Lightable,
+            Dousable,
+            WantsToDouse,
+            WantsToLight,
             SerializationHelper
         );
     }
@@ -230,6 +236,11 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         WantsToEquip,
         CausesDamage,
         CausesLight,
+        Info,
+        Lightable,
+        Dousable,
+        WantsToLight,
+        WantsToDouse,
         SerializationHelper
     );
 }

@@ -6,7 +6,7 @@ use crate::components::{CombatStats, Position};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::ranged;
 use crate::services::GameLog;
-use crate::ui_components::ui_text_line::UITextLine;
+use crate::ui_components::{Style, UITextLine};
 use rltk::{Rltk, BLACK, BLUE, CYAN, RGB, YELLOW};
 use specs::{Entity, World, WorldExt};
 
@@ -31,7 +31,8 @@ impl ScreenMapTargeting {
         let dungeon = world.fetch::<Dungeon>();
         let level = dungeon.levels.get(&player_position.level).unwrap();
         let render_data = get_render_data(world);
-        let (center_x, center_y) = level_utils::idx_xy(level.width as i32, player_position.idx as i32);
+        let (center_x, center_y) =
+            level_utils::idx_xy(level.width as i32, player_position.idx as i32);
         let render_offset = get_render_offset(center_x, center_y);
 
         UIMap::new(level, &render_data, render_offset).draw(ctx);
@@ -43,15 +44,22 @@ impl ScreenMapTargeting {
         )
         .draw(ctx);
         if let Some(cta) = &self.cta {
-            UITextLine::new(1, 0, YELLOW, BLACK, &cta).draw(ctx);
+            UITextLine::new(
+                1,
+                0,
+                &cta,
+                Some(Style {
+                    fg: YELLOW,
+                    bg: BLACK,
+                }),
+            )
+            .draw(ctx);
         }
         let visible_tiles = ranged::get_visible_tiles_in_range(world, self.range);
-        visible_tiles
-            .iter()
-            .for_each(|tile| {
-                let (x, y) = level_utils::idx_xy(level.width as i32, *tile);
-                ctx.set_bg(x - render_offset.0, y - render_offset.1, RGB::named(BLUE));
-            });
+        visible_tiles.iter().for_each(|tile| {
+            let (x, y) = level_utils::idx_xy(level.width as i32, *tile);
+            ctx.set_bg(x - render_offset.0, y - render_offset.1, RGB::named(BLUE));
+        });
         let (mouse_x, mouse_y) = ctx.mouse_pos();
         UIMousePos::new(mouse_x, mouse_y).draw(ctx);
         if let Some(target) = self.target {

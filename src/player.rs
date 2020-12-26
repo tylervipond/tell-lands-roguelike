@@ -1,7 +1,8 @@
 use crate::components::{
-    Item, Monster, Player, Position, Trap, Viewshed, WantsToDisarmTrap, WantsToGrab,
-    WantsToHide, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
-    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse, equipable::EquipmentPositions, WantsToEquip
+    equipable::EquipmentPositions, Item, Monster, Player, Position, Trap, Viewshed,
+    WantsToDisarmTrap, WantsToDouse, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight,
+    WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed,
+    WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
 use crate::entity_option::EntityOption;
@@ -23,21 +24,32 @@ fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
     let level = dungeon.get_level(player_position.level).unwrap();
     let level_width = level.width as i32;
     for (entity, _player, pos) in (&entities, &players, &positions).join() {
-        let destination_index = level_utils::add_xy_to_idx(level_width as i32, delta_x as i32, delta_y as i32, pos.idx as i32);
+        let destination_index = level_utils::add_xy_to_idx(
+            level_width as i32,
+            delta_x as i32,
+            delta_y as i32,
+            pos.idx as i32,
+        );
         let target = level.tile_content[destination_index as usize]
             .iter()
             .filter(|e| monsters.get(**e).is_some())
             .next();
         match target {
             Some(target) => {
-                world.write_storage::<WantsToMelee>()
+                world
+                    .write_storage::<WantsToMelee>()
                     .insert(entity, WantsToMelee { target: *target })
                     .expect("Add target failed");
             }
             None => {
                 world
                     .write_storage::<WantsToMove>()
-                    .insert(entity, WantsToMove { idx: destination_index as usize })
+                    .insert(
+                        entity,
+                        WantsToMove {
+                            idx: destination_index as usize,
+                        },
+                    )
                     .expect("couldn't insert player move intent");
             }
         };
@@ -51,14 +63,15 @@ fn try_pickup_item(world: &mut World) {
     let positions = world.read_storage::<Position>();
     let player_pos = positions.get(*player_entity).unwrap();
     let mut gamelog = world.fetch_mut::<GameLog>();
-    let target_item: Option<Entity> = (&entities, &items, &positions).join().find_map(
-        |(ent, _item, position)| {
-            if position.idx == player_pos.idx && position.level == player_pos.level {
-                return Some(ent);
-            }
-            return None;
-        },
-    );
+    let target_item: Option<Entity> =
+        (&entities, &items, &positions)
+            .join()
+            .find_map(|(ent, _item, position)| {
+                if position.idx == player_pos.idx && position.level == player_pos.level {
+                    return Some(ent);
+                }
+                return None;
+            });
 
     match target_item {
         None => gamelog
@@ -90,7 +103,8 @@ fn try_open_door(world: &mut World) {
     let mut inserted = false;
     for x in -1..=1 {
         for y in -1..=1 {
-            let open_door_index = level_utils::add_xy_to_idx(level_width as i32, x, y, pos.idx as i32);
+            let open_door_index =
+                level_utils::add_xy_to_idx(level_width as i32, x, y, pos.idx as i32);
             if level.tiles[open_door_index as usize] == TileType::Door {
                 wants_to_open_door
                     .insert(
@@ -116,14 +130,14 @@ fn try_open_door(world: &mut World) {
 fn can_go_up(current_level: &Level, player_idx: usize) -> bool {
     match current_level.stairs_up {
         Some(idx) => idx == player_idx,
-        None => false
+        None => false,
     }
 }
 
 fn can_go_down(current_level: &Level, player_idx: usize) -> bool {
     match current_level.stairs_down {
         Some(idx) => idx == player_idx,
-        None => false
+        None => false,
     }
 }
 
@@ -248,18 +262,34 @@ pub fn hide_in_container(world: &mut World, entity: Entity) {
         .expect("Unable to Insert Hide in Container Intent");
 }
 
-pub fn equip_item(world:&mut World, entity: Option<Entity>, position: EquipmentPositions) {
+pub fn equip_item(world: &mut World, entity: Option<Entity>, position: EquipmentPositions) {
     let player_entity = world.fetch::<Entity>();
     let mut equip_intent = world.write_storage::<WantsToEquip>();
     equip_intent
-    .insert(
-        *player_entity,
-        WantsToEquip {
-            equipment: entity,
-            position
-        },
-    )
-    .expect("Unable to Insert Hide in Container Intent");
+        .insert(
+            *player_entity,
+            WantsToEquip {
+                equipment: entity,
+                position,
+            },
+        )
+        .expect("Unable to Insert Hide in Container Intent");
+}
+
+pub fn douse_item(world: &mut World, item: Entity) {
+    let player_entity = world.fetch::<Entity>();
+    let mut douse_intents = world.write_storage::<WantsToDouse>();
+    douse_intents
+        .insert(*player_entity, WantsToDouse { item })
+        .expect("Unable to Insert Douse Intent");
+}
+
+pub fn light_item(world: &mut World, item: Entity) {
+    let player_entity = world.fetch::<Entity>();
+    let mut light_intents = world.write_storage::<WantsToLight>();
+    light_intents
+        .insert(*player_entity, WantsToLight { item })
+        .expect("Unable to Insert Douse Intent");
 }
 
 pub fn player_action(world: &mut World, action: MapAction) {

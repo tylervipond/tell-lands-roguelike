@@ -1,5 +1,5 @@
-use specs::Entity;
 use crate::components::equipable::EquipmentPositions;
+use specs::Entity;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -31,10 +31,12 @@ pub enum RunState {
     },
     EquipMenu {
         highlighted: usize,
-        position: EquipmentPositions
+        position: EquipmentPositions,
     },
     EquipmentMenu {
-        highlighted: usize
+        highlighted: usize,
+        action_highlighted: usize,
+        action_menu: bool
     },
     MainMenu {
         highlighted: usize,

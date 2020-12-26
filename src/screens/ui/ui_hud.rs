@@ -1,5 +1,5 @@
 use crate::screens::constants::{MAP_HEIGHT, MAP_WIDTH, SCREEN_HEIGHT};
-use crate::ui_components::{ui_box::UIBox, ui_text_line::UITextLine};
+use crate::ui_components::{Style, UIBox, UITextLine};
 use rltk::{Rltk, BLACK, RED, RGB, WHITE, YELLOW};
 
 const HUD_LEFT: i32 = 0;
@@ -32,9 +32,27 @@ impl<'a> UIHud<'a> {
 
     pub fn draw(&self, ctx: &mut Rltk) {
         UIBox::new(HUD_LEFT, HUD_TOP, HUD_WIDTH, HUD_HEIGHT, WHITE, BLACK).draw(ctx);
-        UITextLine::new(2, HUD_TOP, YELLOW, BLACK, &format!("Depth: {}", self.depth)).draw(ctx);
+        UITextLine::new(
+            2,
+            HUD_TOP,
+            &format!("Depth: {}", self.depth),
+            Some(Style {
+                fg: YELLOW,
+                bg: BLACK,
+            }),
+        )
+        .draw(ctx);
         let health = format!("HP: {} / {}", self.hp, self.max_hp);
-        UITextLine::new(HUD_HEALTH_LEFT, HUD_TOP, YELLOW, BLACK, &health).draw(ctx);
+        UITextLine::new(
+            HUD_HEALTH_LEFT,
+            HUD_TOP,
+            &health,
+            Some(Style {
+                fg: YELLOW,
+                bg: BLACK,
+            }),
+        )
+        .draw(ctx);
         ctx.draw_bar_horizontal(
             HUD_HEALTH_BAR_LEFT,
             HUD_TOP,

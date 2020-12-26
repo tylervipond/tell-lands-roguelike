@@ -10,6 +10,7 @@ pub mod screen_map_targeting;
 pub mod screen_success;
 mod ui;
 pub mod utils;
+pub mod screen_map_item_menu;
 
 pub use constants::{MAP_HEIGHT, MAP_WIDTH, SCREEN_HEIGHT, SCREEN_PADDING, SCREEN_WIDTH};
 pub use screen_credits::ScreenCredits;
@@ -21,3 +22,4 @@ pub use screen_map_generic::ScreenMapGeneric;
 pub use screen_map_menu::ScreenMapMenu;
 pub use screen_map_targeting::ScreenMapTargeting;
 pub use screen_success::ScreenSuccess;
+pub use screen_map_item_menu::ScreenMapItemMenu;

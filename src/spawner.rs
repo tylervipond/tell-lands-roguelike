@@ -1,11 +1,11 @@
-use crate::components::{
-    AreaOfEffect, BlocksTile, CausesFire, CombatStats, Confusion, Consumable, Contained, Container,
-    EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Hidden,
-    HidingSpot, InflictsDamage, Item, Memory, Monster, Name, Objective, Player, Position,
-    ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed, CausesDamage,
-    CausesLight
-};
 use crate::components::equipable::EquipmentPositions;
+use crate::components::{
+    AreaOfEffect, BlocksTile, CausesDamage, CausesFire, CausesLight, CombatStats, Confusion,
+    Consumable, Contained, Container, Dousable, EntryTrigger, Equipable, Equipment, Flammable,
+    Furniture, Grabbable, Hidden, HidingSpot, InflictsDamage, Info, Item, Memory, Monster, Name,
+    Objective, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation,
+    Trap, Viewshed,
+};
 use crate::dungeon::{
     constants::MAP_HEIGHT,
     level::Level,
@@ -77,8 +77,10 @@ fn create_marked_entity_with_position<'a>(
     position_idx: usize,
     level: &'a Level,
 ) -> EntityBuilder<'a> {
-    create_marked_entity(world)
-        .with(Position { idx: position_idx, level: level.depth })
+    create_marked_entity(world).with(Position {
+        idx: position_idx,
+        level: level.depth,
+    })
 }
 
 fn create_marked_entity_in_container<'a>(
@@ -90,17 +92,30 @@ fn create_marked_entity_in_container<'a>(
     })
 }
 
-fn make_entity_weapon<'a>(builder: EntityBuilder<'a>, min: i32, max: i32, bonus:i32) -> EntityBuilder<'a> {
+fn make_entity_weapon<'a>(
+    builder: EntityBuilder<'a>,
+    min: i32,
+    max: i32,
+    bonus: i32,
+) -> EntityBuilder<'a> {
     builder
-    .with(CausesDamage {min, max, bonus})
-    .with(Item {})
-    .with(Equipable { positions: Box::new([EquipmentPositions::DominantHand, EquipmentPositions::OffHand])})
+        .with(CausesDamage { min, max, bonus })
+        .with(Item {})
+        .with(Equipable {
+            positions: Box::new([
+                EquipmentPositions::DominantHand,
+                EquipmentPositions::OffHand,
+            ]),
+        })
 }
 
 fn make_entity_sword<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
     make_entity_weapon(builder, 1, 6, 0)
         .with(Name {
             name: "Sword".to_string(),
+        })
+        .with(Info {
+            description: String::from("A Sword, a sharp pointy item for poking, stabbing, slashing etc. It's polished blade gleams in the darkness. Your only friend in the infinite city.")
         })
         .with(Renderable {
             glyph: to_cp437('/'),
@@ -112,31 +127,43 @@ fn make_entity_sword<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
 
 fn make_entity_club<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
     make_entity_weapon(builder, 1, 4, 0)
-    .with(Name {
-        name: "Club".to_string(),
-    })
-    .with(Renderable {
-        glyph: to_cp437('/'),
-        fg: RGB::named(rltk::BROWN3),
-        bg: RGB::named(rltk::BLACK),
-        layer: 1,
-    })
+        .with(Name {
+            name: "Club".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('/'),
+            fg: RGB::named(rltk::BROWN3),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
 }
 
-fn make_entity_torch<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
+fn make_entity_torch<'a>(builder: EntityBuilder<'a>, lit: bool) -> EntityBuilder<'a> {
     builder
-    .with(Item {})
-    .with(Equipable { positions: Box::new([EquipmentPositions::DominantHand, EquipmentPositions::OffHand])})
-    .with(CausesLight {radius: 10})
-    .with(Name {
-        name: "Torch".to_string(),
-    })
-    .with(Renderable {
-        glyph: to_cp437('/'),
-        fg: RGB::named(rltk::BROWN4),
-        bg: RGB::named(rltk::BLACK),
-        layer: 1,
-    })
+        .with(Item {})
+        .with(Equipable {
+            positions: Box::new([
+                EquipmentPositions::DominantHand,
+                EquipmentPositions::OffHand,
+            ]),
+        })
+        .with(CausesLight {
+            radius: 5,
+            lit,
+            turns_remaining: Some(10),
+        })
+        .with(Name {
+            name: "Torch".to_string(),
+        })
+        .with(Info {
+            description: String::from("A torch, it's useful for seeing things, or just holding if you don't feel like lighting it.")
+        })
+        .with(Renderable {
+            glyph: to_cp437('/'),
+            fg: RGB::named(rltk::BROWN4),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
 }
 
 fn spawn_sword_as_equipment(world: &mut World) -> Entity {
@@ -148,7 +175,9 @@ fn spawn_club_as_equipment(world: &mut World) -> Entity {
 }
 
 fn spawn_torch_as_equipment(world: &mut World) -> Entity {
-    make_entity_torch(create_marked_entity(world)).build()
+    make_entity_torch(create_marked_entity(world), true)
+        .with(Dousable {})
+        .build()
 }
 
 pub fn spawn_player(world: &mut World, idx: usize, level: &Level) -> Entity {
