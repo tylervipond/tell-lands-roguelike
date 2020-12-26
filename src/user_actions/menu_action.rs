@@ -6,6 +6,8 @@ pub enum MenuAction {
   Select { option: usize },
   MoveHighlightNext,
   MoveHighlightPrev,
+  NextMenu,
+  PreviousMenu,
   NextPage,
   PreviousPage,
 }
@@ -16,8 +18,10 @@ pub fn map_input_to_menu_action(ctx: &mut Rltk, highlighted: usize) -> MenuActio
     Some(key) => match key {
       VirtualKeyCode::Up => MenuAction::MoveHighlightPrev,
       VirtualKeyCode::Down => MenuAction::MoveHighlightNext,
-      VirtualKeyCode::Left => MenuAction::PreviousPage,
-      VirtualKeyCode::Right => MenuAction::NextPage,
+      VirtualKeyCode::Comma => MenuAction::PreviousPage,
+      VirtualKeyCode::Period => MenuAction::NextPage,
+      VirtualKeyCode::Left => MenuAction::PreviousMenu,
+      VirtualKeyCode::Right => MenuAction::NextMenu,
       VirtualKeyCode::Return => MenuAction::Select {
         option: highlighted,
       },

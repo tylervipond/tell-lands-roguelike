@@ -36,13 +36,13 @@ impl<'a> UIDynamicMenu<'a> {
         };
         let inner_width = match [longest_line_length, title_length, cta_length].iter().max() {
             Some(max) => *max,
-            None => 0
+            None => 0,
         };
         Self {
             x,
             y,
             width: inner_width as u8 + INTERNAL_PADDING * 2,
-            height: menu_options.len() as u8 + INTERNAL_PADDING * 2 -1,
+            height: menu_options.len() as u8 + INTERNAL_PADDING * 2 - 1,
             menu_options,
             cta,
             title,
@@ -61,6 +61,6 @@ impl<'a> UIDynamicMenu<'a> {
         .draw(ctx);
         let item_group_x = self.x + INTERNAL_PADDING as i32;
         let item_group_y = self.y + INTERNAL_PADDING as i32;
-        UIMenuItemGroup::new(item_group_x, item_group_y, self.menu_options).draw(ctx);
+        UIMenuItemGroup::new(item_group_x, item_group_y, self.menu_options, true).draw(ctx);
     }
 }

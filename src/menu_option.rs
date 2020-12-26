@@ -17,7 +17,7 @@ impl<'a> MenuOption<'a> {
     }
 }
 
-pub fn select_next_menu_index(menu: &Vec<MenuOption>, highlighted: usize) -> usize {
+pub fn select_next_menu_index<'a>(menu: &Vec<MenuOption>, highlighted: usize) -> usize {
     if menu
         .iter()
         .filter(|o| o.state != MenuOptionState::Disabled)

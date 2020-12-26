@@ -1,6 +1,5 @@
+use super::{utils::get_offset_from_center, Style, UITextLine};
 use rltk::Rltk;
-use super::ui_text_line::UITextLine;
-use super::utils::get_offset_from_center;
 
 pub struct UITextLineCentered<'a> {
     x: i32,
@@ -12,7 +11,14 @@ pub struct UITextLineCentered<'a> {
 }
 
 impl<'a> UITextLineCentered<'a> {
-    pub fn new(x: i32, y: i32, width: u32, fg: (u8, u8, u8), bg: (u8, u8, u8), text: &'a str) -> Self {
+    pub fn new(
+        x: i32,
+        y: i32,
+        width: u32,
+        fg: (u8, u8, u8),
+        bg: (u8, u8, u8),
+        text: &'a str,
+    ) -> Self {
         Self {
             x,
             y,
@@ -24,8 +30,16 @@ impl<'a> UITextLineCentered<'a> {
     }
 
     pub fn draw(&self, ctx: &mut Rltk) {
-
         let text_x = get_offset_from_center(self.width as usize, self.text.chars().count());
-        UITextLine::new(self.x + text_x as i32, self.y,self.fg, self.bg, self.text).draw(ctx);
+        UITextLine::new(
+            self.x + text_x as i32,
+            self.y,
+            self.text,
+            Some(Style {
+                fg: self.fg,
+                bg: self.bg,
+            }),
+        )
+        .draw(ctx);
     }
 }

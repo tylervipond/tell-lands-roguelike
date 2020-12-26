@@ -28,16 +28,17 @@ mod ui_components;
 mod user_actions;
 mod utils;
 use components::{
-    AreaOfEffect, BlocksTile, Blood, CausesFire, CombatStats, Confused, Confusion, Consumable,
-    Contained, Container, EntityMoved, EntryTrigger, Flammable, Furniture, Grabbable,
-    Grabbing, Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Item, Memory, Monster,
+    equipable::EquipmentPositions, AreaOfEffect, BlocksTile, Blood, CausesDamage, CausesFire,
+    CausesLight, CombatStats, Confused, Confusion, Consumable, Contained, Container, Dousable,
+    EntityMoved, EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Grabbing,
+    Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Info, Item, Lightable, Memory, Monster,
     Name, Objective, OnFire, ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged,
     Renderable, Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered,
-    Viewshed, WantsToDisarmTrap, WantsToDropItem, WantsToGrab, WantsToHide, WantsToMelee,
-    WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden,
-    WantsToTrap, WantsToUse, Equipment, Equipable, equipable::EquipmentPositions, WantsToEquip,
-    CausesDamage, CausesLight
+    Viewshed, WantsToDisarmTrap, WantsToDouse, WantsToDropItem, WantsToEquip, WantsToGrab,
+    WantsToHide, WantsToLight, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
+    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
+use types::EquipMenuType;
 
 use dungeon::{dungeon::Dungeon, level_builders, level_utils, tile_type::TileType};
 use menu_option::{MenuOption, MenuOptionState};
@@ -45,19 +46,20 @@ use player::player_action;
 use run_state::RunState;
 use screens::{
     ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenMainMenu, ScreenMapGeneric,
-    ScreenMapMenu, ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
+    ScreenMapItemMenu, ScreenMapMenu, ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT,
+    SCREEN_WIDTH,
 };
 use services::{
     BloodSpawner, DebrisSpawner, GameLog, ItemSpawner, ParticleEffectSpawner, TrapSpawner,
 };
 use systems::{
-    BloodSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem, FireBurnSystem,
-    FireDieSystem, FireSpreadSystem, GrabSystem, HideSystem, ItemCollectionSystem, ItemDropSystem,
-    ItemSpawnSystem, LightSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem,
-    OpenDoorSystem, ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem,
-    RemoveTriggeredTrapsSystem, RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem,
-    TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem, UpdateParticleEffectsSystem,
-    UseItemSystem, VisibilitySystem, EquipSystem
+    BloodSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem, DouseItemSystem,
+    EquipSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem, GrabSystem, HideSystem,
+    ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem, LightItemSystem, LightSystem,
+    MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, OpenDoorSystem,
+    ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
+    RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
+    UpdateMemoriesSystem, UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_map_action, map_input_to_menu_action,
@@ -72,10 +74,14 @@ fn player_can_leave_dungeon(world: &mut World) -> bool {
     match level.exit {
         Some(exit_idx) => {
             let player_entity = world.fetch::<Entity>();
-            let player_position = world.read_storage::<Position>().get(*player_entity).unwrap().idx;
+            let player_position = world
+                .read_storage::<Position>()
+                .get(*player_entity)
+                .unwrap()
+                .idx;
             player_position == exit_idx
-        },
-        None => false
+        }
+        None => false,
     }
 }
 
@@ -107,10 +113,7 @@ fn get_entity_at_idx_on_level(
         .next()
 }
 
-fn get_entity_with_component_at_idx<T: Component>(
-    world: &mut World,
-    idx: usize,
-) -> Option<Entity> {
+fn get_entity_with_component_at_idx<T: Component>(world: &mut World, idx: usize) -> Option<Entity> {
     let storage = world.read_storage::<T>();
     let filter = |e| match storage.get(e) {
         Some(_) => true,
@@ -226,6 +229,11 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<WantsToEquip>().clear();
     world.write_storage::<CausesDamage>().clear();
     world.write_storage::<CausesLight>().clear();
+    world.write_storage::<Info>().clear();
+    world.write_storage::<Lightable>().clear();
+    world.write_storage::<Dousable>().clear();
+    world.write_storage::<WantsToLight>().clear();
+    world.write_storage::<WantsToDouse>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -342,6 +350,10 @@ impl State {
             open_door_system.run_now(&self.world);
             let mut hide_system = HideSystem {};
             hide_system.run_now(&self.world);
+            let mut light_item_system = LightItemSystem {};
+            light_item_system.run_now(&self.world);
+            let mut douse_item_system = DouseItemSystem {};
+            douse_item_system.run_now(&self.world);
         }
         let mut blood_spawn_system = BloodSpawnSystem {};
         blood_spawn_system.run_now(&self.world);
@@ -384,7 +396,11 @@ impl GameState for State {
                         highlighted: 0,
                         page: 0,
                     },
-                    MapAction::ShowEquipmentMenu => RunState::EquipmentMenu { highlighted: 0 },
+                    MapAction::ShowEquipmentMenu => RunState::EquipmentMenu {
+                        highlighted: 0,
+                        action_highlighted: 0,
+                        action_menu: false,
+                    },
                     MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.world) {
                         true => RunState::ExitGameMenu { highlighted: 0 },
                         false => {
@@ -457,7 +473,6 @@ impl GameState for State {
                 .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    MenuAction::NoAction => RunState::InventoryMenu { highlighted, page },
                     MenuAction::Exit => RunState::AwaitingInput,
                     MenuAction::MoveHighlightNext => RunState::InventoryMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
@@ -496,6 +511,7 @@ impl GameState for State {
                             None => RunState::InventoryMenu { highlighted, page },
                         }
                     }
+                    _ => RunState::InventoryMenu { highlighted, page },
                 }
             }
             RunState::DropItemMenu { highlighted, page } => {
@@ -526,7 +542,6 @@ impl GameState for State {
                 .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    MenuAction::NoAction => RunState::DropItemMenu { highlighted, page },
                     MenuAction::Exit => RunState::AwaitingInput,
                     MenuAction::MoveHighlightNext => RunState::DropItemMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
@@ -559,6 +574,7 @@ impl GameState for State {
                             None => RunState::DropItemMenu { highlighted, page },
                         }
                     }
+                    _ => RunState::DropItemMenu { highlighted, page },
                 }
             }
             RunState::ExitGameMenu { highlighted } => {
@@ -653,8 +669,10 @@ impl GameState for State {
                     TargetingAction::NoAction => RunState::ShowTargetingDisarmTrap,
                     TargetingAction::Exit => RunState::AwaitingInput,
                     TargetingAction::Selected(target) => {
-                        let trap_entity =
-                            get_entity_with_component_at_idx::<Trap>(&mut self.world, target as usize);
+                        let trap_entity = get_entity_with_component_at_idx::<Trap>(
+                            &mut self.world,
+                            target as usize,
+                        );
                         match trap_entity {
                             Some(e) => player::disarm_trap(&mut self.world, e),
                             None => {
@@ -781,11 +799,6 @@ impl GameState for State {
                 .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    MenuAction::NoAction => RunState::OpenContainerMenu {
-                        highlighted,
-                        page,
-                        container,
-                    },
                     MenuAction::Exit => RunState::AwaitingInput,
                     MenuAction::MoveHighlightNext => RunState::OpenContainerMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
@@ -830,6 +843,11 @@ impl GameState for State {
                             },
                         }
                     }
+                    _ => RunState::OpenContainerMenu {
+                        highlighted,
+                        page,
+                        container,
+                    },
                 }
             }
             RunState::ActionMenu { highlighted } => {
@@ -843,7 +861,7 @@ impl GameState for State {
                     "Release Furniture",
                     "Attack",
                     "Hide in Container",
-                    "Equipment Menu"
+                    "Equipment Menu",
                 ]
                 .iter()
                 .enumerate()
@@ -890,117 +908,259 @@ impl GameState for State {
                         }
                         7 => RunState::ShowTargetingAttack,
                         8 => RunState::ShowTargetingHideInContainer,
-                        9 => RunState::EquipmentMenu { highlighted: 0 },
+                        9 => RunState::EquipmentMenu {
+                            highlighted: 0,
+                            action_highlighted: 0,
+                            action_menu: false,
+                        },
                         _ => RunState::ActionMenu { highlighted },
                     },
                     _ => RunState::ActionMenu { highlighted },
                 }
-            },
-            RunState::EquipMenu {highlighted, position } => {
+            }
+            RunState::EquipMenu {
+                highlighted,
+                position,
+            } => {
                 let equipment: Vec<(String, Option<Entity>)> = {
                     let player_ent = self.world.fetch::<Entity>();
                     let equipment = self.world.read_storage::<Equipable>();
                     let in_backpack = self.world.read_storage::<InBackpack>();
-                    let names= self.world.read_storage::<Name>();
+                    let names = self.world.read_storage::<Name>();
                     let entities = self.world.entities();
                     iter::once((String::from("Nothing"), None))
-                    .chain((&equipment, &in_backpack, &names, &entities)
-                        .join()
-                        .filter(|(e,b, _n, _ent)| {
-                            let has_position = e.positions.iter().find(|p| **p == position).is_some();
-                            let owned_by_player = b.owner == *player_ent;
-                            has_position && owned_by_player
-                        })
-                        .map(|(_e, _b, n, ent)| (n.name.clone(), Some(ent)))
-                    )
-                    .collect()
+                        .chain(
+                            (&equipment, &in_backpack, &names, &entities)
+                                .join()
+                                .filter(|(e, b, _n, _ent)| {
+                                    let has_position =
+                                        e.positions.iter().find(|p| **p == position).is_some();
+                                    let owned_by_player = b.owner == *player_ent;
+                                    has_position && owned_by_player
+                                })
+                                .map(|(_e, _b, n, ent)| (n.name.clone(), Some(ent))),
+                        )
+                        .collect()
                 };
 
-                let menu = equipment.iter()
-                .enumerate()
-                .map(|(index, (name, _))| {
-                    let state = match highlighted == index {
-                        true => MenuOptionState::Highlighted,
-                        false => MenuOptionState::Normal,
-                    };
-                    MenuOption::new(name, state)
-                })
-                .collect();
+                let menu = equipment
+                    .iter()
+                    .enumerate()
+                    .map(|(index, (name, _))| {
+                        let state = match highlighted == index {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        };
+                        MenuOption::new(name, state)
+                    })
+                    .collect();
 
                 ScreenMapMenu::new(&menu, "Choose an Item to Equip", "Escape to Cancel")
-                .draw(ctx, &mut self.world);
-            let action = map_input_to_menu_action(ctx, highlighted);
-            match action {
-                MenuAction::MoveHighlightNext => RunState::EquipMenu {
-                    highlighted: menu_option::select_next_menu_index(&menu, highlighted),
-                    position
-                },
-                MenuAction::MoveHighlightPrev => RunState::EquipMenu {
-                    highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
-                    position
-                },
-                MenuAction::NoAction => RunState::EquipMenu { highlighted, position },
-                MenuAction::Exit => RunState::EquipmentMenu { highlighted: 0},
-                MenuAction::Select { option } => {
-                    let (_, entity) = equipment[option];
-                    player::equip_item(&mut self.world, entity, position);
-                    RunState::PlayerTurn
-                },
-                _ => RunState::EquipMenu { highlighted, position }
-            }
-            },
-            RunState::EquipmentMenu { highlighted } => {
-                let slots: Vec<(String, EquipmentPositions)> = {
-                    let player_ent = self.world.fetch::<Entity>();
-                    let equipment = self.world.read_storage::<Equipment>();
-                    let player_equipment = equipment.get(*player_ent).unwrap();
-                    let names= self.world.read_storage::<Name>();
-                    let off_hand_item_name = match player_equipment.off_hand {
-                        Some(e) => &names.get(e).unwrap().name,
-                        None => "Empty"
-                    };
-                    let dominant_hand_item_name = match player_equipment.dominant_hand {
-                        Some(e) => &names.get(e).unwrap().name,
-                        None => "Empty"
-                    };
-                    vec![
-                        (format!("Dominant Hand: {}", dominant_hand_item_name), EquipmentPositions::DominantHand),
-                        (format!("Off Hand:  {}", off_hand_item_name), EquipmentPositions::OffHand),
-                    ]
-                };
-
-                let menu = slots.iter()
-                .enumerate()
-                .map(|(index, (text, _position))| {
-                    let state = match highlighted == index {
-                        true => MenuOptionState::Highlighted,
-                        false => MenuOptionState::Normal,
-                    };
-                    MenuOption::new(text, state)
-                })
-                .collect();
-
-                ScreenMapMenu::new(&menu, "Equipment", "Escape to Cancel")
                     .draw(ctx, &mut self.world);
                 let action = map_input_to_menu_action(ctx, highlighted);
                 match action {
-                    MenuAction::MoveHighlightNext => RunState::EquipmentMenu {
+                    MenuAction::MoveHighlightNext => RunState::EquipMenu {
                         highlighted: menu_option::select_next_menu_index(&menu, highlighted),
+                        position,
                     },
-                    MenuAction::MoveHighlightPrev => RunState::EquipmentMenu {
+                    MenuAction::MoveHighlightPrev => RunState::EquipMenu {
                         highlighted: menu_option::select_previous_menu_index(&menu, highlighted),
+                        position,
                     },
-                    MenuAction::NoAction => RunState::EquipmentMenu { highlighted },
-                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::NoAction => RunState::EquipMenu {
+                        highlighted,
+                        position,
+                    },
+                    MenuAction::Exit => RunState::EquipmentMenu {
+                        highlighted: 0,
+                        action_highlighted: 0,
+                        action_menu: false,
+                    },
                     MenuAction::Select { option } => {
-                        let position = slots[option as usize].1;
-                        match option {
-                            _ => RunState::EquipMenu { highlighted: 0, position }
+                        let (_, entity) = equipment[option];
+                        player::equip_item(&mut self.world, entity, position);
+                        RunState::PlayerTurn
+                    }
+                    _ => RunState::EquipMenu {
+                        highlighted,
+                        position,
+                    },
+                }
+            }
+            RunState::EquipmentMenu {
+                highlighted,
+                action_highlighted,
+                action_menu,
+            } => {
+                let slots: Vec<(String, EquipmentPositions, Option<Entity>)> = {
+                    let player_ent = self.world.fetch::<Entity>();
+                    let equipment = self.world.read_storage::<Equipment>();
+                    let player_equipment = equipment.get(*player_ent).unwrap();
+                    let names = self.world.read_storage::<Name>();
+                    let off_hand_item = match player_equipment.off_hand {
+                        Some(e) => (names.get(e).unwrap().name.clone(), Some(e)),
+                        None => (String::from("Empty"), None),
+                    };
+                    let dominant_hand_item = match player_equipment.dominant_hand {
+                        Some(e) => (names.get(e).unwrap().name.clone(), Some(e)),
+                        None => (String::from("Empty"), None),
+                    };
+                    vec![
+                        (
+                            format!("Dominant Hand: {}", dominant_hand_item.0),
+                            EquipmentPositions::DominantHand,
+                            dominant_hand_item.1,
+                        ),
+                        (
+                            format!("Off Hand:  {}", off_hand_item.0),
+                            EquipmentPositions::OffHand,
+                            off_hand_item.1,
+                        ),
+                    ]
+                };
+
+                let mut submenu_actions = vec![];
+                if let Some((_name, position, ent)) = slots.get(highlighted) {
+                    submenu_actions.push(("Exchange", EquipMenuType::Exchange(*position)));
+                    if let Some(equipment_ent) = ent {
+                        if self
+                            .world
+                            .read_storage::<Lightable>()
+                            .get(*equipment_ent)
+                            .is_some()
+                        {
+                            submenu_actions.push(("Light", EquipMenuType::Light(*equipment_ent)))
+                        }
+                        if self
+                            .world
+                            .read_storage::<Dousable>()
+                            .get(*equipment_ent)
+                            .is_some()
+                        {
+                            submenu_actions.push(("Douse", EquipMenuType::Douse(*equipment_ent)))
                         }
                     }
-                    _ => RunState::EquipmentMenu { highlighted }
                 }
-            },
+                let description = {
+                    match slots.get(highlighted) {
+                        Some((_position, _, e)) => match e {
+                            Some(ent) => {
+                                let info = self.world.read_storage::<Info>();
+                                let ent_info = info.get(*ent);
+                                match ent_info {
+                                    Some(i) => String::from(&i.description),
+                                    None => String::from("No Description"),
+                                }
+                            },
+                            None => String::from("No Description"),
+                        },
+                        None => String::from("No Description"),
+                    }
+                };
+                let submenu: Vec<MenuOption> = submenu_actions
+                    .iter()
+                    .enumerate()
+                    .map(|(index, (text, _))| {
+                        let state = match action_highlighted == index {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        };
+                        MenuOption::new(text, state)
+                    })
+                    .collect();
+
+                let menu = slots
+                    .iter()
+                    .enumerate()
+                    .map(|(index, (text, _position, _))| {
+                        let state = match highlighted == index {
+                            true => MenuOptionState::Highlighted,
+                            false => MenuOptionState::Normal,
+                        };
+                        MenuOption::new(text, state)
+                    })
+                    .collect();
+
+                ScreenMapItemMenu::new(
+                    &menu,
+                    &submenu,
+                    action_menu,
+                    &description,
+                    "Equipment",
+                    "Escape to Cancel",
+                )
+                .draw(ctx, &mut self.world);
+                let action = map_input_to_menu_action(ctx, action_highlighted);
+                match action {
+                    MenuAction::MoveHighlightNext => {
+                        let action_highlighted = match action_menu {
+                            true => {
+                                menu_option::select_next_menu_index(&submenu, action_highlighted)
+                            }
+
+                            false => action_highlighted,
+                        };
+                        let highlighted = match action_menu {
+                            true => highlighted,
+                            false => menu_option::select_next_menu_index(&menu, highlighted),
+                        };
+                        RunState::EquipmentMenu {
+                            highlighted,
+                            action_highlighted,
+                            action_menu,
+                        }
+                    }
+                    MenuAction::MoveHighlightPrev => {
+                        let action_highlighted = match action_menu {
+                            true => menu_option::select_previous_menu_index(
+                                &submenu,
+                                action_highlighted,
+                            ),
+
+                            false => action_highlighted,
+                        };
+                        let highlighted = match action_menu {
+                            true => highlighted,
+                            false => menu_option::select_previous_menu_index(&menu, highlighted),
+                        };
+                        RunState::EquipmentMenu {
+                            highlighted,
+                            action_highlighted,
+                            action_menu,
+                        }
+                    }
+                    MenuAction::NoAction => RunState::EquipmentMenu {
+                        highlighted,
+                        action_highlighted,
+                        action_menu,
+                    },
+                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Select { option } => match submenu_actions[option].1 {
+                        EquipMenuType::Exchange(position) => RunState::EquipMenu {
+                            highlighted: 0,
+                            position,
+                        },
+                        EquipMenuType::Douse(ent) => {
+                            player::douse_item(&mut self.world, ent);
+                            RunState::PlayerTurn
+                        }
+                        EquipMenuType::Light(ent) => {
+                            player::light_item(&mut self.world, ent);
+                            RunState::PlayerTurn
+                        }
+                    },
+                    MenuAction::NextMenu | MenuAction::PreviousMenu => RunState::EquipmentMenu {
+                        highlighted,
+                        action_highlighted,
+                        action_menu: !action_menu,
+                    },
+                    _ => RunState::EquipmentMenu {
+                        highlighted,
+                        action_highlighted,
+                        action_menu,
+                    },
+                }
+            }
             RunState::IntroScreen => {
                 ScreenIntro::new().draw(ctx);
                 let action = map_input_to_static_action(ctx);
@@ -1225,6 +1385,11 @@ pub fn start() {
     gs.world.register::<WantsToEquip>();
     gs.world.register::<CausesDamage>();
     gs.world.register::<CausesLight>();
+    gs.world.register::<Info>();
+    gs.world.register::<Lightable>();
+    gs.world.register::<Dousable>();
+    gs.world.register::<WantsToDouse>();
+    gs.world.register::<WantsToLight>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
