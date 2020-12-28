@@ -144,9 +144,11 @@ impl Room {
             _ => {}
         };
 
+        // the stamp is 1 tile larger in each direction than the rect, this is to accomodate walls that are part of other rects in the stamp.
+        // TODO: this should be removed as part of a general refactor of the level generation
         let stamp = Stamp::new(
-            (0..rect.height())
-                .map(|_| (0..rect.width()).map(|_| Use(Floor)).collect())
+            (0..=rect.height())
+                .map(|_| (0..=rect.width()).map(|_| Use(Floor)).collect())
                 .collect(),
         );
         Room {

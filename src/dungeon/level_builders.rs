@@ -155,6 +155,12 @@ pub fn decorate_level(level: &mut Level, rng: &mut RandomNumberGenerator) {
 
 pub fn update_room_stamps_from_level(level: &mut Level) {
     let mut updates: Vec<(usize, usize, usize, StampPart<RoomPart>)> = vec![];
+    level.rooms.iter_mut().for_each(|room| {
+        // the rect needs to be expanded at this point so that the stamp can have all 4 walls
+        // TODO: This feels messey and should be part of a level generation refactor.
+        room.rect.x2 = room.rect.x2 + 1;
+        room.rect.y2 = room.rect.y2 + 1;
+    });
     for (room_index, room) in level.rooms.iter().enumerate() {
         for x in room.rect.x1..room.rect.x2 {
             for y in room.rect.y1..room.rect.y2 {
@@ -325,7 +331,6 @@ pub fn build(depth: u8) -> Level {
     let mut rects = generate_rects_for_level(level.width as i32, level.height as i32, &mut rng);
     let room_count = rng.range(2, rects.len() as i32);
     let mut room_rects = get_x_random_elements(&mut rng, room_count as u32, &mut rects);
-
     room_rects.iter_mut().for_each(|r| match rng.range(0, 6) {
         1 => {
             make_rect_square(r);

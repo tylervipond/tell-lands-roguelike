@@ -150,7 +150,7 @@ fn make_entity_torch<'a>(builder: EntityBuilder<'a>, lit: bool) -> EntityBuilder
         .with(CausesLight {
             radius: 5,
             lit,
-            turns_remaining: Some(10),
+            turns_remaining: None,
         })
         .with(Name {
             name: "Torch".to_string(),
@@ -488,6 +488,28 @@ fn make_entity_furniture<'a>(
             defense: 0,
         })
 }
+fn spawn_sconce(world: &mut World, idx: usize, level: &Level) {
+    let lit = {
+        let mut rng = world.write_resource::<RandomNumberGenerator>();
+        rng.range(0, 2) == 1
+    };
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Sconce".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('☼'),
+            fg: RGB::named(rltk::LIGHTCORAL),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(CausesLight {
+            radius: 5,
+            lit,
+            turns_remaining: None,
+        })
+        .build();
+}
 
 fn spawn_set_bear_trap(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_set_trap(
@@ -818,6 +840,7 @@ pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut
                 Use(RoomPart::TowelRack) => spawn_towel_rack(world, idx, level),
                 Use(RoomPart::Throne) => spawn_throne(world, idx, level),
                 Use(RoomPart::Podium) => spawn_podium(world, idx, level),
+                Use(RoomPart::Sconce) => spawn_sconce(world, idx, level),
                 _ => (),
             };
         }

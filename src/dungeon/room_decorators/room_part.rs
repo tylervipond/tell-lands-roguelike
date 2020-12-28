@@ -29,4 +29,5 @@ pub enum RoomPart {
     TowelRack = 24,
     Throne = 25,
     Podium = 26,
+    Sconce = 27
 }

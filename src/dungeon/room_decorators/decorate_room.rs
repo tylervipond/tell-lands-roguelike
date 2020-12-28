@@ -1,17 +1,18 @@
 use super::decorate_barracks::decorate_barracks;
 use super::decorate_baths::decorate_baths;
 use super::decorate_bedroom::decorate_bedroom;
+use super::decorate_classroom::decorate_classroom;
 use super::decorate_collapsed_room::decorate_collapsed_room;
 use super::decorate_courtyard::decorate_courtyard;
 use super::decorate_dining_room::decorate_dining_room;
 use super::decorate_kitchen::decorate_kitchen;
+use super::decorate_meetingroom::decorate_meetingroom;
 use super::decorate_mess_hall::decorate_mess_hall;
 use super::decorate_sitting_room::decorate_sitting_room;
 use super::decorate_store_room::decorate_store_room;
-use super::decorate_treasure_room::decorate_treasure_room;
 use super::decorate_throneroom::decorate_throneroom;
-use super::decorate_classroom::decorate_classroom;
-use super::decorate_meetingroom::decorate_meetingroom;
+use super::decorate_treasure_room::decorate_treasure_room;
+use super::place_sconces::place_sconces;
 use super::{RoomPart, RoomType};
 use rltk::RandomNumberGenerator;
 use stamp_rs::{Stamp, StampPart};
@@ -38,4 +39,5 @@ pub fn decorate_room(
         Some(RoomType::MeetingRoom) => decorate_meetingroom(stamp, rng),
         _ => {}
     };
+    place_sconces(stamp, rng);
 }
