@@ -31,43 +31,55 @@ impl<'a> System<'a> for LightSystem {
             .iter_mut()
             .for_each(|(_number, level)| level.lit_tiles = vec![false; MAP_COUNT]);
 
-        for (equipment, position) in (&equipment, &position).join() {
-            let level = dungeon.get_level_mut(position.level).unwrap();
-            let light_radius = {
-                let dominant_hand_light_range = match equipment.dominant_hand {
-                    Some(item) => get_light_radius_from_equipment(item, &causes_light),
-                    _ => 0,
+        (&equipment, &position)
+            .join()
+            .map(|(equipment, position)| {
+                let light_radius = {
+                    let dominant_hand_light_range = match equipment.dominant_hand {
+                        Some(item) => get_light_radius_from_equipment(item, &causes_light),
+                        _ => 0,
+                    };
+                    let off_hand_light_range = match equipment.off_hand {
+                        Some(item) => get_light_radius_from_equipment(item, &causes_light),
+                        _ => 0,
+                    };
+                    i32::max(
+                        dominant_hand_light_range as i32,
+                        off_hand_light_range as i32,
+                    )
                 };
-                let off_hand_light_range = match equipment.off_hand {
-                    Some(item) => get_light_radius_from_equipment(item, &causes_light),
-                    _ => 0,
-                };
-                i32::max(
-                    dominant_hand_light_range as i32,
-                    off_hand_light_range as i32,
-                )
-            };
-            let level_width = level.width as i32;
-            let position_idx = position.idx as i32;
-            let lit_points = (-light_radius..=light_radius)
-                .map(|y| {
-                    (-light_radius..=light_radius)
-                        .map(move |x| level_utils::add_xy_to_idx(level_width, x, y, position_idx))
-                })
-                .flatten()
-                .filter(|idx| {
-                    level_utils::get_distance_between_idxs(level, position.idx, *idx as usize)
-                        < light_radius as f32
-                })
-                .collect::<Vec<i32>>();
-            for index in lit_points {
-                match level.lit_tiles.get_mut(index as usize) {
-                    Some(i) => {
-                        *i = true;
+                (light_radius as i32, position.level as u8, position.idx as i32)
+            })
+            .chain(
+                (&position, &causes_light)
+                    .join()
+                    .filter(|(_, causes_light)| causes_light.lit)
+                    .map(|(position, causes_light)| {
+                        (causes_light.radius as i32, position.level as u8, position.idx as i32)
+                    }),
+            )
+            .for_each(|(radius, level, pos_idx)| {
+                let level = dungeon.get_level_mut(level).unwrap();
+                let level_width = level.width as i32;
+                let lit_points = (-radius..=radius)
+                    .map(|y| {
+                        (-radius..=radius)
+                            .map(move |x| level_utils::add_xy_to_idx(level_width, x, y, pos_idx))
+                    })
+                    .flatten()
+                    .filter(|idx| {
+                        level_utils::get_distance_between_idxs(level, pos_idx as usize, *idx as usize)
+                            < radius as f32
+                    })
+                    .collect::<Vec<i32>>();
+                for index in lit_points {
+                    match level.lit_tiles.get_mut(index as usize) {
+                        Some(i) => {
+                            *i = true;
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
-            }
-        }
+            });
     }
 }
