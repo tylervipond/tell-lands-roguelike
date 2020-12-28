@@ -1,10 +1,10 @@
-pub fn get_longest_line<'a>(lines: &'a Vec<String>) -> Option<&'a String> {
+pub fn get_longest_line<'a, 'b>(lines: &'b Box<[&'a str]>) -> Option<&'b &'a str> {
     lines
         .iter()
         .max_by(|x, y| x.chars().count().cmp(&y.chars().count()))
 }
 
-pub fn get_longest_line_length(lines: &Vec<String>) -> usize {
+pub fn get_longest_line_length(lines: &Box<[&str]>) -> usize {
     match get_longest_line(lines) {
         Some(line) => line.chars().count(),
         None => 0,

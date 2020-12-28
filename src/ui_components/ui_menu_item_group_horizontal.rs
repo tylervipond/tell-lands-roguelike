@@ -4,15 +4,15 @@ use rltk::{Rltk, BLACK, GREY, WHITE, YELLOW};
 
 const SPACE_BETWEEN: i32 = 3;
 
-pub struct UIMenuItemGroupHorizontal<'a> {
+pub struct UIMenuItemGroupHorizontal<'a, 'b> {
     pub x: i32,
     pub y: i32,
     pub width: u32,
-    pub menu_options: &'a Vec<MenuOption<'a>>,
+    pub menu_options: &'b Box<[&'a MenuOption<'a>]>,
 }
 
-impl<'a> UIMenuItemGroupHorizontal<'a> {
-    pub fn new(x: i32, y: i32, menu_options: &'a Vec<MenuOption<'a>>) -> Self {
+impl<'a, 'b> UIMenuItemGroupHorizontal<'a, 'b> {
+    pub fn new(x: i32, y: i32, menu_options: &'b Box<[&'a MenuOption<'a>]>) -> Self {
         let white_space = (menu_options.len() - 1) * SPACE_BETWEEN as usize;
         let width = menu_options
             .iter()

@@ -21,3 +21,24 @@ pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<i32>) -> Tar
     },
   }
 }
+
+pub enum InteractionTargetingAction {
+  NoAction,
+  Exit,
+  Selected,
+  Next,
+  Previous,
+}
+
+pub fn map_input_to_interaction_targeting_action(ctx: &mut Rltk) -> InteractionTargetingAction {
+  match ctx.key {
+    None => InteractionTargetingAction::NoAction,
+    Some(key) => match key {
+      VirtualKeyCode::Escape => InteractionTargetingAction::Exit,
+      VirtualKeyCode::Left => InteractionTargetingAction::Previous,
+      VirtualKeyCode::Right => InteractionTargetingAction::Next,
+      VirtualKeyCode::Return => InteractionTargetingAction::Selected,
+      _ => InteractionTargetingAction::NoAction,
+    },
+  }
+}

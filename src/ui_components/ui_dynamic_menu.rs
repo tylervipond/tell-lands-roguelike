@@ -6,25 +6,25 @@ use rltk::Rltk;
 
 const INTERNAL_PADDING: u8 = 2;
 
-pub struct UIDynamicMenu<'a> {
+pub struct UIDynamicMenu<'a, 'b> {
     pub x: i32,
     pub y: i32,
     pub width: u8,
     pub height: u8,
-    pub menu_options: &'a Vec<MenuOption<'a>>,
-    pub cta: Option<String>,
-    pub title: Option<String>,
+    pub menu_options: &'b Box<[&'a MenuOption<'a>]>,
+    pub cta: Option<&'a str>,
+    pub title: Option<&'a str>,
 }
 
-impl<'a> UIDynamicMenu<'a> {
+impl<'a, 'b> UIDynamicMenu<'a, 'b> {
     pub fn new(
         x: i32,
         y: i32,
-        menu_options: &'a Vec<MenuOption<'a>>,
-        cta: Option<String>,
-        title: Option<String>,
+        menu_options: &'b Box<[&'a MenuOption<'a>]>,
+        cta: Option<&'a str>,
+        title: Option<&'a str>,
     ) -> Self {
-        let lines: Vec<String> = menu_options.iter().map(|o| o.text.to_string()).collect();
+        let lines: Box<[&str]> = menu_options.iter().map(|o| o.text).collect();
         let longest_line_length = get_longest_line_length(&lines);
         let title_length = match &title {
             Some(title) => title.chars().count(),
@@ -55,8 +55,8 @@ impl<'a> UIDynamicMenu<'a> {
             self.y,
             self.width,
             self.height,
-            &self.cta,
-            &self.title,
+            self.cta,
+            self.title,
         )
         .draw(ctx);
         let item_group_x = self.x + INTERNAL_PADDING as i32;

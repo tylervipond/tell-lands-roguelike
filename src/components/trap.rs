@@ -15,5 +15,4 @@ impl Default for TrapType {
 #[derive(Component, ConvertSaveload, Clone, Debug, Default)]
 pub struct Trap {
     pub trap_type: TrapType,
-    pub armed: bool,
 }

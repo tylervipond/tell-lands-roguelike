@@ -1,33 +1,38 @@
-use crate::components::equipable::EquipmentPositions;
+use crate::{components::equipable::EquipmentPositions, player::InteractionType};
 use specs::Entity;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum RunState {
     AwaitingInput,
     PreRun,
     PlayerTurn,
     MonsterTurn,
-    ShowTargeting {
+    ItemUseTargeting {
         range: i32,
         item: Entity,
     },
-    ShowTargetingOpenContainer,
-    ShowTargetingDisarmTrap,
-    ShowTargetingGrabFurniture,
-    ShowTargetingAttack,
-    ShowTargetingHideInContainer,
+    InteractionTypeEntityTargeting {
+        target_idx: usize,
+        targets: Box<[Entity]>,
+        interaction_type: InteractionType,
+        cta: Option<&'static str>,
+    },
+    InteractiveEntityTargeting {
+        target_idx: usize,
+    },
+    InteractMenu {
+        highlighted: usize,
+        target: Entity,
+    },
     OpenContainerMenu {
         highlighted: usize,
-        page: usize,
         container: Entity,
     },
     InventoryMenu {
         highlighted: usize,
-        page: usize,
     },
     DropItemMenu {
         highlighted: usize,
-        page: usize,
     },
     EquipMenu {
         highlighted: usize,
@@ -36,7 +41,7 @@ pub enum RunState {
     EquipmentMenu {
         highlighted: usize,
         action_highlighted: usize,
-        action_menu: bool
+        action_menu: bool,
     },
     MainMenu {
         highlighted: usize,

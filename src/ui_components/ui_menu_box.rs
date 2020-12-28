@@ -6,8 +6,8 @@ pub struct UIMenuBox<'a> {
     y: i32,
     width: u8,
     height: u8,
-    cta: &'a Option<String>,
-    title: &'a Option<String>,
+    cta: Option<&'a str>,
+    title: Option<&'a str>,
 }
 
 impl<'a> UIMenuBox<'a> {
@@ -16,8 +16,8 @@ impl<'a> UIMenuBox<'a> {
         y: i32,
         width: u8,
         height: u8,
-        cta: &'a Option<String>,
-        title: &'a Option<String>,
+        cta: Option<&'a str>,
+        title: Option<&'a str>,
     ) -> Self {
         Self {
             x,

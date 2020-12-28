@@ -2,18 +2,18 @@ use super::{style::Style, utils, UITextLine};
 use crate::menu_option::{MenuOption, MenuOptionState};
 use rltk::{Rltk, BLACK, GREY, YELLOW1, WHITE, YELLOW4};
 
-pub struct UIMenuItemGroup<'a> {
+pub struct UIMenuItemGroup<'a, 'b> {
     pub x: i32,
     pub y: i32,
     pub width: u32,
     pub height: u32,
-    menu_options: &'a Vec<MenuOption<'a>>,
+    menu_options: &'b Box<[&'a MenuOption<'a>]>,
     active: bool,
 }
 
-impl<'a> UIMenuItemGroup<'a> {
-    pub fn new(x: i32, y: i32, menu_options: &'a Vec<MenuOption<'a>>, active: bool) -> Self {
-        let lines: Vec<String> = menu_options.iter().map(|o| o.text.to_string()).collect();
+impl<'a, 'b> UIMenuItemGroup<'a, 'b> {
+    pub fn new(x: i32, y: i32, menu_options: &'b Box<[&'a MenuOption<'a>]>, active: bool) -> Self {
+        let lines: Box<[&str]> = menu_options.iter().map(|o| o.text).collect();
         let width = utils::get_longest_line_length(&lines) as u32;
         let height = menu_options.len() as u32;
         Self {

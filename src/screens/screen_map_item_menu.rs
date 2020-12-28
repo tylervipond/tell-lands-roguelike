@@ -15,8 +15,8 @@ use specs::{Entity, World, WorldExt};
 const SCREEN_PADDING: u8 = 4;
 
 pub struct ScreenMapItemMenu<'a> {
-    menu_options: &'a Vec<MenuOption<'a>>,
-    sub_menu_options: &'a Vec<MenuOption<'a>>,
+    menu_options: Box<[&'a MenuOption<'a>]>,
+    sub_menu_options: Box<[&'a MenuOption<'a>]>,
     sub_menu_active: bool,
     description: &'a str,
     title: &'a str,
@@ -25,8 +25,8 @@ pub struct ScreenMapItemMenu<'a> {
 
 impl<'a> ScreenMapItemMenu<'a> {
     pub fn new(
-        menu_options: &'a Vec<MenuOption<'a>>,
-        sub_menu_options: &'a Vec<MenuOption<'a>>,
+        menu_options: Box<[&'a MenuOption<'a>]>,
+        sub_menu_options: Box<[&'a MenuOption<'a>]>,
         sub_menu_active: bool,
         description: &'a str,
         title: &'a str,
@@ -61,11 +61,13 @@ impl<'a> ScreenMapItemMenu<'a> {
         let render_offset = get_render_offset(center_x, center_y);
 
         UIMap::new(level, &render_data, render_offset).draw(ctx);
+        let log_entries = log.entries.iter().map(String::as_str).collect();
+
         UIHud::new(
             player_position.level,
             player_stats.hp,
             player_stats.max_hp,
-            &log.entries,
+            &log_entries,
         )
         .draw(ctx);
         let mut menu = UIMenuItemGroup::new(0, 0, &self.menu_options, !self.sub_menu_active);
@@ -91,8 +93,8 @@ impl<'a> ScreenMapItemMenu<'a> {
             y - 1,
             MAP_WIDTH - SCREEN_PADDING * 2,
             height as u8 + 2,
-            &Some(String::from(self.cta)),
-            &Some(String::from(self.title)),
+            Some(self.cta),
+            Some(self.title),
         )
         .draw(ctx);
 

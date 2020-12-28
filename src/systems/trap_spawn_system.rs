@@ -1,5 +1,5 @@
 use crate::components::{
-    EntryTrigger, Hidden, InflictsDamage, Name, Position, Renderable, Saveable,
+    Disarmable, EntryTrigger, Hidden, InflictsDamage, Name, Position, Renderable, Saveable,
     SingleActivation, Trap,
 };
 use crate::entity_set::EntitySet;
@@ -23,6 +23,7 @@ impl<'a> System<'a> for TrapSpawnSystem {
         WriteStorage<'a, InflictsDamage>,
         WriteStorage<'a, SingleActivation>,
         WriteStorage<'a, Trap>,
+        WriteStorage<'a, Disarmable>,
         WriteExpect<'a, TrapSpawner>,
         WriteExpect<'a, SimpleMarkerAllocator<Saveable>>,
         WriteStorage<'a, SimpleMarker<Saveable>>,
@@ -39,6 +40,7 @@ impl<'a> System<'a> for TrapSpawnSystem {
             mut inflicts_damage,
             mut single_activations,
             mut trap,
+            mut disarmable,
             mut spawner,
             mut marker_allocator,
             mut markers,
@@ -96,10 +98,12 @@ impl<'a> System<'a> for TrapSpawnSystem {
                 new_trap,
                 Trap {
                     trap_type: request.trap_type,
-                    armed: true,
                 },
             )
             .expect("failed inserting trap for new trap");
+            disarmable
+                .insert(new_trap, Disarmable {})
+                .expect("failed inserting disarmable for new trap");
             if trap_type::is_trap_single_activation(&request.trap_type) {
                 single_activations
                     .insert(new_trap, SingleActivation {})
