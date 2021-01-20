@@ -1,15 +1,17 @@
-use crate::components::{
+use crate::{components::{
     CombatStats, Hiding, Monster, Name, Player, Position, Renderable, SufferDamage,
-};
+}, player::InteractionType};
 use crate::services::{BloodSpawner, DebrisSpawner, GameLog};
 use rltk::RGB;
 use specs::{
-    Entities, Entity, Join, ReadStorage, System, World, WorldExt, WriteExpect, WriteStorage,
+    Entities, Entity, Join, ReadStorage, System, World, WorldExt, WriteExpect, WriteStorage, ReadExpect
 };
 
-pub struct DamageSystem {}
+pub struct DamageSystem<'a>{
+    pub queued_action: &'a mut Option<(Entity, InteractionType)>
+}
 
-impl DamageSystem {
+impl<'a> DamageSystem<'a> {
     pub fn delete_the_dead(ecs: &mut World) {
         let mut dead: Vec<Entity> = Vec::new();
         {
@@ -72,7 +74,7 @@ impl DamageSystem {
     }
 }
 
-impl<'a> System<'a> for DamageSystem {
+impl<'a> System<'a> for DamageSystem<'a> {
     type SystemData = (
         Entities<'a>,
         WriteStorage<'a, CombatStats>,
@@ -81,6 +83,7 @@ impl<'a> System<'a> for DamageSystem {
         WriteExpect<'a, BloodSpawner>,
         ReadStorage<'a, Monster>,
         ReadStorage<'a, Player>,
+        ReadExpect<'a, Entity>
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -92,6 +95,7 @@ impl<'a> System<'a> for DamageSystem {
             mut blood_spawner,
             monsters,
             players,
+            player_ent,
         ) = data;
         for (mut stats, suffer_damage, ent) in (&mut stats, &suffer_damage, &entities).join() {
             stats.hp -= suffer_damage.amount;
@@ -105,6 +109,9 @@ impl<'a> System<'a> for DamageSystem {
                     177,
                     position.level,
                 );
+            }
+            if ent == *player_ent {
+                self.queued_action.take();
             }
         }
         suffer_damage.clear();

@@ -8,11 +8,11 @@ use crate::dungeon::level::Level;
 use crate::screens::constants::SCREEN_WIDTH;
 use rltk::Rltk;
 
-pub struct UIMapScreen<'a> {
+pub struct UIMapScreen<'a, 'b> {
     mouse_x: i32,
     mouse_y: i32,
-    tool_tip_lines: &'a Vec<String>,
-    messages: &'a Vec<String>,
+    tool_tip_lines: &'b Box<[&'a str]>,
+    messages: &'b Box<[&'a str]>,
     depth: u8,
     hp: i32,
     max_hp: i32,
@@ -21,12 +21,12 @@ pub struct UIMapScreen<'a> {
     render_offset: (i32, i32),
 }
 
-impl<'a> UIMapScreen<'a> {
+impl<'a, 'b> UIMapScreen<'a, 'b> {
     pub fn new(
         mouse_x: i32,
         mouse_y: i32,
-        tool_tip_lines: &'a Vec<String>,
-        messages: &'a Vec<String>,
+        tool_tip_lines: &'b Box<[&'a str]>,
+        messages: &'b Box<[&'a str]>,
         depth: u8,
         hp: i32,
         max_hp: i32,
@@ -60,7 +60,7 @@ impl<'a> UIMapScreen<'a> {
                 self.mouse_x,
                 self.mouse_y,
                 tool_tip_pos,
-                self.tool_tip_lines,
+                &self.tool_tip_lines,
             )
             .draw(ctx);
         }

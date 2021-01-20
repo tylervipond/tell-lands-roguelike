@@ -1,8 +1,8 @@
 use crate::components::{
-    equipable::EquipmentPositions, Item, Monster, Player, Position, Trap, Viewshed,
-    WantsToDisarmTrap, WantsToDouse, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight,
-    WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed,
-    WantsToSearchHidden, WantsToTrap, WantsToUse,
+    equipable::EquipmentPositions, Item, Monster, Position, Trap, Viewshed, WantsToDisarmTrap,
+    WantsToDouse, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight, WantsToMelee, WantsToMove,
+    WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap,
+    WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
 use crate::entity_option::EntityOption;
@@ -10,50 +10,54 @@ use crate::services::game_log::GameLog;
 use crate::user_actions::MapAction;
 use specs::{Entity, Join, World, WorldExt};
 
+pub fn move_to_position(world: &mut World, idx: usize) {
+    let player_entity = world.fetch::<Entity>();
+    world
+        .write_storage::<WantsToMove>()
+        .insert(*player_entity, WantsToMove { idx })
+        .expect("couldn't insert player move intent");
+}
+
 // It's not really "try move player" though, it's more like "player act"
 // because the function does more than just move the player. Should probably
 // break this up a bit.
 fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
     let positions = world.read_storage::<Position>();
-    let players = world.read_storage::<Player>();
     let monsters = world.read_storage::<Monster>();
-    let entities = world.entities();
     let dungeon = world.fetch::<Dungeon>();
     let player_entity = world.fetch::<Entity>();
     let player_position = positions.get(*player_entity).unwrap();
     let level = dungeon.get_level(player_position.level).unwrap();
     let level_width = level.width as i32;
-    for (entity, _player, pos) in (&entities, &players, &positions).join() {
-        let destination_index = level_utils::add_xy_to_idx(
-            level_width as i32,
-            delta_x as i32,
-            delta_y as i32,
-            pos.idx as i32,
-        );
-        let target = level.tile_content[destination_index as usize]
-            .iter()
-            .filter(|e| monsters.get(**e).is_some())
-            .next();
-        match target {
-            Some(target) => {
-                world
-                    .write_storage::<WantsToMelee>()
-                    .insert(entity, WantsToMelee { target: *target })
-                    .expect("Add target failed");
-            }
-            None => {
-                world
-                    .write_storage::<WantsToMove>()
-                    .insert(
-                        entity,
-                        WantsToMove {
-                            idx: destination_index as usize,
-                        },
-                    )
-                    .expect("couldn't insert player move intent");
-            }
-        };
-    }
+    let destination_index = level_utils::add_xy_to_idx(
+        level_width as i32,
+        delta_x as i32,
+        delta_y as i32,
+        player_position.idx as i32,
+    );
+    let target = level.tile_content[destination_index as usize]
+        .iter()
+        .filter(|e| monsters.get(**e).is_some())
+        .next();
+    match target {
+        Some(target) => {
+            world
+                .write_storage::<WantsToMelee>()
+                .insert(*player_entity, WantsToMelee { target: *target })
+                .expect("Add target failed");
+        }
+        None => {
+            world
+                .write_storage::<WantsToMove>()
+                .insert(
+                    *player_entity,
+                    WantsToMove {
+                        idx: destination_index as usize,
+                    },
+                )
+                .expect("couldn't insert player move intent");
+        }
+    };
 }
 
 fn try_pickup_item(world: &mut World) {
@@ -185,7 +189,7 @@ fn try_go_up_stairs(world: &mut World) {
     }
 }
 
-fn search_hidden(world: &mut World) {
+pub fn search_hidden(world: &mut World) {
     let player_entity = world.fetch::<Entity>();
     let mut wants_to_search_hidden = world.write_storage::<WantsToSearchHidden>();
     wants_to_search_hidden
@@ -218,6 +222,19 @@ pub fn disarm_trap(world: &mut World, item: Entity) {
     disarm_traps_intents
         .insert(*player_entity, WantsToDisarmTrap { trap: item })
         .expect("Unable to Insert Disarm Trap Intent");
+}
+
+pub fn arm_trap(world: &mut World, item: Entity) {
+    let player_entity = world.fetch::<Entity>();
+    let positions = world.read_storage::<Position>();
+    let target = match positions.get(item) {
+        Some(pos) => Some(pos.idx),
+        None => None,
+    };
+    let mut trap_intents = world.write_storage::<WantsToTrap>();
+    trap_intents
+        .insert(*player_entity, WantsToTrap { item, target })
+        .expect("Unable to Insert Trap Intent");
 }
 
 pub fn grab_entity(world: &mut World, entity: Entity) {
@@ -290,6 +307,53 @@ pub fn light_item(world: &mut World, item: Entity) {
     light_intents
         .insert(*player_entity, WantsToLight { item })
         .expect("Unable to Insert Douse Intent");
+}
+
+pub fn pickup_item(world: &mut World, item: Entity) {
+    let player_entity = world.fetch::<Entity>();
+    let mut pickup_intents = world.write_storage::<WantsToPickUpItem>();
+    pickup_intents
+        .insert(
+            *player_entity,
+            WantsToPickUpItem {
+                collected_by: *player_entity,
+                item,
+            },
+        )
+        .expect("Unable to insert want to pick up");
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum InteractionType {
+    Douse,
+    Light,
+    HideIn,
+    Attack,
+    Grab,
+    // Release,
+    Disarm,
+    Arm,
+    // Use,
+    // GoUp,
+    // GoDown,
+    // Exit,
+    Pickup,
+    // OpenDoor,
+    OpenContainer,
+}
+
+pub fn interact(world: &mut World, object: Entity, interaction_type: InteractionType) {
+    match interaction_type {
+        InteractionType::Douse => douse_item(world, object),
+        InteractionType::Light => light_item(world, object),
+        InteractionType::HideIn => hide_in_container(world, object),
+        InteractionType::Grab => grab_entity(world, object),
+        InteractionType::Disarm => disarm_trap(world, object),
+        InteractionType::Arm => arm_trap(world, object),
+        InteractionType::Attack => attack_entity(world, object),
+        InteractionType::Pickup => pickup_item(world, object),
+        _ => {}
+    }
 }
 
 pub fn player_action(world: &mut World, action: MapAction) {

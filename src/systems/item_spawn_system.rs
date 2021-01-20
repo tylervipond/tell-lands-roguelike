@@ -1,5 +1,5 @@
 use crate::components::{
-    Consumable, Item, Name, Position, Ranged, Renderable, Saveable, Trap,
+    Armable, Consumable, Item, Name, Position, Ranged, Renderable, Saveable, Trap,
 };
 use crate::services::ItemSpawner;
 use crate::types::item_type;
@@ -20,6 +20,7 @@ impl<'a> System<'a> for ItemSpawnSystem {
         WriteStorage<'a, Consumable>,
         WriteStorage<'a, Ranged>,
         WriteStorage<'a, Trap>,
+        WriteStorage<'a, Armable>,
         WriteExpect<'a, ItemSpawner>,
         WriteExpect<'a, SimpleMarkerAllocator<Saveable>>,
         WriteStorage<'a, SimpleMarker<Saveable>>,
@@ -35,6 +36,7 @@ impl<'a> System<'a> for ItemSpawnSystem {
             mut consumables,
             mut ranged,
             mut traps,
+            mut armables,
             mut spawner,
             mut marker_allocator,
             mut markers,
@@ -46,7 +48,7 @@ impl<'a> System<'a> for ItemSpawnSystem {
                     new_item,
                     Position {
                         idx: request.idx,
-                        level: request.level
+                        level: request.level,
                     },
                 )
                 .expect("failed inserting position for new item");
@@ -86,14 +88,11 @@ impl<'a> System<'a> for ItemSpawnSystem {
 
             if let Some(trap_type) = item_type::get_trap_type_for_item(&request.item_type) {
                 traps
-                    .insert(
-                        new_item,
-                        Trap {
-                            trap_type,
-                            armed: false,
-                        },
-                    )
+                    .insert(new_item, Trap { trap_type })
                     .expect("failed inserting trap for new item");
+                armables
+                    .insert(new_item, Armable {})
+                    .expect("failed inserting armable for new item");
             }
             marker_allocator.mark(new_item, &mut markers);
         }

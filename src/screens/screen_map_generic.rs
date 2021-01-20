@@ -31,13 +31,8 @@ impl ScreenMapGeneric {
         let (center_x, center_y) = level_utils::idx_xy(level_width, player_position.idx as i32);
         let render_offset = get_render_offset(center_x, center_y);
         let mouse_offset = get_render_offset_for_xy(center_x, center_y, mouse_x, mouse_y);
-        let mouse_idx = level_utils::xy_idx(
-            level_width,
-            mouse_offset.0,
-            mouse_offset.1,
-        ) as usize;
-        let tool_tip_lines = match level.visible_tiles.get(mouse_idx)
-        {
+        let mouse_idx = level_utils::xy_idx(level_width, mouse_offset.0, mouse_offset.1) as usize;
+        let tool_tip_lines: Box<[String]> = match level.visible_tiles.get(mouse_idx) {
             Some(visible) => match visible {
                 true => (
                     &names,
@@ -61,24 +56,25 @@ impl ScreenMapGeneric {
                             && position.level == player_position.level
                             && position.idx == mouse_idx
                     })
-                    .map(
-                        |(name, _position, _hidden, hiding, _entity)| match hiding {
-                            Some(_) => format!("{} (hidden)", name.name.to_owned()),
-                            _ => name.name.to_owned(),
-                        },
-                    )
+                    .map(|(name, _position, _hidden, hiding, _entity)| match hiding {
+                        Some(_) => format!("{} (hidden)", name.name),
+                        _ => name.name.clone(),
+                    })
+                    // .map(|s| s.clone())
                     .collect(),
-                false => Vec::new(),
+                false => Box::new([]),
             },
-            None => Vec::new(),
+            None => Box::new([]),
         };
+        let tool_tip_lines: Box<[&str]> = tool_tip_lines.iter().map(|line| line.as_str()).collect();
         let render_data = get_render_data(world);
+        let log_entries = log.entries.iter().map(String::as_str).collect();
         ctx.cls();
         UIMapScreen::new(
             mouse_x,
             mouse_y,
             &tool_tip_lines,
-            &log.entries,
+            &log_entries,
             player_position.level,
             player_stats.hp,
             player_stats.max_hp,

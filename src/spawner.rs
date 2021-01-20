@@ -1,4 +1,4 @@
-use crate::components::equipable::EquipmentPositions;
+use crate::components::{equipable::EquipmentPositions, Armable, Disarmable, Lightable};
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesDamage, CausesFire, CausesLight, CombatStats, Confusion,
     Consumable, Contained, Container, Dousable, EntryTrigger, Equipable, Equipment, Flammable,
@@ -396,8 +396,8 @@ fn make_entity_bear_trap<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
         .with(Ranged { range: 1 })
         .with(Trap {
             trap_type: TrapType::BearTrap,
-            armed: false,
         })
+        .with(Armable {})
 }
 
 fn spawn_bear_trap(world: &mut World, idx: usize, level: &Level) -> Entity {
@@ -424,8 +424,8 @@ fn make_entity_caltrops<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
         .with(Ranged { range: 3 })
         .with(Trap {
             trap_type: TrapType::Caltrops,
-            armed: false,
         })
+        .with(Armable {})
 }
 
 fn spawn_caltrops(world: &mut World, idx: usize, level: &Level) -> Entity {
@@ -459,8 +459,8 @@ fn make_entity_set_trap<'a>(
         })
         .with(Trap {
             trap_type: type_of_trap.to_owned(),
-            armed: true,
         })
+        .with(Disarmable {})
 }
 
 fn make_entity_furniture<'a>(
@@ -493,7 +493,7 @@ fn spawn_sconce(world: &mut World, idx: usize, level: &Level) {
         let mut rng = world.write_resource::<RandomNumberGenerator>();
         rng.range(0, 2) == 1
     };
-    create_marked_entity_with_position(world, idx, level)
+    let sconce = create_marked_entity_with_position(world, idx, level)
         .with(Name {
             name: "Sconce".to_string(),
         })
@@ -507,8 +507,12 @@ fn spawn_sconce(world: &mut World, idx: usize, level: &Level) {
             radius: 5,
             lit,
             turns_remaining: None,
-        })
-        .build();
+        });
+    let sconce = match lit {
+        true => sconce.with(Dousable {}),
+        false => sconce.with(Lightable {}),
+    };
+    sconce.build();
 }
 
 fn spawn_set_bear_trap(world: &mut World, idx: usize, level: &Level) -> Entity {

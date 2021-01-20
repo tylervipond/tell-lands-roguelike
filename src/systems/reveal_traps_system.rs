@@ -1,12 +1,14 @@
-use crate::components::{Position, Hidden, Name, Viewshed};
+use crate::{components::{Position, Hidden, Name, Viewshed}, player::InteractionType};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::GameLog;
 use rltk::RandomNumberGenerator;
 use specs::{Entity, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
-pub struct RevealTrapsSystem {}
+pub struct RevealTrapsSystem<'a> {
+    pub queued_action: &'a mut Option<(Entity, InteractionType)>
+}
 
-impl<'a> System<'a> for RevealTrapsSystem {
+impl<'a> System<'a> for RevealTrapsSystem<'a> {
     type SystemData = (
         ReadStorage<'a, Viewshed>,
         ReadStorage<'a, Position>,
@@ -40,6 +42,7 @@ impl<'a> System<'a> for RevealTrapsSystem {
             .for_each(|e| {
                 if let Some(this_hidden) = hidden.get_mut(e) {
                     if rng.roll_dice(1, 24) == 1 {
+                        self.queued_action.take();
                         let inserted = this_hidden.found_by.insert(*player_ent);
                         if inserted {
                             if let Some(name) = names.get(e) {

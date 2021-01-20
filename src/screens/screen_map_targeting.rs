@@ -36,11 +36,12 @@ impl ScreenMapTargeting {
         let render_offset = get_render_offset(center_x, center_y);
 
         UIMap::new(level, &render_data, render_offset).draw(ctx);
+        let log_entries = log.entries.iter().map(String::as_str).collect();
         UIHud::new(
             player_position.level,
             player_stats.hp,
             player_stats.max_hp,
-            &log.entries,
+            &log_entries,
         )
         .draw(ctx);
         if let Some(cta) = &self.cta {

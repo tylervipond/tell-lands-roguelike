@@ -6,15 +6,15 @@ pub enum UIToolTipPosition {
     Right,
 }
 
-pub struct UIToolTip<'a> {
+pub struct UIToolTip<'a, 'b> {
     x: i32,
     y: i32,
     position: UIToolTipPosition,
-    lines: &'a Vec<String>,
+    lines: &'b Box<[&'a str]>,
 }
 
-impl<'a> UIToolTip<'a> {
-    pub fn new(x: i32, y: i32, position: UIToolTipPosition, lines: &'a Vec<String>) -> Self {
+impl<'a, 'b> UIToolTip<'a, 'b> {
+    pub fn new(x: i32, y: i32, position: UIToolTipPosition, lines: &'b Box<[&'a str]>) -> Self {
         Self {
             x,
             y,

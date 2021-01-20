@@ -5,11 +5,11 @@ use crate::ui_components::{UIMenuItemGroupHorizontal, UITextLine};
 use rltk::Rltk;
 
 pub struct ScreenMainMenu<'a> {
-    menu_options: &'a Vec<MenuOption<'a>>,
+    menu_options: Box<[&'a MenuOption<'a>]>,
 }
 
 impl<'a> ScreenMainMenu<'a> {
-    pub fn new(menu_options: &'a Vec<MenuOption<'a>>) -> Self {
+    pub fn new(menu_options: Box<[&'a MenuOption<'a>]>) -> Self {
         Self { menu_options }
     }
 
@@ -26,7 +26,7 @@ impl<'a> ScreenMainMenu<'a> {
             .draw(ctx)
         });
         let menu_y = SCREEN_HEIGHT as i32 - 3;
-        let mut menu = UIMenuItemGroupHorizontal::new(0, menu_y, self.menu_options);
+        let mut menu = UIMenuItemGroupHorizontal::new(0, menu_y, &self.menu_options);
         menu.x = SCREEN_WIDTH as i32 / 2 - menu.width as i32 / 2;
         menu.draw(ctx);
     }

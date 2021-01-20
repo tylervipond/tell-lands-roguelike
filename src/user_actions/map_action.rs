@@ -1,6 +1,9 @@
 use rltk::{Rltk, VirtualKeyCode};
 
+#[derive(PartialEq, Eq)]
 pub enum MapAction {
+  #[cfg(debug_assertions)]
+  ShowDebugMenu,
   MoveLeft,
   MoveRight,
   MoveUp,
@@ -19,22 +22,25 @@ pub enum MapAction {
   ShowEquipmentMenu,
   SearchHidden,
   DisarmTrap,
+  ArmTrap,
   GrabFurniture,
   ReleaseFurniture,
+  Attack,
   Hide,
-  #[cfg(debug_assertions)]
-  ShowDebugMenu,
   NoAction,
   GoDownStairs,
   GoUpStairs,
   Exit,
   LeaveDungeon,
+  Interact,
 }
 
 pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
   match ctx.key {
     None => MapAction::NoAction,
     Some(key) => match key {
+      #[cfg(debug_assertions)]
+      VirtualKeyCode::Key8 => MapAction::ShowDebugMenu,
       VirtualKeyCode::Escape => MapAction::Exit,
       VirtualKeyCode::A => MapAction::MoveLeft,
       VirtualKeyCode::D => MapAction::MoveRight,
@@ -55,13 +61,14 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::H => MapAction::SearchHidden,
       VirtualKeyCode::J => MapAction::Hide,
       VirtualKeyCode::T => MapAction::DisarmTrap,
+      VirtualKeyCode::P => MapAction::ArmTrap,
       VirtualKeyCode::B => MapAction::GrabFurniture,
       VirtualKeyCode::N => MapAction::ReleaseFurniture,
-      #[cfg(debug_assertions)]
-      VirtualKeyCode::Key8 => MapAction::ShowDebugMenu,
       VirtualKeyCode::Period => MapAction::GoDownStairs,
       VirtualKeyCode::Comma => MapAction::GoUpStairs,
       VirtualKeyCode::L => MapAction::LeaveDungeon,
+      VirtualKeyCode::Y => MapAction::Interact,
+      VirtualKeyCode::K => MapAction::Attack,
       _ => MapAction::NoAction,
     },
   }
