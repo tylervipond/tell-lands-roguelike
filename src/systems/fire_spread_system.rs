@@ -1,4 +1,4 @@
-use crate::components::{CombatStats, Flammable, OnFire, Position, SufferDamage};
+use crate::components::{CausesLight, CombatStats, Flammable, OnFire, Position, SufferDamage};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::RandomNumberGenerator;
 use specs::{
@@ -17,6 +17,7 @@ impl<'a> System<'a> for FireSpreadSystem {
         ReadExpect<'a, Dungeon>,
         WriteStorage<'a, SufferDamage>,
         WriteExpect<'a, RandomNumberGenerator>,
+        WriteStorage<'a, CausesLight>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -28,6 +29,7 @@ impl<'a> System<'a> for FireSpreadSystem {
             dungeon,
             mut suffer_damage,
             mut rng,
+            mut causes_light,
         ) = data;
 
         let affected_entities: Vec<Entity> = (&mut on_fires, &positions)
@@ -43,11 +45,21 @@ impl<'a> System<'a> for FireSpreadSystem {
             .flatten()
             .collect();
         affected_entities.iter().for_each(|e| {
-            if let Some(_) = flammables.get(*e) {
+            if let Some(f) = flammables.get(*e) {
                 if rng.range(0, 2) == 1 {
                     on_fires
                         .insert(*e, OnFire {})
                         .expect("couldn't light entity on fire");
+                    causes_light
+                        .insert(
+                            *e,
+                            CausesLight {
+                                radius: 3,
+                                lit: true,
+                                turns_remaining: Some(f.turns_remaining as u32),
+                            },
+                        )
+                        .expect("couldn't insert cause light for target");
                 }
             }
             if let Some(_) = combat_stats.get(*e) {
