@@ -1,5 +1,5 @@
 use crate::components::{
-    AreaOfEffect, CausesFire, CombatStats, Confused, Confusion, Consumable,
+    AreaOfEffect, CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable,
     Flammable, InflictsDamage, Name, OnFire, Position, ProvidesHealing, SufferDamage, WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
@@ -33,6 +33,7 @@ impl<'a> System<'a> for UseItemSystem {
         ReadStorage<'a, CausesFire>,
         ReadStorage<'a, Flammable>,
         WriteStorage<'a, OnFire>,
+        WriteStorage<'a, CausesLight>,
     );
     fn run(&mut self, data: Self::SystemData) {
         let (
@@ -55,6 +56,7 @@ impl<'a> System<'a> for UseItemSystem {
             causes_fire,
             flammables,
             mut on_fire,
+            mut causes_light,
         ) = data;
         let player_position = positions.get(*player_entity).unwrap();
         let level = dungeon.get_level(player_position.level).unwrap();
@@ -63,12 +65,14 @@ impl<'a> System<'a> for UseItemSystem {
                 None => vec![*player_entity],
                 Some(target) => match aoe.get(to_use.item) {
                     None => level_utils::entities_at_idx(&level, target),
-                    Some(area) => level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
-                        .iter()
-                        .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
-                        .map(|idx| level_utils::entities_at_idx(&level, *idx as usize))
-                        .flatten()
-                        .collect(),
+                    Some(area) => {
+                        level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
+                            .iter()
+                            .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
+                            .map(|idx| level_utils::entities_at_idx(&level, *idx as usize))
+                            .flatten()
+                            .collect()
+                    }
                 },
             };
 
@@ -101,10 +105,22 @@ impl<'a> System<'a> for UseItemSystem {
             let burns = causes_fire.get(to_use.item);
             for target in targets {
                 let pos = positions.get(target).unwrap();
-                if burns.is_some() && flammables.get(target).is_some() {
-                    on_fire
-                        .insert(target, OnFire {})
-                        .expect("couldn't light target on fire");
+                if burns.is_some() {
+                    if let Some(f) = flammables.get(target) {
+                        on_fire
+                            .insert(target, OnFire {})
+                            .expect("couldn't light target on fire");
+                        causes_light
+                            .insert(
+                                target,
+                                CausesLight {
+                                    radius: 3,
+                                    lit: true,
+                                    turns_remaining: Some(f.turns_remaining as u32),
+                                },
+                            )
+                            .expect("couldn't insert cause light for target");
+                    }
                 } else if let Some(damages) = damages {
                     if combat_stats.get(target).is_some() {
                         if let Some(suffer_damage) = suffer_damage.get_mut_or_default(target) {
