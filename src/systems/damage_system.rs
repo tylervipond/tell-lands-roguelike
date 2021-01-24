@@ -1,14 +1,19 @@
-use crate::{components::{
-    CombatStats, Hiding, Monster, Name, Player, Position, Renderable, SufferDamage,
-}, player::InteractionType};
 use crate::services::{BloodSpawner, DebrisSpawner, GameLog};
+use crate::{
+    components::{
+        CombatStats, Contained, Container, Hiding, Monster, Name, Player, Position, Renderable,
+        SufferDamage,
+    },
+    player::InteractionType,
+};
 use rltk::RGB;
 use specs::{
-    Entities, Entity, Join, ReadStorage, System, World, WorldExt, WriteExpect, WriteStorage, ReadExpect
+    Entities, Entity, Join, ReadExpect, ReadStorage, System, World, WorldExt, WriteExpect,
+    WriteStorage,
 };
 
-pub struct DamageSystem<'a>{
-    pub queued_action: &'a mut Option<(Entity, InteractionType)>
+pub struct DamageSystem<'a> {
+    pub queued_action: &'a mut Option<(Entity, InteractionType)>,
 }
 
 impl<'a> DamageSystem<'a> {
@@ -18,9 +23,11 @@ impl<'a> DamageSystem<'a> {
             let combat_stats = ecs.read_storage::<CombatStats>();
             let monsters = ecs.read_storage::<Monster>();
             let renderables = ecs.read_storage::<Renderable>();
-            let positions = ecs.read_storage::<Position>();
+            let mut positions = ecs.write_storage::<Position>();
             let players = ecs.read_storage::<Player>();
             let names = ecs.read_storage::<Name>();
+            let containers = ecs.read_storage::<Container>();
+            let mut contained = ecs.write_storage::<Contained>();
             let entities = ecs.entities();
             let mut log = ecs.write_resource::<GameLog>();
             let mut debris_spawner = ecs.write_resource::<DebrisSpawner>();
@@ -34,7 +41,20 @@ impl<'a> DamageSystem<'a> {
                         dead.push(entity);
                     } else {
                         let renderable = renderables.get(entity).unwrap();
-                        let position = positions.get(entity).unwrap();
+                        let position = positions.get(entity).unwrap().clone();
+                        if containers.get(entity).is_some() {
+                            let contained_ents: Box<[Entity]> = (&contained, &entities)
+                                .join()
+                                .filter(|(c, _e)| c.container == entity)
+                                .map(|(_c, e)| e)
+                                .collect();
+                            contained_ents.iter().for_each(|e| {
+                                contained.remove(*e);
+                                positions
+                                    .insert(*e, position.clone())
+                                    .expect("could not insert position");
+                            })
+                        }
                         let name = names.get(entity).unwrap();
                         debris_spawner.request(
                             position.idx,
@@ -83,7 +103,7 @@ impl<'a> System<'a> for DamageSystem<'a> {
         WriteExpect<'a, BloodSpawner>,
         ReadStorage<'a, Monster>,
         ReadStorage<'a, Player>,
-        ReadExpect<'a, Entity>
+        ReadExpect<'a, Entity>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
