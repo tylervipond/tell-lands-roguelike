@@ -449,16 +449,24 @@ impl State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
-        self.run_state = match &self.run_state {
+        match self.run_state {
+            RunState::PreRun
+            | RunState::AwaitingInput { .. }
+            | RunState::PlayerTurn
+            | RunState::MonsterTurn => self.run_systems(ctx),
+            _ => (),
+        }
+        self.run_state = match &mut self.run_state {
             RunState::PreRun => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.world);
-                self.run_systems(ctx);
+                ScreenMapGeneric::new(0, 0).draw(ctx, &mut self.world);
                 DamageSystem::delete_the_dead(&mut self.world);
-                RunState::AwaitingInput
+                RunState::AwaitingInput {
+                    offset_x: 0,
+                    offset_y: 0,
+                }
             }
-            RunState::AwaitingInput => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.world);
-                self.run_systems(ctx);
+            RunState::AwaitingInput { offset_x, offset_y } => {
+                ScreenMapGeneric::new(*offset_x, *offset_y).draw(ctx, &mut self.world);
                 let action = map_input_to_map_action(ctx);
                 if action != MapAction::NoAction {
                     self.queued_action = None
@@ -471,7 +479,10 @@ impl GameState for State {
                         RunState::MainMenu { highlighted: 0 }
                     }
                     MapAction::NoAction => {
-                        let mut next_state = RunState::AwaitingInput;
+                        let mut next_state = RunState::AwaitingInput {
+                            offset_x: *offset_x,
+                            offset_y: *offset_y,
+                        };
                         if let Some((ent, interaction)) = self.queued_action {
                             let path = {
                                 let player_entity = self.world.fetch::<Entity>();
@@ -528,7 +539,10 @@ impl GameState for State {
                             log.add(
                                 "You must first locate the exit to leave the dungeon".to_string(),
                             );
-                            RunState::AwaitingInput
+                            RunState::AwaitingInput {
+                                offset_x: *offset_x,
+                                offset_y: *offset_y,
+                            }
                         }
                     },
                     MapAction::ShowActionMenu => RunState::ActionMenu { highlighted: 0 },
@@ -575,6 +589,22 @@ impl GameState for State {
                         interaction_type: InteractionType::Attack,
                         cta: Some(copy::CTA_INTERACT_ATTACK),
                     },
+                    MapAction::ScrollDown => RunState::AwaitingInput {
+                        offset_x: *offset_x,
+                        offset_y: *offset_y + 1,
+                    },
+                    MapAction::ScrollUp => RunState::AwaitingInput {
+                        offset_x: *offset_x,
+                        offset_y: *offset_y - 1,
+                    },
+                    MapAction::ScrollLeft => RunState::AwaitingInput {
+                        offset_x: *offset_x - 1,
+                        offset_y: *offset_y,
+                    },
+                    MapAction::ScrollRight => RunState::AwaitingInput {
+                        offset_x: *offset_x + 1,
+                        offset_y: *offset_y,
+                    },
                     MapAction::Interact => RunState::InteractiveEntityTargeting { target_idx: 0 },
                     _ => {
                         player_action(&mut self.world, action);
@@ -583,14 +613,12 @@ impl GameState for State {
                 }
             }
             RunState::PlayerTurn => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.world);
-                self.run_systems(ctx);
+                ScreenMapGeneric::new(0, 0).draw(ctx, &mut self.world);
                 DamageSystem::delete_the_dead(&mut self.world);
                 RunState::MonsterTurn
             }
             RunState::MonsterTurn => {
-                ScreenMapGeneric::new().draw(ctx, &mut self.world);
-                self.run_systems(ctx);
+                ScreenMapGeneric::new(0, 0).draw(ctx, &mut self.world);
                 DamageSystem::delete_the_dead(&mut self.world);
                 let combat_stats = self.world.read_storage::<CombatStats>();
                 let player_ent = self.world.fetch::<Entity>();
@@ -600,7 +628,10 @@ impl GameState for State {
                         persistence::delete_save();
                         RunState::DeathScreen
                     }
-                    _ => RunState::AwaitingInput,
+                    _ => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                 }
             }
             RunState::InventoryMenu { highlighted } => {
@@ -630,7 +661,10 @@ impl GameState for State {
                 )
                 .draw(ctx, &mut self.world);
                 match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     MenuAction::MoveHighlightNext => RunState::InventoryMenu {
                         highlighted: menu.get_next_index(*highlighted),
                     },
@@ -696,7 +730,10 @@ impl GameState for State {
                 )
                 .draw(ctx, &mut self.world);
                 match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     MenuAction::MoveHighlightNext => RunState::DropItemMenu {
                         highlighted: menu.get_next_index(*highlighted),
                     },
@@ -746,7 +783,10 @@ impl GameState for State {
                 ScreenMapMenu::new(menu.get_page(0), "Exit Dungeon?", "Escape to Cancel")
                     .draw(ctx, &mut self.world);
                 match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     MenuAction::MoveHighlightNext => RunState::ExitGameMenu {
                         highlighted: menu.get_next_page_index(*highlighted),
                     },
@@ -762,7 +802,10 @@ impl GameState for State {
                                 false => RunState::FailureScreen,
                             }
                         }
-                        _ => RunState::AwaitingInput,
+                        _ => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        },
                     },
                     _ => RunState::ExitGameMenu {
                         highlighted: *highlighted,
@@ -780,7 +823,10 @@ impl GameState for State {
                         range: *range,
                         item: *item,
                     },
-                    TargetingAction::Exit => RunState::AwaitingInput,
+                    TargetingAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     TargetingAction::Selected(target) => {
                         player::use_item(&mut self.world, *item, Some(target as usize));
                         RunState::PlayerTurn
@@ -813,7 +859,10 @@ impl GameState for State {
                         if let Some(interaction_type) = options.get(*highlighted) {
                             self.queued_action = Some((*target, interaction_type.clone()));
                         }
-                        RunState::AwaitingInput
+                        RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        }
                     }
                     MenuAction::MoveHighlightNext => RunState::InteractMenu {
                         highlighted: menu.get_next_index(*highlighted),
@@ -848,9 +897,15 @@ impl GameState for State {
                             highlighted: 0,
                             target: *target_ent,
                         },
-                        None => RunState::AwaitingInput,
+                        None => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        },
                     },
-                    InteractionTargetingAction::Exit => RunState::AwaitingInput,
+                    InteractionTargetingAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     InteractionTargetingAction::Next => RunState::InteractiveEntityTargeting {
                         target_idx: utils::select_next_idx(*target_idx, targets.len()),
                     },
@@ -875,9 +930,15 @@ impl GameState for State {
                         if let Some(target_ent) = target_ent {
                             self.queued_action = Some((*target_ent, *interaction_type));
                         }
-                        RunState::AwaitingInput
+                        RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        }
                     }
-                    InteractionTargetingAction::Exit => RunState::AwaitingInput,
+                    InteractionTargetingAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     InteractionTargetingAction::Next => RunState::InteractionTypeEntityTargeting {
                         target_idx: utils::select_next_idx(*target_idx, targets.len()),
                         targets: targets.clone(),
@@ -934,7 +995,10 @@ impl GameState for State {
                 )
                 .draw(ctx, &mut self.world);
                 match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     MenuAction::MoveHighlightNext => RunState::OpenContainerMenu {
                         highlighted: menu.get_next_index(*highlighted),
                         container: *container,
@@ -1020,7 +1084,10 @@ impl GameState for State {
                     MenuAction::NoAction => RunState::ActionMenu {
                         highlighted: *highlighted,
                     },
-                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     MenuAction::Select => match highlighted {
                         0 => RunState::InventoryMenu { highlighted: 0 },
                         1 => RunState::DropItemMenu { highlighted: 0 },
@@ -1054,7 +1121,10 @@ impl GameState for State {
                         },
                         7 => {
                             player::release_entity(&mut self.world);
-                            RunState::AwaitingInput
+                            RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            }
                         }
                         8 => RunState::InteractionTypeEntityTargeting {
                             target_idx: 0,
@@ -1298,7 +1368,10 @@ impl GameState for State {
                         action_highlighted: *action_highlighted,
                         action_menu: *action_menu,
                     },
-                    MenuAction::Exit => RunState::AwaitingInput,
+                    MenuAction::Exit => RunState::AwaitingInput {
+                        offset_x: 0,
+                        offset_y: 0,
+                    },
                     MenuAction::Select => match submenu_actions[*action_highlighted].1 {
                         EquipMenuType::Exchange(position) => RunState::EquipMenu {
                             highlighted: 0,
@@ -1316,7 +1389,7 @@ impl GameState for State {
                     MenuAction::NextMenu | MenuAction::PreviousMenu => RunState::EquipmentMenu {
                         highlighted: *highlighted,
                         action_highlighted: *action_highlighted,
-                        action_menu: !action_menu,
+                        action_menu: !*action_menu,
                     },
                     _ => RunState::EquipmentMenu {
                         highlighted: *highlighted,
@@ -1427,7 +1500,10 @@ impl GameState for State {
                         1 => {
                             persistence::load_game(&mut self.world);
                             persistence::delete_save();
-                            RunState::AwaitingInput
+                            RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            }
                         }
                         2 => RunState::CreditsScreen,
                         3 => std::process::exit(0),
@@ -1482,7 +1558,10 @@ impl GameState for State {
                                 .fetch_mut::<GameLog>()
                                 .entries
                                 .insert(0, "all monsters removed".to_owned());
-                            RunState::AwaitingInput
+                            RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            }
                         }
                         1 => {
                             debug::reveal_map(&mut self.world);
@@ -1490,7 +1569,10 @@ impl GameState for State {
                                 .fetch_mut::<GameLog>()
                                 .entries
                                 .insert(0, "map revealed".to_owned());
-                            RunState::AwaitingInput
+                            RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            }
                         }
                         _ => RunState::DebugMenu {
                             highlighted: *highlighted,

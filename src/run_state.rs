@@ -3,7 +3,10 @@ use specs::Entity;
 
 #[derive(PartialEq, Clone)]
 pub enum RunState {
-    AwaitingInput,
+    AwaitingInput {
+        offset_x: i32,
+        offset_y: i32,
+    },
     PreRun,
     PlayerTurn,
     MonsterTurn,
