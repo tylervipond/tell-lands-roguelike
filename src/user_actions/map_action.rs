@@ -33,6 +33,10 @@ pub enum MapAction {
   Exit,
   LeaveDungeon,
   Interact,
+  ScrollLeft,
+  ScrollRight,
+  ScrollDown,
+  ScrollUp
 }
 
 pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
@@ -69,6 +73,10 @@ pub fn map_input_to_map_action(ctx: &mut Rltk) -> MapAction {
       VirtualKeyCode::L => MapAction::LeaveDungeon,
       VirtualKeyCode::Y => MapAction::Interact,
       VirtualKeyCode::K => MapAction::Attack,
+      VirtualKeyCode::Left => MapAction::ScrollLeft,
+      VirtualKeyCode::Right => MapAction::ScrollRight,
+      VirtualKeyCode::Up => MapAction::ScrollUp,
+      VirtualKeyCode::Down => MapAction::ScrollDown,
       _ => MapAction::NoAction,
     },
   }

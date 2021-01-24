@@ -6,11 +6,17 @@ use crate::services::GameLog;
 use rltk::Rltk;
 use specs::{Entity, Join, World, WorldExt};
 
-pub struct ScreenMapGeneric {}
+pub struct ScreenMapGeneric {
+    offset_x: i32,
+    offset_y: i32,
+}
 
 impl ScreenMapGeneric {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(offset_x: i32, offset_y: i32) -> Self {
+        Self {
+            offset_x,
+            offset_y,
+        }
     }
 
     pub fn draw(&self, ctx: &mut Rltk, world: &mut World) {
@@ -29,6 +35,8 @@ impl ScreenMapGeneric {
         let level = dungeon.levels.get(&player_position.level).unwrap();
         let level_width = level.width as i32;
         let (center_x, center_y) = level_utils::idx_xy(level_width, player_position.idx as i32);
+        let center_x = center_x + self.offset_x;
+        let center_y = center_y + self.offset_y;
         let render_offset = get_render_offset(center_x, center_y);
         let mouse_offset = get_render_offset_for_xy(center_x, center_y, mouse_x, mouse_y);
         let mouse_idx = level_utils::xy_idx(level_width, mouse_offset.0, mouse_offset.1) as usize;
