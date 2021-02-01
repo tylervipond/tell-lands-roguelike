@@ -1,6 +1,6 @@
 use crate::components::{
-    Disarmable, EntryTrigger, Hidden, InflictsDamage, Name, Position, Renderable, Saveable,
-    SingleActivation, Trap,
+    CausesDamage, Disarmable, EntryTrigger, Hidden, Name, Position, Renderable,
+    Saveable, SingleActivation, Trap,
 };
 use crate::entity_set::EntitySet;
 use crate::services::TrapSpawner;
@@ -20,10 +20,10 @@ impl<'a> System<'a> for TrapSpawnSystem {
         WriteStorage<'a, Name>,
         WriteStorage<'a, Hidden>,
         WriteStorage<'a, EntryTrigger>,
-        WriteStorage<'a, InflictsDamage>,
         WriteStorage<'a, SingleActivation>,
         WriteStorage<'a, Trap>,
         WriteStorage<'a, Disarmable>,
+        WriteStorage<'a, CausesDamage>,
         WriteExpect<'a, TrapSpawner>,
         WriteExpect<'a, SimpleMarkerAllocator<Saveable>>,
         WriteStorage<'a, SimpleMarker<Saveable>>,
@@ -37,10 +37,10 @@ impl<'a> System<'a> for TrapSpawnSystem {
             mut names,
             mut hiddens,
             mut entry_triggers,
-            mut inflicts_damage,
             mut single_activations,
             mut trap,
             mut disarmable,
+            mut causes_damage,
             mut spawner,
             mut marker_allocator,
             mut markers,
@@ -78,11 +78,14 @@ impl<'a> System<'a> for TrapSpawnSystem {
                 .insert(new_trap, hidden)
                 .expect("failed inserting hidden for new trap");
 
-            inflicts_damage
+            causes_damage
                 .insert(
                     new_trap,
-                    InflictsDamage {
-                        amount: trap_type::get_damage_for_trap(&request.trap_type),
+                    CausesDamage {
+                        min: 1,
+                        max: trap_type::get_damage_for_trap(&request.trap_type),
+                        bonus: 0,
+                        damage_type: trap_type::get_damage_type_for_trap(&request.trap_type),
                     },
                 )
                 .expect("failed inserting inflicts damage for new trap");

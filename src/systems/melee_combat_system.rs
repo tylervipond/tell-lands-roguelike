@@ -1,4 +1,4 @@
-use crate::components::{CombatStats, Name, Position, SufferDamage, WantsToMelee, Equipment, CausesDamage};
+use crate::components::{CausesDamage, CombatStats, DamageHistory, Equipment, Name, Position, SufferDamage, WantsToMelee, causes_damage::DamageType};
 use crate::services::{GameLog, ParticleEffectSpawner};
 use rltk::RandomNumberGenerator;
 use specs::{
@@ -27,6 +27,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
     WriteExpect<'a, GameLog>,
     WriteExpect<'a, ParticleEffectSpawner>,
     ReadStorage<'a, Position>,
+    WriteStorage<'a, DamageHistory>,
     WriteExpect<'a, RandomNumberGenerator>
   );
 
@@ -42,6 +43,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
       mut log,
       mut particle_effect_spawner,
       positions,
+      mut damage_histories,
       mut rng
     ) = data;
 
@@ -72,6 +74,14 @@ impl<'a> System<'a> for MeleeCombatSystem {
             log.add(format_no_damage_text(&name.name, &target_name.name, dominant_weapon_name));
           } else {
             total_damage += dominant_hand_damage_dealt;
+            let dominant_weapon_damage_type = match dominant_weapon_damage {
+              Some(d) => rng.random_slice_entry(&d.damage_type).unwrap().clone(),
+              None => DamageType::Blunt
+            };
+            let target_damage_history = damage_histories.get_mut(wants_to_melee.target);
+            if let Some(history) = target_damage_history {
+              history.events.insert(dominant_weapon_damage_type);
+            }
             log.add(format_damage_text(&name.name, &target_name.name, dominant_weapon_name, dominant_hand_damage_dealt));
           }
           // off hand attack
@@ -86,6 +96,14 @@ impl<'a> System<'a> for MeleeCombatSystem {
               log.add(format_no_damage_text(&name.name, &target_name.name, off_weapon_name));
             } else {
               total_damage += off_hand_damage_dealt;
+              let off_weapon_damage_type = match off_weapon_damage {
+                Some(d) => rng.random_slice_entry(&d.damage_type).unwrap().clone(),
+                None => DamageType::Blunt
+              };
+              let target_damage_history = damage_histories.get_mut(wants_to_melee.target);
+              if let Some(history) = target_damage_history {
+                history.events.insert(off_weapon_damage_type);
+              }
               log.add(format_damage_text(&name.name, &target_name.name, off_weapon_name, off_hand_damage_dealt));
             }
           }

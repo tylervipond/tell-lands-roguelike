@@ -7,5 +7,5 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Clone, Debug, Default)]
 pub struct SufferDamage {
-  pub amount: i32
+  pub amount: i32,
 }

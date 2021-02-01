@@ -35,8 +35,8 @@ mod utils;
 use components::{
     equipable::EquipmentPositions, AreaOfEffect, Armable, BlocksTile, Blood, CausesDamage,
     CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable, Contained, Container,
-    Disarmable, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment, Flammable, Furniture,
-    Grabbable, Grabbing, Hidden, Hiding, HidingSpot, InBackpack, InflictsDamage, Info, Item,
+    DamageHistory, Disarmable, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment,
+    Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, InBackpack, Info, Item,
     Lightable, Memory, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
     Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
     SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDouse, WantsToDropItem,
@@ -56,13 +56,14 @@ use screens::{
     ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
 };
 use services::{
-    BloodSpawner, DebrisSpawner, GameLog, ItemSpawner, ParticleEffectSpawner, TrapSpawner,
+    BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog, ItemSpawner, ParticleEffectSpawner,
+    TrapSpawner,
 };
 use systems::{
-    BloodSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem, DouseItemSystem,
-    EquipSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem, GrabSystem, HideSystem,
-    ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem, LightItemSystem, LightSystem,
-    MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, OpenDoorSystem,
+    BloodSpawnSystem, CorpseSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem,
+    DouseItemSystem, EquipSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem, GrabSystem,
+    HideSystem, ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem, LightItemSystem,
+    LightSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, OpenDoorSystem,
     ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
     RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
     UpdateMemoriesSystem, UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
@@ -273,7 +274,6 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<ProvidesHealing>().clear();
     world.write_storage::<Consumable>().clear();
     world.write_storage::<Ranged>().clear();
-    world.write_storage::<InflictsDamage>().clear();
     world.write_storage::<AreaOfEffect>().clear();
     world.write_storage::<Confusion>().clear();
     world.write_storage::<Confused>().clear();
@@ -319,6 +319,7 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<WantsToDouse>().clear();
     world.write_storage::<Armable>().clear();
     world.write_storage::<Disarmable>().clear();
+    world.write_storage::<DamageHistory>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -443,6 +444,8 @@ impl State {
         item_spawn_system.run_now(&self.world);
         let mut debris_spawn_system = DebrisSpawnSystem {};
         debris_spawn_system.run_now(&self.world);
+        let mut corpse_spawn_system = CorpseSpawnSystem {};
+        corpse_spawn_system.run_now(&self.world);
         self.world.maintain();
     }
 }
@@ -1614,7 +1617,6 @@ pub fn start() {
     gs.world.register::<ProvidesHealing>();
     gs.world.register::<Consumable>();
     gs.world.register::<Ranged>();
-    gs.world.register::<InflictsDamage>();
     gs.world.register::<AreaOfEffect>();
     gs.world.register::<Confusion>();
     gs.world.register::<Confused>();
@@ -1659,6 +1661,7 @@ pub fn start() {
     gs.world.register::<WantsToLight>();
     gs.world.register::<Disarmable>();
     gs.world.register::<Armable>();
+    gs.world.register::<DamageHistory>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],
@@ -1670,6 +1673,7 @@ pub fn start() {
     gs.world.insert(DebrisSpawner::new());
     gs.world.insert(TrapSpawner::new());
     gs.world.insert(ItemSpawner::new());
+    gs.world.insert(CorpseSpawner::new());
     let context = RltkBuilder::simple(SCREEN_WIDTH, SCREEN_HEIGHT)
         .unwrap()
         .with_title("Apprentice")

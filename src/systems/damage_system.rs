@@ -1,8 +1,11 @@
-use crate::services::{BloodSpawner, DebrisSpawner, GameLog};
+use crate::{
+    components::DamageHistory,
+    services::{BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog},
+};
 use crate::{
     components::{
-        CombatStats, Contained, Container, Hiding, Monster, Name, Player, Position, Renderable,
-        SufferDamage,
+        monster::MonsterSpecies, CombatStats, Contained, Container, Hiding, Monster, Name, Player,
+        Position, Renderable, SufferDamage,
     },
     player::InteractionType,
 };
@@ -24,54 +27,65 @@ impl<'a> DamageSystem<'a> {
             let monsters = ecs.read_storage::<Monster>();
             let renderables = ecs.read_storage::<Renderable>();
             let mut positions = ecs.write_storage::<Position>();
-            let players = ecs.read_storage::<Player>();
             let names = ecs.read_storage::<Name>();
             let containers = ecs.read_storage::<Container>();
             let mut contained = ecs.write_storage::<Contained>();
             let entities = ecs.entities();
             let mut log = ecs.write_resource::<GameLog>();
             let mut debris_spawner = ecs.write_resource::<DebrisSpawner>();
+            let mut corpse_spawner = ecs.write_resource::<CorpseSpawner>();
+            let player_entity = ecs.fetch::<Entity>();
+            let damage_histories = ecs.read_storage::<DamageHistory>();
 
-            for (entity, stats, name) in (&entities, &combat_stats, &names).join() {
-                if stats.hp < 1 {
-                    if players.get(entity).is_some() {
-                        log.add("you are dead".to_string());
-                    } else if monsters.get(entity).is_some() {
-                        log.add(format!("{} has died", name.name));
-                        dead.push(entity);
-                    } else {
-                        let renderable = renderables.get(entity).unwrap();
-                        let position = positions.get(entity).unwrap().clone();
-                        if containers.get(entity).is_some() {
-                            let contained_ents: Box<[Entity]> = (&contained, &entities)
-                                .join()
-                                .filter(|(c, _e)| c.container == entity)
-                                .map(|(_c, e)| e)
-                                .collect();
-                            contained_ents.iter().for_each(|e| {
-                                contained.remove(*e);
-                                positions
-                                    .insert(*e, position.clone())
-                                    .expect("could not insert position");
-                            })
+            for (entity, _stats, name, renderable) in
+                (&entities, &combat_stats, &names, &renderables)
+                    .join()
+                    .filter(|(e, s, _n, _r)| *e != *player_entity && s.hp < 1)
+            {
+                if let Some(m) = monsters.get(entity) {
+                    let damage_history = damage_histories.get(entity).unwrap();
+                    let position = positions.get(entity).unwrap();
+                    match m.species {
+                        MonsterSpecies::Goblin => {
+                            corpse_spawner.request_goblin_corpse(
+                                position.idx,
+                                position.level,
+                                damage_history.describe_in_past_tense(),
+                            );
                         }
-                        let name = names.get(entity).unwrap();
-                        debris_spawner.request(
-                            position.idx,
-                            renderable.fg,
-                            renderable.bg,
-                            35,
-                            position.level,
-                            format!("{} debris", name.name),
-                        );
-                        log.add(format!("{} has been destroyed", name.name));
-                        dead.push(entity);
+                    }
+                    log.add(format!("{} has died", name.name));
+                } else {
+                    let position = { positions.get(entity).unwrap().clone() };
+                    let name = names.get(entity).unwrap();
+                    debris_spawner.request(
+                        position.idx,
+                        renderable.fg,
+                        renderable.bg,
+                        35,
+                        position.level,
+                        format!("{} debris", name.name),
+                    );
+                    log.add(format!("{} has been destroyed", name.name));
+                    if containers.get(entity).is_some() {
+                        let contained_ents: Box<[Entity]> = (&contained, &entities)
+                            .join()
+                            .filter(|(c, _e)| c.container == entity)
+                            .map(|(_c, e)| e)
+                            .collect();
+                        contained_ents.iter().for_each(|e| {
+                            contained.remove(*e);
+                            positions
+                                .insert(*e, position.clone())
+                                .expect("could not insert position");
+                        })
                     }
                 }
+                dead.push(entity);
             }
         }
 
-        for victim in dead {
+        for victim in &dead {
             {
                 let entities = ecs.entities();
                 let mut hiding = ecs.write_storage::<Hiding>();
@@ -79,7 +93,7 @@ impl<'a> DamageSystem<'a> {
                     .join()
                     .filter(|(_, h)| {
                         if let Some(hiding_spot) = h.hiding_spot {
-                            return hiding_spot == victim;
+                            return hiding_spot == *victim;
                         }
                         false
                     })
@@ -89,8 +103,9 @@ impl<'a> DamageSystem<'a> {
                     hiding.remove(*e);
                 });
             };
-            ecs.delete_entity(victim).expect("Unable to delete");
         }
+        ecs.delete_entities(&dead)
+            .expect("could not delete dead entities");
     }
 }
 

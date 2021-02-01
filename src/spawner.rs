@@ -1,10 +1,12 @@
-use crate::components::{equipable::EquipmentPositions, Armable, Disarmable, Lightable};
+use crate::components::{
+    causes_damage::DamageType, equipable::EquipmentPositions, monster::MonsterSpecies, Armable,
+    DamageHistory, Disarmable, Lightable,
+};
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesDamage, CausesFire, CausesLight, CombatStats, Confusion,
     Consumable, Contained, Container, Dousable, EntryTrigger, Equipable, Equipment, Flammable,
-    Furniture, Grabbable, Hidden, HidingSpot, InflictsDamage, Info, Item, Memory, Monster, Name,
-    Objective, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation,
-    Trap, Viewshed,
+    Furniture, Grabbable, Hidden, HidingSpot, Info, Item, Memory, Monster, Name, Objective, Player,
+    Position, ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed,
 };
 use crate::dungeon::{
     constants::MAP_HEIGHT,
@@ -97,9 +99,15 @@ fn make_entity_weapon<'a>(
     min: i32,
     max: i32,
     bonus: i32,
+    damage_type: Box<[DamageType]>,
 ) -> EntityBuilder<'a> {
     builder
-        .with(CausesDamage { min, max, bonus })
+        .with(CausesDamage {
+            min,
+            max,
+            bonus,
+            damage_type,
+        })
         .with(Item {})
         .with(Equipable {
             positions: Box::new([
@@ -110,7 +118,7 @@ fn make_entity_weapon<'a>(
 }
 
 fn make_entity_sword<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
-    make_entity_weapon(builder, 1, 6, 0)
+    make_entity_weapon(builder, 1, 6, 0, Box::new([DamageType::Slash, DamageType::Stab]))
         .with(Name {
             name: "Sword".to_string(),
         })
@@ -126,7 +134,7 @@ fn make_entity_sword<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
 }
 
 fn make_entity_club<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
-    make_entity_weapon(builder, 1, 4, 0)
+    make_entity_weapon(builder, 1, 4, 0, Box::new([DamageType::Blunt]))
         .with(Name {
             name: "Club".to_string(),
         })
@@ -210,6 +218,9 @@ pub fn spawn_player(world: &mut World, idx: usize, level: &Level) -> Entity {
             dominant_hand: Some(sword),
             off_hand: Some(torch),
         })
+        .with(DamageHistory {
+            events: HashSet::new(),
+        })
         .build()
 }
 
@@ -219,6 +230,7 @@ pub fn spawn_monster<S: ToString>(
     glyph: u16,
     name: S,
     level: &Level,
+    species: MonsterSpecies,
 ) -> Entity {
     let club = spawn_club_as_equipment(world);
     let torch = spawn_torch_as_equipment(world);
@@ -235,7 +247,7 @@ pub fn spawn_monster<S: ToString>(
             range: (MAP_HEIGHT / 2) as i32,
             dirty: true,
         })
-        .with(Monster {})
+        .with(Monster { species })
         .with(Name {
             name: name.to_string(),
         })
@@ -254,6 +266,9 @@ pub fn spawn_monster<S: ToString>(
             last_known_enemy_positions: HashSet::new(),
             known_enemy_hiding_spots: HashSet::new(),
             wander_destination: None,
+        })
+        .with(DamageHistory {
+            events: HashSet::new(),
         })
         .build()
 }
@@ -275,7 +290,14 @@ fn spawn_objective(world: &mut World, idx: usize, level: &Level) -> Entity {
 }
 
 pub fn spawn_goblin(world: &mut World, idx: usize, level: &Level) -> Entity {
-    spawn_monster(world, idx, to_cp437('g'), "Goblin", level)
+    spawn_monster(
+        world,
+        idx,
+        to_cp437('g'),
+        "Goblin",
+        level,
+        MonsterSpecies::Goblin,
+    )
 }
 
 fn make_entity_health_potion<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
@@ -316,7 +338,12 @@ fn make_entity_magic_missile_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBui
         .with(Item {})
         .with(Consumable {})
         .with(Ranged { range: 6 })
-        .with(InflictsDamage { amount: 8 })
+        .with(CausesDamage {
+            min: 4,
+            max: 8,
+            bonus: 0,
+            damage_type: Box::new([DamageType::Burn]),
+        })
 }
 
 fn spawn_magic_missile_scroll(world: &mut World, idx: usize, level: &Level) -> Entity {
@@ -342,7 +369,12 @@ fn make_entity_fireball_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<
         .with(Item {})
         .with(Consumable {})
         .with(Ranged { range: 6 })
-        .with(InflictsDamage { amount: 20 })
+        .with(CausesDamage {
+            min: 10,
+            max: 20,
+            bonus: 0,
+            damage_type: Box::new([DamageType::Burn]),
+        })
         .with(CausesFire {})
         .with(AreaOfEffect { radius: 3 })
 }
@@ -454,8 +486,11 @@ fn make_entity_set_trap<'a>(
             found_by: EntitySet::new(),
         })
         .with(EntryTrigger {})
-        .with(InflictsDamage {
-            amount: trap_type::get_damage_for_trap(type_of_trap),
+        .with(CausesDamage {
+            min: 0,
+            bonus: 0,
+            max: trap_type::get_damage_for_trap(type_of_trap),
+            damage_type: trap_type::get_damage_type_for_trap(type_of_trap),
         })
         .with(Trap {
             trap_type: type_of_trap.to_owned(),

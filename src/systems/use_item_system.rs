@@ -1,10 +1,11 @@
 use crate::components::{
-    AreaOfEffect, CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable,
-    Flammable, InflictsDamage, Name, OnFire, Position, ProvidesHealing, SufferDamage, WantsToUse,
+    AreaOfEffect, CausesDamage, CausesFire, CausesLight, CombatStats, Confused, Confusion,
+    Consumable, DamageHistory, Flammable, Name, OnFire, Position, ProvidesHealing, SufferDamage,
+    WantsToUse,
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};
-use rltk::{BLACK, MAGENTA, ORANGE, RED, RGB};
+use rltk::{RandomNumberGenerator, BLACK, MAGENTA, ORANGE, RED, RGB};
 use specs::{
     storage::GenericWriteStorage, Entities, Entity, Join, ReadExpect, ReadStorage, System,
     WriteExpect, WriteStorage,
@@ -22,7 +23,7 @@ impl<'a> System<'a> for UseItemSystem {
         ReadStorage<'a, Consumable>,
         WriteStorage<'a, CombatStats>,
         ReadStorage<'a, ProvidesHealing>,
-        ReadStorage<'a, InflictsDamage>,
+        ReadStorage<'a, CausesDamage>,
         WriteStorage<'a, SufferDamage>,
         ReadExpect<'a, Dungeon>,
         ReadStorage<'a, AreaOfEffect>,
@@ -34,6 +35,8 @@ impl<'a> System<'a> for UseItemSystem {
         ReadStorage<'a, Flammable>,
         WriteStorage<'a, OnFire>,
         WriteStorage<'a, CausesLight>,
+        WriteStorage<'a, DamageHistory>,
+        WriteExpect<'a, RandomNumberGenerator>,
     );
     fn run(&mut self, data: Self::SystemData) {
         let (
@@ -45,7 +48,7 @@ impl<'a> System<'a> for UseItemSystem {
             consumables,
             mut combat_stats,
             provides_healing,
-            inflicts_damage,
+            causes_damage,
             mut suffer_damage,
             dungeon,
             aoe,
@@ -57,6 +60,8 @@ impl<'a> System<'a> for UseItemSystem {
             flammables,
             mut on_fire,
             mut causes_light,
+            mut damage_histories,
+            mut rng,
         ) = data;
         let player_position = positions.get(*player_entity).unwrap();
         let level = dungeon.get_level(player_position.level).unwrap();
@@ -100,7 +105,7 @@ impl<'a> System<'a> for UseItemSystem {
             };
 
             let heals = provides_healing.get(to_use.item);
-            let damages = inflicts_damage.get(to_use.item);
+            let damages = causes_damage.get(to_use.item);
             let confuses = causes_confusion.get(to_use.item);
             let burns = causes_fire.get(to_use.item);
             for target in targets {
@@ -123,8 +128,13 @@ impl<'a> System<'a> for UseItemSystem {
                     }
                 } else if let Some(damages) = damages {
                     if combat_stats.get(target).is_some() {
+                        let damage = rng.range(damages.min, damages.max) + damages.bonus;
                         if let Some(suffer_damage) = suffer_damage.get_mut_or_default(target) {
-                            suffer_damage.amount += damages.amount;
+                            suffer_damage.amount += damage;
+                        }
+                        if let Some(damage_history) = damage_histories.get_mut(target) {
+                            let damage_type = rng.random_slice_entry(&damages.damage_type).unwrap();
+                            damage_history.events.insert(*damage_type);
                         }
                         particle_spawner.request(
                             pos.idx,
@@ -139,7 +149,7 @@ impl<'a> System<'a> for UseItemSystem {
                                 let item_name = names.get(to_use.item).unwrap();
                                 game_log.add(format!(
                                     "you use {} on {} causing {} damage",
-                                    item_name.name, mob_name.name, damages.amount
+                                    item_name.name, mob_name.name, damage
                                 ));
                             }
                         }
