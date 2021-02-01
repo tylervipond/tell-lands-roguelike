@@ -1,4 +1,4 @@
-use crate::components::{Name, Position, Renderable, Saveable};
+use crate::components::{Container, Name, Position, Renderable, Saveable};
 use crate::services::CorpseSpawner;
 use specs::{
     saveload::{MarkerAllocator, SimpleMarker, SimpleMarkerAllocator},
@@ -12,6 +12,7 @@ impl<'a> System<'a> for CorpseSpawnSystem {
         WriteStorage<'a, Position>,
         WriteStorage<'a, Renderable>,
         WriteStorage<'a, Name>,
+        WriteStorage<'a, Container>,
         WriteExpect<'a, CorpseSpawner>,
         WriteExpect<'a, SimpleMarkerAllocator<Saveable>>,
         WriteStorage<'a, SimpleMarker<Saveable>>,
@@ -23,14 +24,20 @@ impl<'a> System<'a> for CorpseSpawnSystem {
             mut positions,
             mut renderables,
             mut names,
+            mut containers,
             mut spawner,
             mut marker_allocator,
             mut markers,
         ) = data;
-        for request in spawner.requests.iter() {
+        for request in spawner.requests.drain(..) {
             let new_corpse = entities.create();
             names
-                .insert(new_corpse, Name { name: request.name.clone() })
+                .insert(
+                    new_corpse,
+                    Name {
+                        name: request.name.clone(),
+                    },
+                )
                 .expect("failed inserting new corpse");
             positions
                 .insert(
@@ -52,8 +59,15 @@ impl<'a> System<'a> for CorpseSpawnSystem {
                     },
                 )
                 .expect("failed inserting renderable for corpse");
+            containers
+                .insert(
+                    new_corpse,
+                    Container {
+                        items: request.items,
+                    },
+                )
+                .expect("failed inserting container for corpse");
             marker_allocator.mark(new_corpse, &mut markers);
         }
-        spawner.requests.clear();
     }
 }

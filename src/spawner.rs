@@ -1,12 +1,9 @@
-use crate::components::{
-    causes_damage::DamageType, equipable::EquipmentPositions, monster::MonsterSpecies, Armable,
-    DamageHistory, Disarmable, Lightable,
-};
+use crate::components::{Armable, DamageHistory, Disarmable, Inventory, Lightable, causes_damage::DamageType, equipable::EquipmentPositions, monster::MonsterSpecies};
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesDamage, CausesFire, CausesLight, CombatStats, Confusion,
-    Consumable, Contained, Container, Dousable, EntryTrigger, Equipable, Equipment, Flammable,
-    Furniture, Grabbable, Hidden, HidingSpot, Info, Item, Memory, Monster, Name, Objective, Player,
-    Position, ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed,
+    Consumable, Container, Dousable, EntryTrigger, Equipable, Equipment, Flammable, Furniture,
+    Grabbable, Hidden, HidingSpot, Info, Item, Memory, Monster, Name, Objective, Player, Position,
+    ProvidesHealing, Ranged, Renderable, Saveable, SingleActivation, Trap, Viewshed,
 };
 use crate::dungeon::{
     constants::MAP_HEIGHT,
@@ -82,15 +79,6 @@ fn create_marked_entity_with_position<'a>(
     create_marked_entity(world).with(Position {
         idx: position_idx,
         level: level.depth,
-    })
-}
-
-fn create_marked_entity_in_container<'a>(
-    world: &'a mut World,
-    container_entity: Entity,
-) -> EntityBuilder<'a> {
-    create_marked_entity(world).with(Contained {
-        container: container_entity,
     })
 }
 
@@ -218,6 +206,9 @@ pub fn spawn_player(world: &mut World, idx: usize, level: &Level) -> Entity {
             dominant_hand: Some(sword),
             off_hand: Some(torch),
         })
+        .with(Inventory {
+            items: EntitySet::new(),
+        })
         .with(DamageHistory {
             events: HashSet::new(),
         })
@@ -266,6 +257,9 @@ pub fn spawn_monster<S: ToString>(
             last_known_enemy_positions: HashSet::new(),
             known_enemy_hiding_spots: HashSet::new(),
             wander_destination: None,
+        })
+        .with(Inventory {
+            items: EntitySet::new(),
         })
         .with(DamageHistory {
             events: HashSet::new(),
@@ -316,12 +310,12 @@ fn make_entity_health_potion<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a
         .with(ProvidesHealing { amount: 8 })
 }
 
-pub fn spawn_health_potion(world: &mut World, idx: usize, level: &Level) -> Entity {
+pub fn spawn_health_potion_with_position(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_health_potion(create_marked_entity_with_position(world, idx, level)).build()
 }
 
-fn spawn_health_potion_in_container(world: &mut World, container_entity: Entity) -> Entity {
-    make_entity_health_potion(create_marked_entity_in_container(world, container_entity)).build()
+fn spawn_health_potion(world: &mut World) -> Entity {
+    make_entity_health_potion(create_marked_entity(world)).build()
 }
 
 fn make_entity_magic_missile_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
@@ -346,13 +340,16 @@ fn make_entity_magic_missile_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBui
         })
 }
 
-fn spawn_magic_missile_scroll(world: &mut World, idx: usize, level: &Level) -> Entity {
+fn spawn_magic_missile_scroll_with_position(
+    world: &mut World,
+    idx: usize,
+    level: &Level,
+) -> Entity {
     make_entity_magic_missile_scroll(create_marked_entity_with_position(world, idx, level)).build()
 }
 
-fn spawn_magic_missile_scroll_in_container(world: &mut World, container_entity: Entity) -> Entity {
-    make_entity_magic_missile_scroll(create_marked_entity_in_container(world, container_entity))
-        .build()
+fn spawn_magic_missile_scroll(world: &mut World) -> Entity {
+    make_entity_magic_missile_scroll(create_marked_entity(world)).build()
 }
 
 fn make_entity_fireball_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
@@ -379,12 +376,12 @@ fn make_entity_fireball_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<
         .with(AreaOfEffect { radius: 3 })
 }
 
-fn spawn_fireball_scroll(world: &mut World, idx: usize, level: &Level) -> Entity {
+fn spawn_fireball_scroll_with_position(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_fireball_scroll(create_marked_entity_with_position(world, idx, level)).build()
 }
 
-fn spawn_fireball_scroll_in_container(world: &mut World, container_entity: Entity) -> Entity {
-    make_entity_fireball_scroll(create_marked_entity_in_container(world, container_entity)).build()
+fn spawn_fireball_scroll(world: &mut World) -> Entity {
+    make_entity_fireball_scroll(create_marked_entity(world)).build()
 }
 
 fn make_entity_confusion_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
@@ -404,12 +401,12 @@ fn make_entity_confusion_scroll<'a>(builder: EntityBuilder<'a>) -> EntityBuilder
         .with(Confusion { turns: 4 })
 }
 
-fn spawn_confusion_scroll(world: &mut World, idx: usize, level: &Level) -> Entity {
+fn spawn_confusion_scroll_with_position(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_confusion_scroll(create_marked_entity_with_position(world, idx, level)).build()
 }
 
-fn spawn_confusion_scroll_in_container(world: &mut World, container_entity: Entity) -> Entity {
-    make_entity_confusion_scroll(create_marked_entity_in_container(world, container_entity)).build()
+fn spawn_confusion_scroll(world: &mut World) -> Entity {
+    make_entity_confusion_scroll(create_marked_entity(world)).build()
 }
 
 fn make_entity_bear_trap<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
@@ -432,12 +429,12 @@ fn make_entity_bear_trap<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
         .with(Armable {})
 }
 
-fn spawn_bear_trap(world: &mut World, idx: usize, level: &Level) -> Entity {
+fn spawn_bear_trap_with_position(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_bear_trap(create_marked_entity_with_position(world, idx, level)).build()
 }
 
-fn spawn_bear_trap_in_container(world: &mut World, container_entity: Entity) -> Entity {
-    make_entity_bear_trap(create_marked_entity_in_container(world, container_entity)).build()
+fn spawn_bear_trap(world: &mut World) -> Entity {
+    make_entity_bear_trap(create_marked_entity(world)).build()
 }
 
 fn make_entity_caltrops<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
@@ -460,12 +457,12 @@ fn make_entity_caltrops<'a>(builder: EntityBuilder<'a>) -> EntityBuilder<'a> {
         .with(Armable {})
 }
 
-fn spawn_caltrops(world: &mut World, idx: usize, level: &Level) -> Entity {
+fn spawn_caltrops_with_position(world: &mut World, idx: usize, level: &Level) -> Entity {
     make_entity_caltrops(create_marked_entity_with_position(world, idx, level)).build()
 }
 
-fn spawn_caltrops_in_container(world: &mut World, container_entity: Entity) -> Entity {
-    make_entity_caltrops(create_marked_entity_in_container(world, container_entity)).build()
+fn spawn_caltrops(world: &mut World) -> Entity {
+    make_entity_caltrops(create_marked_entity(world)).build()
 }
 
 fn make_entity_set_trap<'a>(
@@ -575,28 +572,28 @@ fn spawn_set_traps(world: &mut World, idx: usize, level: &Level) {
     };
 }
 
-fn spawn_random_item(world: &mut World, idx: usize, level: &Level) {
+fn spawn_random_item_with_position(world: &mut World, idx: usize, level: &Level) {
     let roll = get_random_from_world(world, 0, 7);
     match roll {
-        1 | 2 => spawn_health_potion(world, idx, level),
-        3 => spawn_fireball_scroll(world, idx, level),
-        4 => spawn_confusion_scroll(world, idx, level),
-        5 => spawn_bear_trap(world, idx, level),
-        6 => spawn_caltrops(world, idx, level),
-        _ => spawn_magic_missile_scroll(world, idx, level),
+        1 | 2 => spawn_health_potion_with_position(world, idx, level),
+        3 => spawn_fireball_scroll_with_position(world, idx, level),
+        4 => spawn_confusion_scroll_with_position(world, idx, level),
+        5 => spawn_bear_trap_with_position(world, idx, level),
+        6 => spawn_caltrops_with_position(world, idx, level),
+        _ => spawn_magic_missile_scroll_with_position(world, idx, level),
     };
 }
 
-fn spawn_random_item_in_container(world: &mut World, container_entity: Entity) {
+fn spawn_random_item(world: &mut World) -> Entity {
     let roll = get_random_from_world(world, 0, 7);
     match roll {
-        1 | 2 => spawn_health_potion_in_container(world, container_entity),
-        3 => spawn_fireball_scroll_in_container(world, container_entity),
-        4 => spawn_confusion_scroll_in_container(world, container_entity),
-        5 => spawn_bear_trap_in_container(world, container_entity),
-        6 => spawn_caltrops_in_container(world, container_entity),
-        _ => spawn_magic_missile_scroll_in_container(world, container_entity),
-    };
+        1 | 2 => spawn_health_potion(world),
+        3 => spawn_fireball_scroll(world),
+        4 => spawn_confusion_scroll(world),
+        5 => spawn_bear_trap(world),
+        6 => spawn_caltrops(world),
+        _ => spawn_magic_missile_scroll(world),
+    }
 }
 
 fn get_containers_in_room(world: &World, room: &Room, level_width: i32) -> Vec<Entity> {
@@ -633,11 +630,19 @@ pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Leve
             level_utils::get_spawn_points(&room.rect, level, &mut rng, num_items_not_in_containers)
         };
         for idx in spawn_points.iter() {
-            spawn_random_item(world, *idx as usize, level);
+            spawn_random_item_with_position(world, *idx as usize, level);
         }
         for _ in 0..num_items_in_containers {
-            let container_idx = get_random_from_world(world, 0, containers_in_room.len() as i32);
-            spawn_random_item_in_container(world, containers_in_room[container_idx as usize]);
+            let item = spawn_random_item(world);
+            let container_ent = {
+                let mut rng = world.fetch_mut::<RandomNumberGenerator>();
+                rng.random_slice_entry(containers_in_room.as_slice())
+            };
+            if let Some(container_ent) = container_ent {
+                let mut containers = world.write_storage::<Container>();
+                let container = containers.get_mut(*container_ent).unwrap();
+                container.items.insert(item);
+            }
         }
     }
 }
@@ -826,7 +831,9 @@ pub fn spawn_treasure_chest(world: &mut World, idx: usize, level: &mut Level) {
         'T',
         RGB::named(rltk::BROWN3),
     )
-    .with(Container {})
+    .with(Container {
+        items: EntitySet::new(),
+    })
     .build();
     level.blocked[idx as usize] = true;
 }

@@ -5,8 +5,10 @@ use specs::{
   Component, DenseVecStorage, Entity,
 };
 
+use crate::entity_option::EntityOption;
+
 #[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct WantsToPickUpItem {
-  pub collected_by: Entity,
+  pub container: EntityOption,
   pub item: Entity,
 }
