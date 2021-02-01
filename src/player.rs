@@ -87,7 +87,7 @@ fn try_pickup_item(world: &mut World) {
                 .insert(
                     *player_entity,
                     WantsToPickUpItem {
-                        collected_by: *player_entity,
+                        container: EntityOption::new(None),
                         item,
                     },
                 )
@@ -316,7 +316,7 @@ pub fn pickup_item(world: &mut World, item: Entity) {
         .insert(
             *player_entity,
             WantsToPickUpItem {
-                collected_by: *player_entity,
+                container: EntityOption::new(None),
                 item,
             },
         )

@@ -1,4 +1,6 @@
-use rltk::{RGB, to_cp437, DARK_RED, BLACK};
+use rltk::{to_cp437, BLACK, DARK_RED, RGB};
+
+use crate::entity_set::EntitySet;
 
 pub struct CorpseSpawnerRequest {
     pub idx: usize,
@@ -7,6 +9,7 @@ pub struct CorpseSpawnerRequest {
     pub glyph: u16,
     pub level: u8,
     pub name: String,
+    pub items: EntitySet,
 }
 
 pub struct CorpseSpawner {
@@ -20,7 +23,16 @@ impl CorpseSpawner {
         }
     }
 
-    pub fn request(&mut self, idx: usize, fg: RGB, bg: RGB, glyph: u16, level: u8, name: String) {
+    pub fn request(
+        &mut self,
+        idx: usize,
+        fg: RGB,
+        bg: RGB,
+        glyph: u16,
+        level: u8,
+        name: String,
+        items: EntitySet,
+    ) {
         self.requests.push(CorpseSpawnerRequest {
             idx,
             fg,
@@ -28,17 +40,25 @@ impl CorpseSpawner {
             glyph,
             level,
             name,
+            items,
         });
     }
 
-    pub fn request_goblin_corpse(&mut self, idx: usize, level: u8, cause_of_death: String) {
+    pub fn request_goblin_corpse(
+        &mut self,
+        idx: usize,
+        level: u8,
+        cause_of_death: String,
+        items: EntitySet,
+    ) {
         self.request(
             idx,
             RGB::named(BLACK),
             RGB::named(DARK_RED),
             to_cp437('g'),
             level,
-            format!("goblin corpse, {}", cause_of_death)
+            format!("goblin corpse, {}", cause_of_death),
+            items,
         );
     }
 }

@@ -34,9 +34,9 @@ mod user_actions;
 mod utils;
 use components::{
     equipable::EquipmentPositions, AreaOfEffect, Armable, BlocksTile, Blood, CausesDamage,
-    CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable, Contained, Container,
+    CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable, Container,
     DamageHistory, Disarmable, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment,
-    Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, InBackpack, Info, Item,
+    Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, Info, Inventory, Item,
     Lightable, Memory, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
     Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
     SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDouse, WantsToDropItem,
@@ -95,10 +95,12 @@ fn player_can_leave_dungeon(world: &mut World) -> bool {
 
 fn has_objective_in_backpack(world: &World) -> bool {
     let player_ent = world.fetch::<Entity>();
-    let backpacks = world.read_storage::<InBackpack>();
+    let inventories = world.read_storage::<Inventory>();
+    let player_inventory = inventories.get(*player_ent).unwrap();
+    let entities = world.entities();
     let objectives = world.read_storage::<Objective>();
-    for (_objective, backpack) in (&objectives, &backpacks).join() {
-        if backpack.owner == *player_ent {
+    for (entity, _objective) in (&entities, &objectives).join() {
+        if player_inventory.items.contains(&entity) {
             return true;
         }
     }
@@ -267,7 +269,6 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<CombatStats>().clear();
     world.write_storage::<Item>().clear();
     world.write_storage::<Potion>().clear();
-    world.write_storage::<InBackpack>().clear();
     world.write_storage::<WantsToPickUpItem>().clear();
     world.write_storage::<WantsToUse>().clear();
     world.write_storage::<WantsToDropItem>().clear();
@@ -287,7 +288,6 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<SingleActivation>().clear();
     world.write_storage::<Triggered>().clear();
     world.write_storage::<Objective>().clear();
-    world.write_storage::<Contained>().clear();
     world.write_storage::<Container>().clear();
     world.write_storage::<Flammable>().clear();
     world.write_storage::<OnFire>().clear();
@@ -320,6 +320,7 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Armable>().clear();
     world.write_storage::<Disarmable>().clear();
     world.write_storage::<DamageHistory>().clear();
+    world.write_storage::<Inventory>().clear();
     world.remove::<SimpleMarkerAllocator<Saveable>>();
     world.insert(SimpleMarkerAllocator::<Saveable>::new());
     let dungeon = generate_dungeon(world, 10);
@@ -1021,13 +1022,14 @@ impl GameState for State {
                     MenuAction::Select => match inventory_entities.get(*highlighted) {
                         Some(ent) => {
                             let mut intent = self.world.write_storage::<WantsToPickUpItem>();
-                            let collected_by = self.world.fetch::<Entity>();
                             intent
                                 .insert(
                                     *self.world.fetch::<Entity>(),
                                     WantsToPickUpItem {
                                         item: *ent,
-                                        collected_by: *collected_by,
+                                        container: entity_option::EntityOption::new(Some(
+                                            *container,
+                                        )),
                                     },
                                 )
                                 .expect("Unable To Insert Pick Up Item Intent");
@@ -1174,20 +1176,25 @@ impl GameState for State {
                 let equipment: Vec<(String, Option<Entity>)> = {
                     let player_ent = self.world.fetch::<Entity>();
                     let equipment = self.world.read_storage::<Equipable>();
-                    let in_backpack = self.world.read_storage::<InBackpack>();
                     let names = self.world.read_storage::<Name>();
-                    let entities = self.world.entities();
+                    let inventories = self.world.read_storage::<Inventory>();
+                    let player_inventory = inventories.get(*player_ent).unwrap();
                     iter::once((String::from("Nothing"), None))
                         .chain(
-                            (&equipment, &in_backpack, &names, &entities)
-                                .join()
-                                .filter(|(e, b, _n, _ent)| {
-                                    let has_position =
-                                        e.positions.iter().find(|p| *p == position).is_some();
-                                    let owned_by_player = b.owner == *player_ent;
-                                    has_position && owned_by_player
+                            player_inventory
+                                .items
+                                .iter()
+                                .filter(|ent| {
+                                    if let Some(equip) = equipment.get(**ent) {
+                                        return equip
+                                            .positions
+                                            .iter()
+                                            .find(|p| *p == position)
+                                            .is_some();
+                                    }
+                                    false
                                 })
-                                .map(|(_e, _b, n, ent)| (n.name.clone(), Some(ent))),
+                                .map(|ent| (names.get(*ent).unwrap().name.clone(), Some(*ent))),
                         )
                         .collect()
                 };
@@ -1610,7 +1617,6 @@ pub fn start() {
     gs.world.register::<CombatStats>();
     gs.world.register::<Item>();
     gs.world.register::<Potion>();
-    gs.world.register::<InBackpack>();
     gs.world.register::<WantsToPickUpItem>();
     gs.world.register::<WantsToUse>();
     gs.world.register::<WantsToDropItem>();
@@ -1630,7 +1636,6 @@ pub fn start() {
     gs.world.register::<SingleActivation>();
     gs.world.register::<Triggered>();
     gs.world.register::<Objective>();
-    gs.world.register::<Contained>();
     gs.world.register::<Container>();
     gs.world.register::<Flammable>();
     gs.world.register::<OnFire>();
@@ -1662,6 +1667,7 @@ pub fn start() {
     gs.world.register::<Disarmable>();
     gs.world.register::<Armable>();
     gs.world.register::<DamageHistory>();
+    gs.world.register::<Inventory>();
     gs.world.insert(SimpleMarkerAllocator::<Saveable>::new());
     gs.world.insert(GameLog {
         entries: vec!["Enter the dungeon apprentice! Bring back the Talisman!".to_owned()],

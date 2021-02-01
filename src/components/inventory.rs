@@ -1,3 +1,4 @@
+use crate::entity_set::EntitySet;
 use serde::{Deserialize, Serialize};
 use specs::{
     error::NoError,
@@ -6,6 +7,6 @@ use specs::{
 };
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
-pub struct Contained {
-    pub container: Entity,
+pub struct Inventory {
+    pub items: EntitySet
 }

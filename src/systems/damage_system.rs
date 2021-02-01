@@ -1,13 +1,10 @@
 use crate::{
-    components::DamageHistory,
-    services::{BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog},
-};
-use crate::{
     components::{
-        monster::MonsterSpecies, CombatStats, Contained, Container, Hiding, Monster, Name, Player,
-        Position, Renderable, SufferDamage,
+        monster::MonsterSpecies, CombatStats, Container, DamageHistory, Equipment, Hiding,
+        Inventory, Monster, Name, Player, Position, Renderable, SufferDamage,
     },
     player::InteractionType,
+    services::{BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog},
 };
 use rltk::RGB;
 use specs::{
@@ -29,11 +26,12 @@ impl<'a> DamageSystem<'a> {
             let mut positions = ecs.write_storage::<Position>();
             let names = ecs.read_storage::<Name>();
             let containers = ecs.read_storage::<Container>();
-            let mut contained = ecs.write_storage::<Contained>();
             let entities = ecs.entities();
             let mut log = ecs.write_resource::<GameLog>();
             let mut debris_spawner = ecs.write_resource::<DebrisSpawner>();
             let mut corpse_spawner = ecs.write_resource::<CorpseSpawner>();
+            let inventory = ecs.read_storage::<Inventory>();
+            let equipment = ecs.read_storage::<Equipment>();
             let player_entity = ecs.fetch::<Entity>();
             let damage_histories = ecs.read_storage::<DamageHistory>();
 
@@ -45,12 +43,19 @@ impl<'a> DamageSystem<'a> {
                 if let Some(m) = monsters.get(entity) {
                     let damage_history = damage_histories.get(entity).unwrap();
                     let position = positions.get(entity).unwrap();
+                    let mut items = inventory.get(entity).unwrap().items.clone();
+                    if let Some(equip) = equipment.get(entity) {
+                        for i in equip.as_items().drain() {
+                            items.insert(i);
+                        }
+                    }
                     match m.species {
                         MonsterSpecies::Goblin => {
                             corpse_spawner.request_goblin_corpse(
                                 position.idx,
                                 position.level,
                                 damage_history.describe_in_past_tense(),
+                                items,
                             );
                         }
                     }
@@ -67,14 +72,8 @@ impl<'a> DamageSystem<'a> {
                         format!("{} debris", name.name),
                     );
                     log.add(format!("{} has been destroyed", name.name));
-                    if containers.get(entity).is_some() {
-                        let contained_ents: Box<[Entity]> = (&contained, &entities)
-                            .join()
-                            .filter(|(c, _e)| c.container == entity)
-                            .map(|(_c, e)| e)
-                            .collect();
-                        contained_ents.iter().for_each(|e| {
-                            contained.remove(*e);
+                    if let Some(container) = containers.get(entity) {
+                        container.items.iter().for_each(|e| {
                             positions
                                 .insert(*e, position.clone())
                                 .expect("could not insert position");
