@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::components::causes_damage::DamageType;
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum TrapType {
     BearTrap,
@@ -35,5 +37,13 @@ pub fn is_trap_single_activation(trap_type: &TrapType) -> bool {
     match trap_type {
         TrapType::BearTrap => true,
         _ => false,
+    }
+}
+
+pub fn get_damage_type_for_trap(trap_type: &TrapType) -> Box<[DamageType]> {
+    match trap_type {
+        TrapType::Caltrops => Box::new([DamageType::Pierce]),
+        TrapType::BearTrap => Box::new([DamageType::Crush]),
+        TrapType::PitTrap => Box::new([DamageType::Crush]),
     }
 }

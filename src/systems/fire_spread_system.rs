@@ -1,4 +1,4 @@
-use crate::components::{CausesLight, CombatStats, Flammable, OnFire, Position, SufferDamage};
+use crate::components::{CausesLight, CombatStats, DamageHistory, Flammable, OnFire, Position, SufferDamage, causes_damage::DamageType};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use rltk::RandomNumberGenerator;
 use specs::{
@@ -18,6 +18,7 @@ impl<'a> System<'a> for FireSpreadSystem {
         WriteStorage<'a, SufferDamage>,
         WriteExpect<'a, RandomNumberGenerator>,
         WriteStorage<'a, CausesLight>,
+        WriteStorage<'a, DamageHistory>
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -30,6 +31,7 @@ impl<'a> System<'a> for FireSpreadSystem {
             mut suffer_damage,
             mut rng,
             mut causes_light,
+            mut damage_histories
         ) = data;
 
         let affected_entities: Vec<Entity> = (&mut on_fires, &positions)
@@ -66,6 +68,9 @@ impl<'a> System<'a> for FireSpreadSystem {
                 if let Some(damage_to_suffer) = suffer_damage.get_mut_or_default(*e) {
                     damage_to_suffer.amount += 2;
                 }
+            }
+            if let Some(damage_history) = damage_histories.get_mut(*e) {
+                damage_history.events.insert(DamageType::Burn);
             }
         });
     }

@@ -1,4 +1,5 @@
 pub mod blood_spawn_system;
+pub mod corpse_spawn_system;
 pub mod damage_system;
 pub mod debris_spawn_system;
 pub mod disarm_trap_system;
@@ -33,6 +34,7 @@ pub mod update_particle_effects_system;
 pub mod use_item_system;
 pub mod visibility_system;
 pub use blood_spawn_system::BloodSpawnSystem;
+pub use corpse_spawn_system::CorpseSpawnSystem;
 pub use damage_system::DamageSystem;
 pub use debris_spawn_system::DebrisSpawnSystem;
 pub use disarm_trap_system::DisarmTrapSystem;

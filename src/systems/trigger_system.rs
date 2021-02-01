@@ -1,9 +1,7 @@
-use crate::components::{
-    EntityMoved, EntryTrigger, Hidden, InflictsDamage, Name, Position, SufferDamage,
-    Triggered,
-};
+use crate::components::{CausesDamage, DamageHistory, EntityMoved, EntryTrigger, Hidden, Name, Position, SufferDamage, Triggered};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};
+use rltk::RandomNumberGenerator;
 use specs::{
     storage::GenericWriteStorage, Entities, Entity, Join, ReadExpect, ReadStorage, System,
     WriteExpect, WriteStorage,
@@ -20,12 +18,14 @@ impl<'a> System<'a> for TriggerSystem {
         ReadStorage<'a, Position>,
         WriteStorage<'a, Hidden>,
         ReadStorage<'a, Name>,
-        ReadStorage<'a, InflictsDamage>,
+        ReadStorage<'a, CausesDamage>,
         WriteStorage<'a, SufferDamage>,
         WriteStorage<'a, Triggered>,
+        WriteStorage<'a, DamageHistory>,
         WriteExpect<'a, ParticleEffectSpawner>,
         WriteExpect<'a, GameLog>,
         Entities<'a>,
+        WriteExpect<'a, RandomNumberGenerator>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -40,9 +40,11 @@ impl<'a> System<'a> for TriggerSystem {
             damages,
             mut suffer_damage,
             mut triggered,
+            mut damage_histories,
             mut particle_spawner,
             mut log,
             ents,
+            mut rng,
         ) = data;
         let player_level = positions.get(*player_ent).unwrap().level;
         let level = dungeon.get_level(player_level).unwrap();
@@ -62,11 +64,15 @@ impl<'a> System<'a> for TriggerSystem {
                     }
                     if let Some(damage) = damages.get(*maybe_triggered) {
                         if let Some(damage_to_suffer) = suffer_damage.get_mut_or_default(entity) {
-                            damage_to_suffer.amount += damage.amount;
+                            damage_to_suffer.amount += rng.range(damage.min, damage.max) + damage.bonus;
                             particle_spawner.request_attack_particle(
                                 pos.idx,
                                 pos.level,
                             );
+                        }
+                        if let Some(damage_history) = damage_histories.get_mut(entity) {
+                            let damage_type = rng.random_slice_entry(&damage.damage_type).unwrap();
+                            damage_history.events.insert(*damage_type);
                         }
                     }
                     hidden.remove(*maybe_triggered);

@@ -4,15 +4,15 @@
 // It might be good in the future to look into making a custom impl for SerializeComponents
 // to replace the custom macros
 use crate::components::{
-    AreaOfEffect, BlocksTile, Blood, CausesDamage, CausesFire, CausesLight, CombatStats, Confusion,
-    Consumable, Contained, Container, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment,
-    Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, InBackpack,
-    InflictsDamage, Info, Item, Lightable, Memory, Monster, Name, Objective, OnFire,
-    ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
-    SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
+    AreaOfEffect, Armable, BlocksTile, Blood, CausesDamage, CausesFire, CausesLight, CombatStats,
+    Confusion, Consumable, Contained, Container, DamageHistory, Disarmable, Dousable, EntityMoved,
+    EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding,
+    HidingSpot, InBackpack, Info, Item, Lightable, Memory, Monster, Name,
+    Objective, OnFire, ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable,
+    Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed,
     WantsToDisarmTrap, WantsToDouse, WantsToDropItem, WantsToEquip, WantsToGrab, WantsToHide,
     WantsToLight, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem,
-    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse, Armable, Disarmable
+    WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse,
 };
 use crate::dungeon::{constants::MAP_COUNT, dungeon::Dungeon};
 use specs::{
@@ -117,7 +117,6 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             Item,
             Consumable,
             Ranged,
-            InflictsDamage,
             AreaOfEffect,
             Confusion,
             ProvidesHealing,
@@ -165,6 +164,7 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             WantsToLight,
             Armable,
             Disarmable,
+            DamageHistory,
             SerializationHelper
         );
     }
@@ -197,7 +197,6 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         Item,
         Consumable,
         Ranged,
-        InflictsDamage,
         AreaOfEffect,
         Confusion,
         ProvidesHealing,
@@ -245,6 +244,7 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         WantsToDouse,
         Armable,
         Disarmable,
+        DamageHistory,
         SerializationHelper
     );
 }
