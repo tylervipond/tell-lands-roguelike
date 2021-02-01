@@ -125,7 +125,10 @@ fn get_visible_entities(world: &World) -> Box<[Entity]> {
                 .get(*idx as usize)
                 .unwrap()
                 .iter()
-                .filter(|e| hiddens.get(**e).is_none())
+                .filter(|e| match hiddens.get(**e) {
+                    Some(hidden) => hidden.found_by.contains(&*player_ent),
+                    None => true,
+                })
         })
         .flatten()
         .map(|e| *e)

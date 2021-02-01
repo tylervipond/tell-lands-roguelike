@@ -1,4 +1,4 @@
-use rltk::RGB;
+use rltk::{BLACK, DARK_GRAY, RGB, to_cp437};
 
 pub struct DebrisSpawnerRequest {
     pub idx: usize,
@@ -7,6 +7,7 @@ pub struct DebrisSpawnerRequest {
     pub glyph: u16,
     pub level: u8,
     pub name: String,
+    pub flammable: bool
 }
 
 pub struct DebrisSpawner {
@@ -20,15 +21,7 @@ impl DebrisSpawner {
         }
     }
 
-    pub fn request(
-        &mut self,
-        idx: usize,
-        fg: RGB,
-        bg: RGB,
-        glyph: u16,
-        level: u8,
-        name: String,
-    ) {
+    pub fn request(&mut self, idx: usize, fg: RGB, bg: RGB, glyph: u16, level: u8, name: String, flammable: bool) {
         self.requests.push(DebrisSpawnerRequest {
             idx,
             fg,
@@ -36,6 +29,19 @@ impl DebrisSpawner {
             glyph,
             level,
             name,
+            flammable
         })
+    }
+
+    pub fn request_burnt_debris(&mut self, idx: usize, level: u8) {
+        self.request(
+            idx,
+            RGB::named(BLACK),
+            RGB::named(DARK_GRAY),
+            to_cp437('#'),
+            level,
+            String::from("Burnt Debris"),
+            false
+        )
     }
 }

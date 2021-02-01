@@ -70,6 +70,7 @@ impl<'a> DamageSystem<'a> {
                         35,
                         position.level,
                         format!("{} debris", name.name),
+                        true
                     );
                     log.add(format!("{} has been destroyed", name.name));
                     if let Some(container) = containers.get(entity) {

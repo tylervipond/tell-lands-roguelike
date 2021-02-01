@@ -1,7 +1,7 @@
 use crate::components::{
     AreaOfEffect, CausesDamage, CausesFire, CausesLight, CombatStats, Confused, Confusion,
     Consumable, DamageHistory, Flammable, Name, OnFire, Position, ProvidesHealing, SufferDamage,
-    WantsToUse,
+    WantsToUse, Inventory
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};
@@ -36,6 +36,7 @@ impl<'a> System<'a> for UseItemSystem {
         WriteStorage<'a, OnFire>,
         WriteStorage<'a, CausesLight>,
         WriteStorage<'a, DamageHistory>,
+        WriteStorage<'a, Inventory>,
         WriteExpect<'a, RandomNumberGenerator>,
     );
     fn run(&mut self, data: Self::SystemData) {
@@ -61,11 +62,12 @@ impl<'a> System<'a> for UseItemSystem {
             mut on_fire,
             mut causes_light,
             mut damage_histories,
+            mut inventories,
             mut rng,
         ) = data;
         let player_position = positions.get(*player_entity).unwrap();
         let level = dungeon.get_level(player_position.level).unwrap();
-        for (to_use, entity) in (&wants_to_use, &entities).join() {
+        for (to_use, entity, inventory) in (&wants_to_use, &entities, &mut inventories).join() {
             let targets = match to_use.target {
                 None => vec![*player_entity],
                 Some(target) => match aoe.get(to_use.item) {
@@ -215,6 +217,7 @@ impl<'a> System<'a> for UseItemSystem {
             }
 
             if let Some(_) = consumables.get(to_use.item) {
+                inventory.items.remove(&to_use.item);
                 entities.delete(to_use.item).expect("Delete Failed");
             };
         }
