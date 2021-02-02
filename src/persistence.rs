@@ -5,7 +5,7 @@
 // to replace the custom macros
 use crate::components::{
     AreaOfEffect, Armable, BlocksTile, Blood, CausesDamage, CausesFire, CausesLight, CombatStats,
-    Confusion, Consumable, Container, DamageHistory, Disarmable, Dousable, EntityMoved,
+    Confusion, Consumable, Container, DamageHistory, Disarmable, Door, Dousable, EntityMoved,
     EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding,
     HidingSpot, Info, Inventory, Item, Lightable, Memory, Monster, Name, Objective, OnFire,
     ParticleLifetime, Player, Position, ProvidesHealing, Ranged, Renderable, Saveable,
@@ -146,6 +146,7 @@ fn save_game_with_writer<T: Write>(world: &mut World, writer: T) -> serde_json::
             Disarmable,
             DamageHistory,
             Inventory,
+            Door,
             SerializationHelper
         );
     }
@@ -210,6 +211,7 @@ fn deserialize_from_string(world: &mut World, game_string: String) {
         Disarmable,
         DamageHistory,
         Inventory,
+        Door,
         SerializationHelper
     );
 }

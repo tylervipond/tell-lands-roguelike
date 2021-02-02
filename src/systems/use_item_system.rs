@@ -1,7 +1,7 @@
 use crate::components::{
     AreaOfEffect, CausesDamage, CausesFire, CausesLight, CombatStats, Confused, Confusion,
     Consumable, DamageHistory, Flammable, Name, OnFire, Position, ProvidesHealing, SufferDamage,
-    WantsToUse,
+    WantsToUse, Inventory
 };
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};
@@ -36,6 +36,7 @@ impl<'a> System<'a> for UseItemSystem {
         WriteStorage<'a, OnFire>,
         WriteStorage<'a, CausesLight>,
         WriteStorage<'a, DamageHistory>,
+        WriteStorage<'a, Inventory>,
         WriteExpect<'a, RandomNumberGenerator>,
     );
     fn run(&mut self, data: Self::SystemData) {
@@ -61,20 +62,21 @@ impl<'a> System<'a> for UseItemSystem {
             mut on_fire,
             mut causes_light,
             mut damage_histories,
+            mut inventories,
             mut rng,
         ) = data;
         let player_position = positions.get(*player_entity).unwrap();
         let level = dungeon.get_level(player_position.level).unwrap();
-        for (to_use, entity) in (&wants_to_use, &entities).join() {
+        for (to_use, entity, inventory) in (&wants_to_use, &entities, &mut inventories).join() {
             let targets = match to_use.target {
                 None => vec![*player_entity],
                 Some(target) => match aoe.get(to_use.item) {
                     None => level_utils::entities_at_idx(&level, target),
                     Some(area) => {
-                        level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
+                        level_utils::get_field_of_view_from_idx(&*level, target, area.radius)
                             .iter()
                             .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
-                            .map(|idx| level_utils::entities_at_idx(&level, *idx as usize))
+                            .map(|idx| level_utils::entities_at_idx(&level, *idx))
                             .flatten()
                             .collect()
                     }
@@ -87,7 +89,7 @@ impl<'a> System<'a> for UseItemSystem {
                     None => {}
                     Some(area) => {
                         let position = positions.get(entity).unwrap();
-                        level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
+                        level_utils::get_field_of_view_from_idx(&*level, target, area.radius)
                             .iter()
                             .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
                             .for_each(|idx| {
@@ -215,6 +217,7 @@ impl<'a> System<'a> for UseItemSystem {
             }
 
             if let Some(_) = consumables.get(to_use.item) {
+                inventory.items.remove(&to_use.item);
                 entities.delete(to_use.item).expect("Delete Failed");
             };
         }

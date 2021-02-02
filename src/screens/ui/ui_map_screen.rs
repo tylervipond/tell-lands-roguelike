@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::ui_map::{RenderData, UIMap};
 use super::{
     ui_hud::UIHud,
@@ -19,6 +21,7 @@ pub struct UIMapScreen<'a, 'b> {
     level: &'a Level,
     renderables: &'a Vec<RenderData>,
     render_offset: (i32, i32),
+    visible_tiles: &'a HashSet<usize>
 }
 
 impl<'a, 'b> UIMapScreen<'a, 'b> {
@@ -33,6 +36,7 @@ impl<'a, 'b> UIMapScreen<'a, 'b> {
         level: &'a Level,
         renderables: &'a Vec<RenderData>,
         render_offset: (i32, i32),
+        visible_tiles: &'a HashSet<usize>
     ) -> Self {
         Self {
             mouse_x,
@@ -45,11 +49,12 @@ impl<'a, 'b> UIMapScreen<'a, 'b> {
             level,
             renderables,
             render_offset,
+            visible_tiles
         }
     }
 
     pub fn draw(&self, ctx: &mut Rltk) {
-        UIMap::new(self.level, self.renderables, self.render_offset).draw(ctx);
+        UIMap::new(self.level, self.renderables, self.render_offset, self.visible_tiles).draw(ctx);
         UIHud::new(self.depth, self.hp, self.max_hp, self.messages).draw(ctx);
         if !self.tool_tip_lines.is_empty() {
             let tool_tip_pos = match self.mouse_x > (SCREEN_WIDTH / 2) as i32 {

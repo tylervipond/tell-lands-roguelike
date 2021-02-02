@@ -1,12 +1,7 @@
 use crate::entity_option::EntityOption;
-use serde::{Deserialize, Serialize};
-use specs::{
-  error::NoError,
-  saveload::{ConvertSaveload, Marker},
-  Component, DenseVecStorage, Entity,
-};
+use specs::{Component, DenseVecStorage};
 
-#[derive(Component, ConvertSaveload, Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct WantsToGrab {
-  pub thing: EntityOption,
+    pub thing: EntityOption,
 }

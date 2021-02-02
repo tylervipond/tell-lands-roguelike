@@ -34,7 +34,7 @@ pub fn item_is_consumable(item_type: &ItemType) -> bool {
     }
 }
 
-pub fn get_range_for_item(item_type: &ItemType) -> Option<i32> {
+pub fn get_range_for_item(item_type: &ItemType) -> Option<u32> {
     match item_type {
         ItemType::Caltrops => Some(2),
         ItemType::BearTrap => Some(1),

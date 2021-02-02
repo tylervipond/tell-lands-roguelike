@@ -11,7 +11,7 @@ pub enum RunState {
     PlayerTurn,
     MonsterTurn,
     ItemUseTargeting {
-        range: i32,
+        range: u32,
         item: Entity,
     },
     InteractionTypeEntityTargeting {

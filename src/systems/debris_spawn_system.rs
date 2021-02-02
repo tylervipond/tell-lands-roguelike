@@ -64,9 +64,11 @@ impl<'a> System<'a> for DebrisSpawnSystem {
             grababbles
                 .insert(new_debris, Grabbable {})
                 .expect("failed inserting grabbable for debris");
-            flammables
-                .insert(new_debris, Flammable { turns_remaining: 4 })
-                .expect("failed inserting flammable for debris");
+            if request.flammable {
+                flammables
+                    .insert(new_debris, Flammable { turns_remaining: 4 })
+                    .expect("failed inserting flammable for debris");
+            }
             marker_allocator.mark(new_debris, &mut markers);
         }
         spawner.requests.clear();

@@ -19,5 +19,5 @@ pub fn reveal_map(world: &mut World) {
     let player_level = utils::get_current_level_from_world(world);
     let mut dungeon = world.fetch_mut::<Dungeon>();
     let mut level = dungeon.get_level_mut(player_level).unwrap();
-    level.revealed_tiles = vec![true; MAP_COUNT]
+    level.revealed_tiles = Box::new([true; MAP_COUNT])
 }

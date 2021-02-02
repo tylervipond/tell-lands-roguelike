@@ -12,13 +12,13 @@ use std::{
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub struct MemoryDestination {
-    pub idx: i32,
+    pub idx: usize,
     pub level: i32,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct MemoryPosition {
-    pub idx: i32,
+    pub idx: usize,
     pub level: i32,
     pub entity: Entity,
 }
@@ -67,7 +67,7 @@ pub struct Memory {
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub struct MemoryDataPosition<M: Eq + Copy> {
-    pub idx: i32,
+    pub idx: usize,
     pub level: i32,
     pub entity: M,
 }
