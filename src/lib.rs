@@ -2,8 +2,9 @@ use menu::Menu;
 use rltk::{a_star_search, GameState, RandomNumberGenerator, Rltk, RltkBuilder};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter;
+use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
 #[macro_use]
 extern crate specs_derive;
@@ -998,7 +999,7 @@ impl GameState for State {
                         menu.page_number_at_index(*highlighted),
                         menu.page_count() + 1
                     ),
-                    "Escape to Cancel",
+                    "A to take all. Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
                 match map_input_to_menu_action(ctx) {
@@ -1024,18 +1025,7 @@ impl GameState for State {
                     },
                     MenuAction::Select => match inventory_entities.get(*highlighted) {
                         Some(ent) => {
-                            let mut intent = self.world.write_storage::<WantsToPickUpItem>();
-                            intent
-                                .insert(
-                                    *self.world.fetch::<Entity>(),
-                                    WantsToPickUpItem {
-                                        item: *ent,
-                                        container: entity_option::EntityOption::new(Some(
-                                            *container,
-                                        )),
-                                    },
-                                )
-                                .expect("Unable To Insert Pick Up Item Intent");
+                            player::pickup_item(&mut self.world, *ent, Some(*container));
                             RunState::PlayerTurn
                         }
                         None => RunState::OpenContainerMenu {
@@ -1043,6 +1033,11 @@ impl GameState for State {
                             container: *container,
                         },
                     },
+                    MenuAction::SelectAll => {
+                        let items = HashSet::from_iter(inventory_entities);
+                        player::pickup_items(&mut self.world, items, Some(*container));
+                        RunState::PlayerTurn
+                    }
                     _ => RunState::OpenContainerMenu {
                         highlighted: *highlighted,
                         container: *container,

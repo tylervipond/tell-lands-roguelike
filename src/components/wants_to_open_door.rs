@@ -1,11 +1,6 @@
-use serde::{Deserialize, Serialize};
-use specs::{
-    error::NoError,
-    saveload::{ConvertSaveload, Marker},
-    Component, DenseVecStorage, Entity,
-};
+use specs::{Component, DenseVecStorage};
 
-#[derive(Component, ConvertSaveload, Clone, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct WantsToOpenDoor {
     pub idx: usize,
     pub level: usize,

@@ -29,18 +29,20 @@ impl<'a> System<'a> for ItemCollectionSystem {
         ) = data;
 
         for (ent, pick_up, inventory) in (&entities, &wants_to_pick_up, &mut inventories).join() {
-            positions.remove(pick_up.item);
-            if let Some(container_ent) = pick_up.container.get_entity() {
-                if let Some(container) = containers.get_mut(container_ent) {
-                  container.items.remove(&pick_up.item);
+            for item in pick_up.items.iter() {
+                positions.remove(*item);
+                if let Some(container_ent) = pick_up.container {
+                    if let Some(container) = containers.get_mut(container_ent) {
+                      container.items.remove(&item);
+                    }
                 }
-            }
-            inventory.items.insert(pick_up.item);
-            if ent == *player_entity {
-                game_log.add(format!(
-                    "you pick up the {}",
-                    names.get(pick_up.item).unwrap().name
-                ))
+                inventory.items.insert(*item);
+                if ent == *player_entity {
+                    game_log.add(format!(
+                        "you pick up the {}",
+                        names.get(*item).unwrap().name
+                    ))
+                }
             }
         }
         wants_to_pick_up.clear();
