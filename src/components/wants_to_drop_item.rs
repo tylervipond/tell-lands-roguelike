@@ -1,11 +1,6 @@
-use serde::{Deserialize, Serialize};
-use specs::{
-  error::NoError,
-  saveload::{ConvertSaveload, Marker},
-  Component, DenseVecStorage, Entity,
-};
+use specs::{Component, DenseVecStorage, Entity};
 
-#[derive(Component, ConvertSaveload, Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct WantsToDropItem {
-  pub item: Entity,
+    pub item: Entity,
 }

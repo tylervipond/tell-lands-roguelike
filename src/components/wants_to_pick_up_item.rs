@@ -1,14 +1,8 @@
-use serde::{Deserialize, Serialize};
-use specs::{
-  error::NoError,
-  saveload::{ConvertSaveload, Marker},
-  Component, DenseVecStorage, Entity,
-};
+use std::collections::HashSet;
+use specs::{Component, DenseVecStorage, Entity};
 
-use crate::entity_option::EntityOption;
-
-#[derive(Component, ConvertSaveload, Clone, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct WantsToPickUpItem {
-  pub container: EntityOption,
-  pub item: Entity,
+    pub container: Option<Entity>,
+    pub items: HashSet<Entity>,
 }

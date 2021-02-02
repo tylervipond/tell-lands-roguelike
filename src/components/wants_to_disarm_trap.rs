@@ -1,11 +1,6 @@
-use serde::{Deserialize, Serialize};
-use specs::{
-  error::NoError,
-  saveload::{ConvertSaveload, Marker},
-  Component, DenseVecStorage, Entity,
-};
+use specs::{Component, DenseVecStorage, Entity};
 
-#[derive(Component, ConvertSaveload, Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct WantsToDisarmTrap {
-  pub trap: Entity,
+    pub trap: Entity,
 }

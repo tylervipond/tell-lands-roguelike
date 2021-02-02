@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::components::{
     equipable::EquipmentPositions, Item, Monster, Position, Trap, Viewshed, WantsToDisarmTrap,
     WantsToDouse, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight, WantsToMelee, WantsToMove,
@@ -82,13 +84,15 @@ fn try_pickup_item(world: &mut World) {
             .entries
             .insert(0, "there is nothing here to pick up".to_string()),
         Some(item) => {
+            let mut items = HashSet::new();
+            items.insert(item);
             let mut pickup = world.write_storage::<WantsToPickUpItem>();
             pickup
                 .insert(
                     *player_entity,
                     WantsToPickUpItem {
-                        container: EntityOption::new(None),
-                        item,
+                        container: None,
+                        items,
                     },
                 )
                 .expect("Unable to insert want to pick up");
@@ -309,18 +313,18 @@ pub fn light_item(world: &mut World, item: Entity) {
         .expect("Unable to Insert Douse Intent");
 }
 
-pub fn pickup_item(world: &mut World, item: Entity) {
+pub fn pickup_items(world: &mut World, items: HashSet<Entity>, container: Option<Entity>) {
     let player_entity = world.fetch::<Entity>();
     let mut pickup_intents = world.write_storage::<WantsToPickUpItem>();
     pickup_intents
-        .insert(
-            *player_entity,
-            WantsToPickUpItem {
-                container: EntityOption::new(None),
-                item,
-            },
-        )
+        .insert(*player_entity, WantsToPickUpItem { container, items })
         .expect("Unable to insert want to pick up");
+}
+
+pub fn pickup_item(world: &mut World, item: Entity, container: Option<Entity>) {
+    let mut items = HashSet::new();
+    items.insert(item);
+    pickup_items(world, items, container);
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -351,7 +355,7 @@ pub fn interact(world: &mut World, object: Entity, interaction_type: Interaction
         InteractionType::Disarm => disarm_trap(world, object),
         InteractionType::Arm => arm_trap(world, object),
         InteractionType::Attack => attack_entity(world, object),
-        InteractionType::Pickup => pickup_item(world, object),
+        InteractionType::Pickup => pickup_item(world, object, None),
         _ => {}
     }
 }
