@@ -2,8 +2,7 @@ use super::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
     ui::ui_map::RenderData,
 };
-use crate::components::{Hidden, Hiding, OnFire, Position, Renderable};
-use crate::dungeon::dungeon::Dungeon;
+use crate::components::{Hidden, Hiding, OnFire, Position, Renderable, Viewshed};
 use rltk::{GREY, ORANGE, RGB};
 use specs::{Entity, Join, World, WorldExt};
 
@@ -13,11 +12,11 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
     let renderables = world.read_storage::<Renderable>();
     let on_fire = world.read_storage::<OnFire>();
     let hiding = world.read_storage::<Hiding>();
+    let viewsheds = world.read_storage::<Viewshed>();
     let entities = world.entities();
     let player_ent = world.fetch::<Entity>();
     let player_level = positions.get(*player_ent).unwrap().level;
-    let dungeon = world.fetch::<Dungeon>();
-    let level = dungeon.levels.get(&player_level).unwrap();
+    let player_viewshed = viewsheds.get(*player_ent).unwrap();
     let mut render_data: Vec<RenderData> = (
         &positions,
         &renderables,
@@ -37,7 +36,7 @@ pub fn get_render_data(world: &World) -> Vec<RenderData> {
                 _ => false,
             };
             return p.level == player_level
-                && level.visible_tiles[p.idx]
+                && player_viewshed.visible_tiles.contains(&p.idx)
                 && is_visible
                 && !hiding;
         })

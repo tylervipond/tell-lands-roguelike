@@ -73,10 +73,10 @@ impl<'a> System<'a> for UseItemSystem {
                 Some(target) => match aoe.get(to_use.item) {
                     None => level_utils::entities_at_idx(&level, target),
                     Some(area) => {
-                        level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
+                        level_utils::get_field_of_view_from_idx(&*level, target, area.radius)
                             .iter()
                             .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
-                            .map(|idx| level_utils::entities_at_idx(&level, *idx as usize))
+                            .map(|idx| level_utils::entities_at_idx(&level, *idx))
                             .flatten()
                             .collect()
                     }
@@ -89,7 +89,7 @@ impl<'a> System<'a> for UseItemSystem {
                     None => {}
                     Some(area) => {
                         let position = positions.get(entity).unwrap();
-                        level_utils::get_field_of_view_from_idx(&*level, target as i32, area.radius)
+                        level_utils::get_field_of_view_from_idx(&*level, target, area.radius)
                             .iter()
                             .filter(|idx| !level_utils::idx_not_in_map(&level, **idx))
                             .for_each(|idx| {

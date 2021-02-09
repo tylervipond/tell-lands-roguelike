@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::dungeon::{level::Level, level_utils, tile_type::TileType};
 use crate::screens::constants::MAP_WIDTH;
 use rltk::{Rltk, RGB};
@@ -11,7 +13,7 @@ pub struct RenderData {
 }
 
 pub fn is_revealed_and_wall_or_door(level: &Level, x: i32, y: i32) -> bool {
-    let idx = level_utils::xy_idx(level.width as i32, x, y) as usize;
+    let idx = level_utils::xy_idx(level.width as u32, x, y) as usize;
     match level.tiles.get(idx) {
         Some(tile) => {
             (*tile == TileType::Wall || *tile == TileType::Door) && level.revealed_tiles[idx]
@@ -21,7 +23,7 @@ pub fn is_revealed_and_wall_or_door(level: &Level, x: i32, y: i32) -> bool {
 }
 
 fn is_revealed_and_ledge(level: &Level, x: i32, y: i32) -> bool {
-    let idx = level_utils::xy_idx(level.width as i32, x, y) as usize;
+    let idx = level_utils::xy_idx(level.width as u32, x, y) as usize;
     match level.tiles.get(idx) {
         Some(tile) => (*tile == TileType::Ledge) && level.revealed_tiles[idx],
         None => false,
@@ -101,6 +103,7 @@ pub struct UIMap<'a> {
     level: &'a Level,
     renderables: &'a Vec<RenderData>,
     render_offset: (i32, i32),
+    visible_tiles: &'a HashSet<usize>,
 }
 
 impl<'a> UIMap<'a> {
@@ -108,11 +111,13 @@ impl<'a> UIMap<'a> {
         level: &'a Level,
         renderables: &'a Vec<RenderData>,
         render_offset: (i32, i32),
+        visible_tiles: &'a HashSet<usize>,
     ) -> Self {
         Self {
             level,
             renderables,
             render_offset,
+            visible_tiles,
         }
     }
 
@@ -124,17 +129,16 @@ impl<'a> UIMap<'a> {
                 let x = i % MAP_WIDTH as usize;
                 let y = (i - (i % MAP_WIDTH as usize)) / MAP_WIDTH as usize;
                 let character = match tile {
-                    TileType::Floor => rltk::to_cp437('.'),
+                    TileType::Floor | TileType::Door => rltk::to_cp437('.'),
                     TileType::Wall => get_wall_tile(&self.level, x as i32, y as i32),
                     TileType::Column => 9,
                     TileType::DownStairs => rltk::to_cp437('>'),
                     TileType::UpStairs => rltk::to_cp437('<'),
-                    TileType::Door => rltk::to_cp437('D'),
                     TileType::Exit => 219,
                     TileType::WaterDeep => 176,
                     TileType::Ledge => get_ledge_tile(&self.level, x as i32, y as i32),
                 };
-                let foreground_color = match self.level.visible_tiles[i] {
+                let foreground_color = match self.visible_tiles.contains(&i) {
                     true => rltk::GREEN,
                     false => rltk::WHITE,
                 };
@@ -148,7 +152,7 @@ impl<'a> UIMap<'a> {
             }
         }
         for r in self.renderables.iter() {
-            let (x, y) = level_utils::idx_xy(self.level.width as i32, r.idx as i32);
+            let (x, y) = level_utils::idx_xy(self.level.width as u32, r.idx);
             ctx.set(
                 x - self.render_offset.0,
                 y - self.render_offset.1,

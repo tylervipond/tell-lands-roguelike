@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use specs::{
   error::NoError,
@@ -7,8 +9,8 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct Viewshed {
-  pub los_tiles: Vec<i32>,
-  pub visible_tiles: Vec<i32>,
-  pub range: i32,
+  pub los_tiles: HashSet<usize>,
+  pub visible_tiles: HashSet<usize>,
+  pub range: u32,
   pub dirty: bool,
 }

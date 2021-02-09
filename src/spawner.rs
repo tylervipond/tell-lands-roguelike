@@ -1,4 +1,7 @@
-use crate::components::{Armable, DamageHistory, Disarmable, Inventory, Lightable, causes_damage::DamageType, equipable::EquipmentPositions, monster::MonsterSpecies};
+use crate::components::{
+    causes_damage::DamageType, door::DoorState, equipable::EquipmentPositions,
+    monster::MonsterSpecies, Armable, DamageHistory, Disarmable, Door, Inventory, Lightable,
+};
 use crate::components::{
     AreaOfEffect, BlocksTile, CausesDamage, CausesFire, CausesLight, CombatStats, Confusion,
     Consumable, Container, Dousable, EntryTrigger, Equipable, Equipment, Flammable, Furniture,
@@ -23,8 +26,8 @@ use specs::{
     Builder, Entity, EntityBuilder, Join, World, WorldExt,
 };
 use stamp_rs::StampPart::Use;
-use std::cmp;
 use std::collections::HashSet;
+use std::{cmp, collections::HashMap};
 
 pub const MAX_ITEMS_PER_ROOM: i32 = 4;
 pub const MAX_TRAPS_SET_PER_LEVEL: i32 = 10;
@@ -40,7 +43,7 @@ fn get_possible_spawn_points_in_level(level: &Level) -> Vec<usize> {
         .iter()
         .enumerate()
         .filter(|(idx, tile)| {
-            **tile == TileType::Floor && !level_utils::tile_is_blocked(*idx as i32, level)
+            **tile == TileType::Floor && !level_utils::tile_is_blocked(*idx, level)
         })
         .map(|(idx, _)| idx)
         .collect()
@@ -188,9 +191,9 @@ pub fn spawn_player(world: &mut World, idx: usize, level: &Level) -> Entity {
         })
         .with(Player {})
         .with(Viewshed {
-            range: (MAP_HEIGHT / 2) as i32,
-            los_tiles: vec![],
-            visible_tiles: vec![],
+            range: (MAP_HEIGHT / 2) as u32,
+            los_tiles: HashSet::new(),
+            visible_tiles: HashSet::new(),
             dirty: true,
         })
         .with(Name {
@@ -233,9 +236,9 @@ pub fn spawn_monster<S: ToString>(
             layer: 0,
         })
         .with(Viewshed {
-            los_tiles: vec![],
-            visible_tiles: vec![],
-            range: (MAP_HEIGHT / 2) as i32,
+            los_tiles: HashSet::new(),
+            visible_tiles: HashSet::new(),
+            range: (MAP_HEIGHT / 2) as u32,
             dirty: true,
         })
         .with(Monster { species })
@@ -596,14 +599,14 @@ fn spawn_random_item(world: &mut World) -> Entity {
     }
 }
 
-fn get_containers_in_room(world: &World, room: &Room, level_width: i32) -> Vec<Entity> {
+fn get_containers_in_room(world: &World, room: &Room, level_width: u32) -> Vec<Entity> {
     let containers = world.read_storage::<Container>();
     let positions = world.read_storage::<Position>();
     let entities = world.entities();
     (&containers, &positions, &entities)
         .join()
         .filter(|(_c, p, _e)| {
-            let p = level_utils::idx_xy(level_width, p.idx as i32);
+            let p = level_utils::idx_xy(level_width, p.idx);
             room.rect.contains(p.0, p.1)
         })
         .map(|(_c, _p, e)| e)
@@ -611,7 +614,7 @@ fn get_containers_in_room(world: &World, room: &Room, level_width: i32) -> Vec<E
 }
 
 pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Level) {
-    let containers_in_room = get_containers_in_room(world, room, level.width as i32);
+    let containers_in_room = get_containers_in_room(world, room, level.width as u32);
     let min_items = match room.room_type {
         Some(RoomType::TreasureRoom) => 2,
         _ => 0,
@@ -630,7 +633,7 @@ pub fn spawn_item_entities_for_room(world: &mut World, room: &Room, level: &Leve
             level_utils::get_spawn_points(&room.rect, level, &mut rng, num_items_not_in_containers)
         };
         for idx in spawn_points.iter() {
-            spawn_random_item_with_position(world, *idx as usize, level);
+            spawn_random_item_with_position(world, *idx, level);
         }
         for _ in 0..num_items_in_containers {
             let item = spawn_random_item(world);
@@ -655,7 +658,7 @@ pub fn spawn_bed(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::LIGHT_BLUE),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_bedside_table(world: &mut World, idx: usize, level: &mut Level) {
@@ -666,7 +669,7 @@ pub fn spawn_bedside_table(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN4),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_chair(world: &mut World, idx: usize, level: &mut Level) {
@@ -677,7 +680,7 @@ pub fn spawn_chair(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN4),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_desk(world: &mut World, idx: usize, level: &mut Level) {
@@ -688,7 +691,7 @@ pub fn spawn_desk(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN4),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_armoire(world: &mut World, idx: usize, level: &mut Level) {
@@ -700,7 +703,7 @@ pub fn spawn_armoire(world: &mut World, idx: usize, level: &mut Level) {
     )
     .with(HidingSpot {})
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_towel_rack(world: &mut World, idx: usize, level: &mut Level) {
@@ -711,7 +714,7 @@ pub fn spawn_towel_rack(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::LIGHT_YELLOW),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_throne(world: &mut World, idx: usize, level: &mut Level) {
@@ -722,7 +725,7 @@ pub fn spawn_throne(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::LIGHT_YELLOW),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_podium(world: &mut World, idx: usize, level: &mut Level) {
@@ -733,7 +736,7 @@ pub fn spawn_podium(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::LIGHT_YELLOW),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_dresser(world: &mut World, idx: usize, level: &mut Level) {
@@ -744,7 +747,7 @@ pub fn spawn_dresser(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN3),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_shelf(world: &mut World, idx: usize, level: &mut Level) {
@@ -755,7 +758,7 @@ pub fn spawn_shelf(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN3),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_table(world: &mut World, idx: usize, level: &mut Level) {
@@ -766,7 +769,7 @@ pub fn spawn_table(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN3),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_counter(world: &mut World, idx: usize, level: &mut Level) {
@@ -777,7 +780,7 @@ pub fn spawn_counter(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN3),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_stove(world: &mut World, idx: usize, level: &mut Level) {
@@ -788,7 +791,7 @@ pub fn spawn_stove(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN3),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_cupboard(world: &mut World, idx: usize, level: &mut Level) {
@@ -799,7 +802,7 @@ pub fn spawn_cupboard(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::BROWN3),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 pub fn spawn_weapon_rack(world: &mut World, idx: usize, level: &mut Level) {
     make_entity_furniture(
@@ -809,7 +812,7 @@ pub fn spawn_weapon_rack(world: &mut World, idx: usize, level: &mut Level) {
         RGB::named(rltk::LIGHT_GREY),
     )
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_barrel(world: &mut World, idx: usize, level: &mut Level) {
@@ -821,7 +824,7 @@ pub fn spawn_barrel(world: &mut World, idx: usize, level: &mut Level) {
     )
     .with(HidingSpot {})
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_treasure_chest(world: &mut World, idx: usize, level: &mut Level) {
@@ -835,7 +838,7 @@ pub fn spawn_treasure_chest(world: &mut World, idx: usize, level: &mut Level) {
         items: EntitySet::new(),
     })
     .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
 }
 
 pub fn spawn_debris(world: &mut World, idx: usize, level: &mut Level) {
@@ -851,45 +854,61 @@ pub fn spawn_debris(world: &mut World, idx: usize, level: &mut Level) {
         })
         .with(BlocksTile {})
         .build();
-    level.blocked[idx as usize] = true;
+    level.blocked[idx] = true;
+}
+
+pub fn spawn_door(world: &mut World, idx: usize, level: &mut Level) {
+    create_marked_entity_with_position(world, idx, level)
+        .with(Name {
+            name: "Door".to_string(),
+        })
+        .with(Renderable {
+            glyph: to_cp437('▲'),
+            fg: RGB::named(rltk::BROWN4),
+            bg: RGB::named(rltk::BLACK),
+            layer: 1,
+        })
+        .with(Door {
+            state: DoorState::Closed,
+        })
+        .build();
+    level.blocked[idx] = true;
+    level.opaque[idx] = true
 }
 
 pub fn spawn_entities_for_room(world: &mut World, room: &Room, level: &mut Level) {
     spawn_item_entities_for_room(world, room, level);
 }
 
-pub fn spawn_entites_from_room_stamp(world: &mut World, room: &Room, level: &mut Level) {
-    let room_x = room.rect.x1;
-    let room_y = room.rect.y1;
-    let level_width = level.width as i32;
-    for (y, row) in room.stamp.pattern.iter().enumerate() {
-        for (x, tile) in row.iter().enumerate() {
-            let this_x = room_x + x as i32;
-            let this_y = room_y + y as i32;
-            let idx = level_utils::xy_idx(level_width, this_x, this_y) as usize;
-            match tile {
-                Use(RoomPart::Bed) => spawn_bed(world, idx, level),
-                Use(RoomPart::BedsideTable) => spawn_bedside_table(world, idx, level),
-                Use(RoomPart::Chair) => spawn_chair(world, idx, level),
-                Use(RoomPart::Desk) => spawn_desk(world, idx, level),
-                Use(RoomPart::Dresser) => spawn_dresser(world, idx, level),
-                Use(RoomPart::Armoire) => spawn_armoire(world, idx, level),
-                Use(RoomPart::Shelf) => spawn_shelf(world, idx, level),
-                Use(RoomPart::Table) => spawn_table(world, idx, level),
-                Use(RoomPart::Chest) => spawn_treasure_chest(world, idx, level),
-                Use(RoomPart::Barrel) => spawn_barrel(world, idx, level),
-                Use(RoomPart::Stove) => spawn_stove(world, idx, level),
-                Use(RoomPart::Counter) => spawn_counter(world, idx, level),
-                Use(RoomPart::Cupboard) => spawn_cupboard(world, idx, level),
-                Use(RoomPart::WeaponRack) => spawn_weapon_rack(world, idx, level),
-                Use(RoomPart::Debris) => spawn_debris(world, idx, level),
-                Use(RoomPart::TowelRack) => spawn_towel_rack(world, idx, level),
-                Use(RoomPart::Throne) => spawn_throne(world, idx, level),
-                Use(RoomPart::Podium) => spawn_podium(world, idx, level),
-                Use(RoomPart::Sconce) => spawn_sconce(world, idx, level),
-                _ => (),
-            };
-        }
+pub fn spawn_entites_from_stamps(
+    world: &mut World,
+    level: &mut Level,
+    stamps: &HashMap<usize, RoomPart>,
+) {
+    for (idx, stamp) in stamps {
+        match stamp {
+            RoomPart::Bed => spawn_bed(world, *idx, level),
+            RoomPart::BedsideTable => spawn_bedside_table(world, *idx, level),
+            RoomPart::Chair => spawn_chair(world, *idx, level),
+            RoomPart::Desk => spawn_desk(world, *idx, level),
+            RoomPart::Dresser => spawn_dresser(world, *idx, level),
+            RoomPart::Armoire => spawn_armoire(world, *idx, level),
+            RoomPart::Shelf => spawn_shelf(world, *idx, level),
+            RoomPart::Table => spawn_table(world, *idx, level),
+            RoomPart::Chest => spawn_treasure_chest(world, *idx, level),
+            RoomPart::Barrel => spawn_barrel(world, *idx, level),
+            RoomPart::Stove => spawn_stove(world, *idx, level),
+            RoomPart::Counter => spawn_counter(world, *idx, level),
+            RoomPart::Cupboard => spawn_cupboard(world, *idx, level),
+            RoomPart::WeaponRack => spawn_weapon_rack(world, *idx, level),
+            RoomPart::Debris => spawn_debris(world, *idx, level),
+            RoomPart::TowelRack => spawn_towel_rack(world, *idx, level),
+            RoomPart::Throne => spawn_throne(world, *idx, level),
+            RoomPart::Podium => spawn_podium(world, *idx, level),
+            RoomPart::Sconce => spawn_sconce(world, *idx, level),
+            RoomPart::Door => spawn_door(world, *idx, level),
+            _ => (),
+        };
     }
 }
 
@@ -909,7 +928,7 @@ fn spawn_goblins_for_level(world: &mut World, level: &mut Level) {
     .iter()
     .for_each(|idx| {
         let mut possible_spawn_points_for_group =
-            level_utils::get_all_spawnable_tiles_in_radius(level, *idx as i32, MAX_GOBLIN_SPACING);
+            level_utils::get_all_spawnable_tiles_in_radius(level, *idx, MAX_GOBLIN_SPACING as u32);
         let goblin_count =
             get_random_from_world(world, MIN_GOBLINS_PER_GROUP, MAX_GOBLINS_PER_GROUP);
         let spawn_points = {
@@ -921,16 +940,35 @@ fn spawn_goblins_for_level(world: &mut World, level: &mut Level) {
             )
         };
         spawn_points.iter().for_each(|idx| {
-            spawn_goblin(world, *idx as usize, level);
+            spawn_goblin(world, *idx, level);
         });
     });
 }
 
 pub fn spawn_entities_for_level(world: &mut World, level: &mut Level) {
+    let stamps: HashMap<usize, RoomPart> = level.rooms.iter().fold(HashMap::new(), |mut acc, r| {
+        let room_x = r.rect.x1;
+        let room_y = r.rect.y1;
+        let level_width = level.width as u32;
+        for (y, row) in r.stamp.pattern.iter().enumerate() {
+            for (x, tile) in row.iter().enumerate() {
+                let this_x = room_x + x as i32;
+                let this_y = room_y + y as i32;
+                let idx = level_utils::xy_idx(level_width, this_x, this_y);
+                match tile {
+                    Use(x) => {
+                        acc.insert(idx, *x);
+                    }
+                    _ => (),
+                }
+            }
+        }
+        acc
+    });
     let count = level.rooms.len();
+    spawn_entites_from_stamps(world, level, &stamps);
     for i in (0..count).skip(1) {
         let room = level.rooms[i].clone();
-        spawn_entites_from_room_stamp(world, &room, level);
         spawn_entities_for_room(world, &room, level);
     }
     spawn_goblins_for_level(world, level);
@@ -942,5 +980,5 @@ pub fn spawn_objective_for_room(ecs: &mut World, rect: &Rect, level: &Level) {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
         level_utils::get_random_spawn_point(rect, level, &mut rng)
     };
-    spawn_objective(ecs, idx as usize, level);
+    spawn_objective(ecs, idx, level);
 }

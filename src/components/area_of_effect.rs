@@ -7,5 +7,5 @@ use specs::{
 
 #[derive(Component, ConvertSaveload, Clone, Debug)]
 pub struct AreaOfEffect {
-  pub radius: i32,
+  pub radius: u32,
 }

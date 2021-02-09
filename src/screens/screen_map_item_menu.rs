@@ -1,6 +1,6 @@
 use super::ui::{ui_hud::UIHud, ui_map::UIMap};
 use super::utils::{get_render_data, get_render_offset};
-use crate::components::{CombatStats, Position};
+use crate::components::{CombatStats, Position, Viewshed};
 use crate::dungeon::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
     dungeon::Dungeon,
@@ -56,11 +56,17 @@ impl<'a> ScreenMapItemMenu<'a> {
         let render_data = get_render_data(world);
         let positions = world.read_storage::<Position>();
         let player_position = positions.get(*player_ent).unwrap();
-        let (center_x, center_y) =
-            level_utils::idx_xy(level.width as i32, player_position.idx as i32);
+        let (center_x, center_y) = level_utils::idx_xy(level.width as u32, player_position.idx);
         let render_offset = get_render_offset(center_x, center_y);
-
-        UIMap::new(level, &render_data, render_offset).draw(ctx);
+        let viewsheds = world.read_storage::<Viewshed>();
+        let player_viewshed = viewsheds.get(*player_ent).unwrap();
+        UIMap::new(
+            level,
+            &render_data,
+            render_offset,
+            &player_viewshed.visible_tiles,
+        )
+        .draw(ctx);
         let log_entries = log.entries.iter().map(String::as_str).collect();
 
         UIHud::new(

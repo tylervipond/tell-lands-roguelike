@@ -6,7 +6,7 @@ use super::{
     },
     SCREEN_WIDTH,
 };
-use crate::components::{Name, Position};
+use crate::components::{Name, Position, Viewshed};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::ui_components::{Style, UITextLine};
 use rltk::{Rltk, BLACK, YELLOW};
@@ -32,11 +32,18 @@ impl<'a> ScreenMapInteractTarget<'a> {
         let dungeon = world.fetch::<Dungeon>();
         let level = dungeon.levels.get(&target_position.level).unwrap();
         let render_data = get_render_data(world);
-        let (center_x, center_y) =
-            level_utils::idx_xy(level.width as i32, target_position.idx as i32);
+        let (center_x, center_y) = level_utils::idx_xy(level.width as u32, target_position.idx);
         let render_offset = get_render_offset(center_x, center_y);
-
-        UIMap::new(level, &render_data, render_offset).draw(ctx);
+        let player_ent = world.fetch::<Entity>();
+        let viewsheds = world.read_storage::<Viewshed>();
+        let player_viewshed = viewsheds.get(*player_ent).unwrap();
+        UIMap::new(
+            level,
+            &render_data,
+            render_offset,
+            &player_viewshed.visible_tiles,
+        )
+        .draw(ctx);
         UITextLine::new(
             1,
             0,

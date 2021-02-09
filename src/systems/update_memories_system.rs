@@ -16,26 +16,14 @@ impl<'a> System<'a> for UpdateMemoriesSystem {
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (
-            mut memories,
-            viewsheds,
-            player_entity,
-            positions,
-            hide_intents,
-            hiding,
-        ) = data;
+        let (mut memories, viewsheds, player_entity, positions, hide_intents, hiding) = data;
         let player_position = positions.get(*player_entity).unwrap();
-        for (memory, viewshed, position) in (&mut memories, &viewsheds, &positions).join()
-        {
+        for (memory, viewshed, position) in (&mut memories, &viewsheds, &positions).join() {
             if hiding.get(*player_entity).is_none() {
-                if let Some(idx) = viewshed
-                    .visible_tiles
-                    .iter()
-                    .find(|idx| {**idx as usize == player_position.idx})
-                {
+                if viewshed.visible_tiles.contains(&player_position.idx) {
                     if hiding.get(*player_entity).is_none() {}
                     memory.last_known_enemy_positions.insert(MemoryPosition {
-                        idx: *idx,
+                        idx: player_position.idx,
                         level: position.level as i32,
                         entity: *player_entity,
                     });
@@ -62,16 +50,19 @@ impl<'a> System<'a> for UpdateMemoriesSystem {
             let reached_wander_destination = match memory.wander_destination {
                 None => false,
                 Some(MemoryDestination { idx, level }) => {
-                    idx as usize == position.idx && level == position.level as i32
+                    idx == position.idx && level == position.level as i32
                 }
             };
             if reached_wander_destination {
                 memory.wander_destination = None;
             }
-            let found_mem_pos = memory.last_known_enemy_positions.iter().cloned().find(|mem_pos| {
-                mem_pos.idx == position.idx as i32
-                    && mem_pos.level == position.level as i32
-            });
+            let found_mem_pos = memory
+                .last_known_enemy_positions
+                .iter()
+                .cloned()
+                .find(|mem_pos| {
+                    mem_pos.idx == position.idx && mem_pos.level == position.level as i32
+                });
 
             if let Some(found_mem_pos) = found_mem_pos {
                 memory.last_known_enemy_positions.remove(&found_mem_pos);

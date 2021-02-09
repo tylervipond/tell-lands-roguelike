@@ -33,18 +33,7 @@ mod types;
 mod ui_components;
 mod user_actions;
 mod utils;
-use components::{
-    equipable::EquipmentPositions, AreaOfEffect, Armable, BlocksTile, Blood, CausesDamage,
-    CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable, Container,
-    DamageHistory, Disarmable, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment,
-    Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, Info, Inventory, Item,
-    Lightable, Memory, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
-    Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
-    SufferDamage, Trap, Triggered, Viewshed, WantsToDisarmTrap, WantsToDouse, WantsToDropItem,
-    WantsToEquip, WantsToGrab, WantsToHide, WantsToLight, WantsToMelee, WantsToMove,
-    WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap,
-    WantsToUse,
-};
+use components::{AreaOfEffect, Armable, BlocksTile, Blood, CausesDamage, CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable, Container, DamageHistory, Disarmable, Door, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, Info, Inventory, Item, Lightable, Memory, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed, WantsToCloseDoor, WantsToDisarmTrap, WantsToDouse, WantsToDropItem, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse, door::DoorState, equipable::EquipmentPositions};
 use types::EquipMenuType;
 
 use dungeon::{dungeon::Dungeon, level_builders, tile_type::TileType};
@@ -61,13 +50,14 @@ use services::{
     TrapSpawner,
 };
 use systems::{
-    BloodSpawnSystem, CorpseSpawnSystem, DamageSystem, DebrisSpawnSystem, DisarmTrapSystem,
-    DouseItemSystem, EquipSystem, FireBurnSystem, FireDieSystem, FireSpreadSystem, GrabSystem,
-    HideSystem, ItemCollectionSystem, ItemDropSystem, ItemSpawnSystem, LightItemSystem,
-    LightSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI, MoveSystem, OpenDoorSystem,
-    ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem,
-    RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem,
-    UpdateMemoriesSystem, UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
+    BloodSpawnSystem, CloseDoorSystem, CorpseSpawnSystem, DamageSystem, DebrisSpawnSystem,
+    DisarmTrapSystem, DouseItemSystem, EquipSystem, FireBurnSystem, FireDieSystem,
+    FireSpreadSystem, GrabSystem, HideSystem, ItemCollectionSystem, ItemDropSystem,
+    ItemSpawnSystem, LightItemSystem, LightSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI,
+    MoveSystem, OpenDoorSystem, ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem,
+    RemoveTriggeredTrapsSystem, RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem,
+    TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem, UpdateParticleEffectsSystem,
+    UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_interaction_targeting_action,
@@ -136,6 +126,18 @@ fn get_visible_entities(world: &World) -> Box<[Entity]> {
         .collect()
 }
 
+fn get_openable_doors(world: &World, entities: Box<[Entity]>) -> Box<[Entity]> {
+    let doors = world.read_storage::<Door>();
+    entities
+        .iter()
+        .filter(|e| match doors.get(**e) {
+            Some(d) => d.state == DoorState::Closed,
+            None => false
+        })
+        .map(|e| *e)
+        .collect()
+}
+
 fn filter_for_component<T: Component>(world: &World, entities: Box<[Entity]>) -> Box<[Entity]> {
     let interactables = world.read_storage::<T>();
     entities
@@ -159,6 +161,7 @@ fn get_interaction_targets(world: &World) -> Box<[Entity]> {
     let combat_stats = world.read_storage::<CombatStats>();
     let containers = world.read_storage::<Container>();
     let items = world.read_storage::<Item>();
+    let doors = world.read_storage::<Door>();
     visible_entities
         .iter()
         .filter(|e| {
@@ -170,6 +173,7 @@ fn get_interaction_targets(world: &World) -> Box<[Entity]> {
                 || combat_stats.get(**e).is_some()
                 || items.get(**e).is_some()
                 || containers.get(**e).is_some()
+                || doors.get(**e).is_some()
         })
         .map(|e| *e)
         .collect()
@@ -204,6 +208,12 @@ fn get_interaction_options_for_target(world: &World, target: Entity) -> Vec<Inte
     if world.read_storage::<Container>().get(target).is_some() {
         interactions.push(InteractionType::OpenContainer);
     }
+    if let Some(door) = world.read_storage::<Door>().get(target) {
+        interactions.push(match door.state {
+            components::door::DoorState::Closed => InteractionType::OpenDoor,
+            components::door::DoorState::Opened => InteractionType::CloseDoor,
+        })
+    }
     interactions
 }
 
@@ -222,6 +232,8 @@ fn get_menu_from_interaction_options(highlighted: usize, options: &Vec<Interacti
                 InteractionType::Attack => copy::MENU_OPTION_ATTACK,
                 InteractionType::Pickup => copy::MENU_OPTION_PICKUP,
                 InteractionType::OpenContainer => copy::MENU_OPTION_OPEN,
+                InteractionType::OpenDoor => copy::MENU_OPTION_OPEN_DOOR,
+                InteractionType::CloseDoor => copy::MENU_OPTION_CLOSE_DOOR,
             };
             let state = match idx == highlighted {
                 true => MenuOptionState::Highlighted,
@@ -235,24 +247,9 @@ fn get_menu_from_interaction_options(highlighted: usize, options: &Vec<Interacti
 
 fn generate_dungeon(world: &mut World, levels: u8) -> Dungeon {
     let levels = (0..levels).fold(HashMap::new(), |mut acc, floor_number| {
-        let mut level = level_builders::build(floor_number);
-        {
-            let mut rng = world.fetch_mut::<RandomNumberGenerator>();
-            level_builders::update_level_from_room_features(&mut level, &mut rng);
-            if floor_number != levels - 1 {
-                level_builders::add_up_stairs(&mut level, &mut rng);
-            } else {
-                level_builders::add_exit(&mut level, &mut rng);
-            }
-            if floor_number != 0 {
-                level_builders::add_down_stairs(&mut level, &mut rng);
-            }
-            level_builders::update_room_stamps_from_level(&mut level);
-            level_builders::decorate_level(&mut level, &mut rng);
-            level_builders::update_level_from_room_stamps(&mut level);
-            // refactor the above, it should really just be "decorate level, update level from room stamps"
-            // basically this would involve moving the column generation into decorate level
-        }
+        let is_top_floor = floor_number == levels - 1;
+        let is_bottom_floor = floor_number == 0;
+        let mut level = level_builders::build(floor_number, is_top_floor, is_bottom_floor);
         spawner::spawn_entities_for_level(world, &mut level);
         acc.insert(floor_number, level);
         return acc;
@@ -268,14 +265,10 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Monster>().clear();
     world.write_storage::<Name>().clear();
     world.write_storage::<BlocksTile>().clear();
-    world.write_storage::<WantsToMelee>().clear();
     world.write_storage::<SufferDamage>().clear();
     world.write_storage::<CombatStats>().clear();
     world.write_storage::<Item>().clear();
     world.write_storage::<Potion>().clear();
-    world.write_storage::<WantsToPickUpItem>().clear();
-    world.write_storage::<WantsToUse>().clear();
-    world.write_storage::<WantsToDropItem>().clear();
     world.write_storage::<ProvidesHealing>().clear();
     world.write_storage::<Consumable>().clear();
     world.write_storage::<Ranged>().clear();
@@ -296,31 +289,20 @@ fn initialize_new_game(world: &mut World) {
     world.write_storage::<Flammable>().clear();
     world.write_storage::<OnFire>().clear();
     world.write_storage::<CausesFire>().clear();
-    world.write_storage::<WantsToSearchHidden>().clear();
     world.write_storage::<Trap>().clear();
-    world.write_storage::<WantsToTrap>().clear();
-    world.write_storage::<WantsToDisarmTrap>().clear();
-    world.write_storage::<WantsToGrab>().clear();
     world.write_storage::<Grabbable>().clear();
     world.write_storage::<Grabbing>().clear();
-    world.write_storage::<WantsToMove>().clear();
-    world.write_storage::<WantsToReleaseGrabbed>();
     world.write_storage::<Memory>().clear();
-    world.write_storage::<WantsToOpenDoor>().clear();
     world.write_storage::<Furniture>().clear();
     world.write_storage::<Hiding>().clear();
     world.write_storage::<HidingSpot>().clear();
-    world.write_storage::<WantsToHide>().clear();
     world.write_storage::<Equipment>().clear();
     world.write_storage::<Equipable>().clear();
-    world.write_storage::<WantsToEquip>().clear();
     world.write_storage::<CausesDamage>().clear();
     world.write_storage::<CausesLight>().clear();
     world.write_storage::<Info>().clear();
     world.write_storage::<Lightable>().clear();
     world.write_storage::<Dousable>().clear();
-    world.write_storage::<WantsToLight>().clear();
-    world.write_storage::<WantsToDouse>().clear();
     world.write_storage::<Armable>().clear();
     world.write_storage::<Disarmable>().clear();
     world.write_storage::<DamageHistory>().clear();
@@ -432,6 +414,8 @@ impl State {
             grab_system.run_now(&self.world);
             let mut open_door_system = OpenDoorSystem {};
             open_door_system.run_now(&self.world);
+            let mut close_door_system = CloseDoorSystem {};
+            close_door_system.run_now(&self.world);
             let mut hide_system = HideSystem {};
             hide_system.run_now(&self.world);
             let mut light_item_system = LightItemSystem {};
@@ -590,6 +574,12 @@ impl GameState for State {
                         targets: get_interaction_type_targets::<Item>(&self.world),
                         interaction_type: InteractionType::Pickup,
                         cta: Some(copy::CTA_INTERACT_PICKUP),
+                    },
+                    MapAction::OpenDoor => RunState::InteractionTypeEntityTargeting {
+                        target_idx: 0,
+                        targets: get_openable_doors(&self.world, get_visible_entities(&self.world)),
+                        interaction_type: InteractionType::OpenDoor,
+                        cta: Some(copy::CTA_INTERACT_OPEN_DOOR),
                     },
                     MapAction::Attack => RunState::InteractionTypeEntityTargeting {
                         target_idx: 0,
@@ -1648,6 +1638,8 @@ pub fn start() {
     gs.world.register::<WantsToMove>();
     gs.world.register::<WantsToReleaseGrabbed>();
     gs.world.register::<WantsToOpenDoor>();
+    gs.world.register::<WantsToCloseDoor>();
+    gs.world.register::<Door>();
     gs.world.register::<Furniture>();
     gs.world.register::<HidingSpot>();
     gs.world.register::<Hiding>();

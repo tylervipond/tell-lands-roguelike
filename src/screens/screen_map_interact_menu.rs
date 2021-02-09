@@ -1,6 +1,6 @@
 use super::ui::ui_map::UIMap;
 use super::utils::{get_render_data, get_render_offset};
-use crate::components::Position;
+use crate::components::{Position, Viewshed};
 use crate::dungeon::{
     constants::{MAP_HEIGHT, MAP_WIDTH},
     dungeon::Dungeon,
@@ -41,10 +41,17 @@ impl<'a> ScreenMapInteractMenu<'a> {
         let render_data = get_render_data(world);
         let positions = world.read_storage::<Position>();
         let player_position = positions.get(*player_ent).unwrap();
-        let (center_x, center_y) =
-            level_utils::idx_xy(level.width as i32, player_position.idx as i32);
+        let (center_x, center_y) = level_utils::idx_xy(level.width as u32, player_position.idx);
         let render_offset = get_render_offset(center_x, center_y);
-        UIMap::new(level, &render_data, render_offset).draw(ctx);
+        let viewsheds = world.read_storage::<Viewshed>();
+        let player_viewshed = viewsheds.get(*player_ent).unwrap();
+        UIMap::new(
+            level,
+            &render_data,
+            render_offset,
+            &player_viewshed.visible_tiles,
+        )
+        .draw(ctx);
 
         let mut menu = UIDynamicMenu::new(0, 0, &self.menu_options, self.cta, self.title);
         menu.y = (MAP_HEIGHT / 2 - menu.height / 2) as i32;

@@ -4,6 +4,8 @@ use crate::{
     player::InteractionType,
 };
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
+use std::collections::HashSet;
+use std::iter::FromIterator;
 
 pub struct VisibilitySystem<'a> {
     pub queued_action: &'a mut Option<(Entity, InteractionType)>,
@@ -27,7 +29,7 @@ impl<'a> System<'a> for VisibilitySystem<'a> {
                 .join()
                 .filter(|(p, _e, _m)| {
                     p.level == player_position.level
-                        && player_viewshed.visible_tiles.contains(&(p.idx as i32))
+                        && player_viewshed.visible_tiles.contains(&p.idx)
                 })
                 .map(|(_p, e, _m)| e)
                 .collect()
@@ -40,28 +42,36 @@ impl<'a> System<'a> for VisibilitySystem<'a> {
                     viewshed.los_tiles.clear();
                     viewshed.los_tiles = level_utils::get_field_of_view_from_idx(
                         &*level,
-                        position.idx as i32,
+                        position.idx,
                         viewshed.range,
                     );
                 }
+                let lit_indexes =
+                    level
+                        .lit_tiles
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(idx, lit)| match lit {
+                            true => Some(idx),
+                            false => None,
+                        });
                 viewshed.visible_tiles = viewshed
                     .los_tiles
-                    .iter()
-                    .cloned()
-                    .filter(|idx| level.lit_tiles[*idx as usize])
-                    .chain(
-                        level_utils::get_field_of_view_from_idx(&*level, position.idx as i32, 2)
-                            .iter()
-                            .cloned(),
-                    )
+                    .clone()
+                    .intersection(&HashSet::from_iter(lit_indexes))
+                    .copied()
+                    .collect::<HashSet<usize>>()
+                    .union(&level_utils::get_field_of_view_from_idx(
+                        &*level,
+                        position.idx,
+                        2,
+                    ))
+                    .copied()
                     .collect();
+
                 if ent == *player_ent {
-                    for t in level.visible_tiles.iter_mut() {
-                        *t = false
-                    }
                     for idx in viewshed.visible_tiles.iter() {
-                        level.revealed_tiles[*idx as usize] = true;
-                        level.visible_tiles[*idx as usize] = true;
+                        level.revealed_tiles[*idx] = true;
                     }
                 }
             }
@@ -72,7 +82,7 @@ impl<'a> System<'a> for VisibilitySystem<'a> {
                 .join()
                 .find(|(p, e, _m)| {
                     p.level == player_position.level
-                        && player_viewshed.visible_tiles.contains(&(p.idx as i32))
+                        && player_viewshed.visible_tiles.contains(&p.idx)
                         && !enemies_in_player_sight_at_start.contains(e)
                 })
         } {

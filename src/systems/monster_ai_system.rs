@@ -1,6 +1,6 @@
 use crate::ai::{choose_action, reasoner, Action, WeightedAction};
 use crate::components::{
-    CombatStats, Confused, Furniture, Hiding, Memory, Monster, Position, Viewshed,
+    CombatStats, Confused, Door, Furniture, Hiding, Memory, Monster, Position, Viewshed,
     WantsToMelee, WantsToMove, WantsToOpenDoor,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
@@ -12,14 +12,18 @@ fn get_move_action(
     move_idx: usize,
     step_count: i32,
     furniture_storage: &ReadStorage<Furniture>,
+    door_storage: &ReadStorage<Door>,
 ) -> WeightedAction {
     if level.tiles[move_idx as usize] == TileType::Door {
-        return WeightedAction::new(
-            Action::OpenDoor(move_idx),
-            reasoner::move_weight(step_count, 2.0),
-        );
-    }
-    if level.blocked[move_idx as usize] {
+        for entity in level_utils::entities_at_idx(level, move_idx) {
+            if door_storage.get(entity).is_some() {
+                return WeightedAction::new(
+                    Action::OpenDoor(entity),
+                    reasoner::move_weight(step_count, 2.0),
+                );
+            }
+        }
+    } else if level.blocked[move_idx as usize] {
         for entity in level_utils::entities_at_idx(level, move_idx) {
             if furniture_storage.get(entity).is_some() {
                 return WeightedAction::new(
@@ -36,8 +40,8 @@ fn get_move_action(
     )
 }
 
-fn get_next_step(level: &Level, start_idx: i32, end_idx: i32) -> Option<(usize, usize)> {
-    let path = a_star_search(start_idx, end_idx, level);
+fn get_next_step(level: &Level, start_idx: usize, end_idx: usize) -> Option<(usize, usize)> {
+    let path = a_star_search(start_idx as i32, end_idx as i32, level);
     let step_count = path.steps.len();
     match path.success && step_count > 1 {
         true => Some((path.steps[1], step_count)),
@@ -47,9 +51,10 @@ fn get_next_step(level: &Level, start_idx: i32, end_idx: i32) -> Option<(usize, 
 
 fn get_move_action_from_path(
     level: &Level,
-    start_idx: i32,
-    end_idx: i32,
+    start_idx: usize,
+    end_idx: usize,
     furniture_storage: &ReadStorage<Furniture>,
+    door_storage: &ReadStorage<Door>,
 ) -> Option<WeightedAction> {
     match get_next_step(level, start_idx, end_idx) {
         Some((next_step, step_count)) => Some(get_move_action(
@@ -57,6 +62,7 @@ fn get_move_action_from_path(
             next_step,
             step_count as i32,
             furniture_storage,
+            door_storage,
         )),
         _ => None,
     }
@@ -81,6 +87,7 @@ impl<'a> System<'a> for MonsterAI {
         WriteStorage<'a, WantsToOpenDoor>,
         ReadStorage<'a, Furniture>,
         ReadStorage<'a, Hiding>,
+        ReadStorage<'a, Door>,
     );
     // This is currently very limited. Monsters will only act if they can see a player, which means that they must
     // also be on the same level to act.
@@ -101,6 +108,7 @@ impl<'a> System<'a> for MonsterAI {
             mut wants_to_open_door,
             furniture,
             hiding,
+            doors,
         ) = data;
         let (player_idx, player_level) = {
             let pos = positions.get(*player_entity).unwrap();
@@ -109,14 +117,8 @@ impl<'a> System<'a> for MonsterAI {
         let level = dungeon.get_level_mut(player_level).unwrap();
         let player_hp = combat_stats.get(*player_entity).unwrap().hp;
 
-        for (_monsters, entity, viewshed, position, memory) in (
-            &monsters,
-            &entities,
-            &viewsheds,
-            &positions,
-            &mut memory,
-        )
-            .join()
+        for (_monsters, entity, viewshed, position, memory) in
+            (&monsters, &entities, &viewsheds, &positions, &mut memory).join()
         {
             if let Some(is_confused) = confused.get_mut(entity) {
                 is_confused.turns -= 1;
@@ -131,15 +133,16 @@ impl<'a> System<'a> for MonsterAI {
             let mut weighted_actions = vec![];
             let current_idx = position.idx;
             if hiding.get(*player_entity).is_none() {
-                let distance = level_utils::get_distance_between_idxs(&level, position.idx, player_idx);
+                let distance =
+                    level_utils::get_distance_between_idxs(&level, position.idx, player_idx);
                 if distance < 1.5 {
                     weighted_actions.push(WeightedAction::new(
                         Action::Attack(*player_entity),
                         reasoner::attack_weight(player_hp),
                     ));
-                } else if viewshed.visible_tiles.contains(&(player_idx as i32)) {
+                } else if viewshed.visible_tiles.contains(&player_idx) {
                     if let Some((next_step, step_count)) =
-                        get_next_step(&level, current_idx as i32, player_idx as i32)
+                        get_next_step(&level, current_idx, player_idx)
                     {
                         weighted_actions.push(WeightedAction::new(
                             Action::Chase(next_step),
@@ -152,9 +155,13 @@ impl<'a> System<'a> for MonsterAI {
                 if enemy_position.level != position.level as i32 {
                     continue;
                 }
-                if let Some(action) =
-                    get_move_action_from_path(&level, current_idx as i32, enemy_position.idx, &furniture)
-                {
+                if let Some(action) = get_move_action_from_path(
+                    &level,
+                    current_idx,
+                    enemy_position.idx,
+                    &furniture,
+                    &doors,
+                ) {
                     weighted_actions.push(action);
                 }
             }
@@ -162,16 +169,17 @@ impl<'a> System<'a> for MonsterAI {
                 let hiding_place = memory_enemy_hiding_place.hiding_spot;
                 if let Some(hiding_position) = positions.get(hiding_place) {
                     let hiding_idx = hiding_position.idx;
-                    let distance = level_utils::get_distance_between_idxs(&level, position.idx, hiding_idx);
+                    let distance =
+                        level_utils::get_distance_between_idxs(&level, position.idx, hiding_idx);
                     if distance < 1.5 {
                         let hiding_place_hp = combat_stats.get(hiding_place).unwrap().hp;
                         weighted_actions.push(WeightedAction::new(
                             Action::Attack(hiding_place),
                             reasoner::attack_weight(hiding_place_hp),
                         ));
-                    } else if viewshed.visible_tiles.contains(&(hiding_idx as i32)) {
+                    } else if viewshed.visible_tiles.contains(&hiding_idx) {
                         if let Some((next_step, step_count)) =
-                            get_next_step(&level, current_idx as i32, player_idx as i32)
+                            get_next_step(&level, current_idx, player_idx)
                         {
                             let hiding_place_hp = combat_stats.get(hiding_place).unwrap().hp;
                             weighted_actions.push(WeightedAction::new(
@@ -182,22 +190,17 @@ impl<'a> System<'a> for MonsterAI {
                     }
                 }
             }
-            if let Some(destination) = memory.wander_destination {
+            let destination_idx = match memory.wander_destination {
+                Some(dest) => Some(dest.idx),
+                None => level_utils::get_random_unblocked_floor_point(&level, &mut rng),
+            };
+            if let Some(idx) = destination_idx {
                 if let Some(action) =
-                    get_move_action_from_path(&level, current_idx as i32, destination.idx as i32, &furniture)
-                {
-                    weighted_actions.push(action);
-                }
-            } else if let Some(destination) =
-                level_utils::get_random_unblocked_floor_point(&level, &mut rng)
-            {
-                if let Some(action) =
-                    get_move_action_from_path(&level, current_idx as i32, destination as i32, &furniture)
+                    get_move_action_from_path(&level, current_idx, idx, &furniture, &doors)
                 {
                     weighted_actions.push(action);
                 }
             }
-
             // in the future this should be updated to include item use possibly
             match choose_action(weighted_actions) {
                 Some(Action::Chase(idx)) => {
@@ -215,16 +218,10 @@ impl<'a> System<'a> for MonsterAI {
                         .insert(entity, WantsToMove { idx })
                         .expect("couldn't insert move intent");
                 }
-                Some(Action::OpenDoor(idx)) => {
+                Some(Action::OpenDoor(door)) => {
                     wants_to_open_door
-                        .insert(
-                            entity,
-                            WantsToOpenDoor {
-                                idx,
-                                level: position.level as usize,
-                            },
-                        )
-                        .expect("couldn't insert move intent");
+                        .insert(entity, WantsToOpenDoor { door })
+                        .expect("couldn't insert open door intent");
                 }
                 _ => {}
             };

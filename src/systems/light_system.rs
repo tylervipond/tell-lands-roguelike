@@ -29,7 +29,7 @@ impl<'a> System<'a> for LightSystem {
         dungeon
             .levels
             .iter_mut()
-            .for_each(|(_number, level)| level.lit_tiles = vec![false; MAP_COUNT]);
+            .for_each(|(_number, level)| level.lit_tiles = Box::new([false; MAP_COUNT]));
 
         (&equipment, &position)
             .join()

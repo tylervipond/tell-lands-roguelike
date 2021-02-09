@@ -10,12 +10,12 @@ use specs::Entity;
 pub struct Level {
     pub height: u8,
     pub width: u8,
-    pub tiles: Vec<TileType>,
+    pub tiles: Box<[TileType]>,
     pub rooms: Vec<Room>,
-    pub revealed_tiles: Vec<bool>,
-    pub visible_tiles: Vec<bool>,
-    pub lit_tiles: Vec<bool>,
-    pub blocked: Vec<bool>,
+    pub revealed_tiles: Box<[bool]>,
+    pub lit_tiles: Box<[bool]>, // can we skip serializing this?d
+    pub blocked: Box<[bool]>,
+    pub opaque: Box<[bool]>,
     pub depth: u8,
     pub stairs_down: Option<usize>,
     pub stairs_up: Option<usize>,
@@ -27,14 +27,14 @@ pub struct Level {
 impl Level {
     pub fn new(depth: u8) -> Self {
         Self {
-            tiles: vec![TileType::Wall; MAP_COUNT],
-            rooms: vec![],
+            tiles: Box::new([TileType::Wall; MAP_COUNT]),
+            rooms: vec![], // TODO: determine if this is useful beyond the level building phase
             width: MAP_WIDTH,
             height: MAP_HEIGHT,
-            revealed_tiles: vec![false; MAP_COUNT],
-            visible_tiles: vec![false; MAP_COUNT],
-            lit_tiles: vec![false; MAP_COUNT],
-            blocked: vec![false; MAP_COUNT],
+            revealed_tiles: Box::new([false; MAP_COUNT]),
+            lit_tiles: Box::new([false; MAP_COUNT]),
+            blocked: Box::new([false; MAP_COUNT]),
+            opaque: Box::new([false; MAP_COUNT]),
             tile_content: vec![vec![]; MAP_COUNT],
             stairs_down: None,
             stairs_up: None,
@@ -59,20 +59,19 @@ impl Level {
 
 impl BaseMap for Level {
     fn is_opaque(&self, idx: usize) -> bool {
-        let tile = self.tiles[idx as usize];
-        tile == TileType::Wall || tile == TileType::Door || tile == TileType::Column
+        self.opaque[idx]
     }
 
     fn get_available_exits(&self, idx: usize) -> SmallVec<[(usize, f32); 10]> {
         let mut exits = SmallVec::new();
         for (idx, diagonal) in [
-            (idx -1, false),
+            (idx - 1, false),
             (idx + 1, false),
             (idx - self.width as usize, false),
             (idx + self.width as usize, false),
-            (idx - self.width as usize -1, true),
+            (idx - self.width as usize - 1, true),
             (idx - self.width as usize + 1, true),
-            (idx + self.width as usize -1, true),
+            (idx + self.width as usize - 1, true),
             (idx + self.width as usize + 1, true),
         ]
         .iter()
