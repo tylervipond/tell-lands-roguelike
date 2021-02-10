@@ -33,7 +33,18 @@ mod types;
 mod ui_components;
 mod user_actions;
 mod utils;
-use components::{AreaOfEffect, Armable, BlocksTile, Blood, CausesDamage, CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable, Container, DamageHistory, Disarmable, Door, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment, Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, Info, Inventory, Item, Lightable, Memory, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position, Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation, SufferDamage, Trap, Triggered, Viewshed, WantsToCloseDoor, WantsToDisarmTrap, WantsToDouse, WantsToDropItem, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse, door::DoorState, equipable::EquipmentPositions};
+use components::{
+    door::DoorState, equipable::EquipmentPositions, AreaOfEffect, Armable, BlocksTile, Blood,
+    CausesDamage, CausesFire, CausesLight, CombatStats, Confused, Confusion, Consumable, Container,
+    DamageHistory, Disarmable, Door, Dousable, EntityMoved, EntryTrigger, Equipable, Equipment,
+    Flammable, Furniture, Grabbable, Grabbing, Hidden, Hiding, HidingSpot, Info, Inventory, Item,
+    Lightable, Memory, Monster, Name, Objective, OnFire, ParticleLifetime, Player, Position,
+    Potion, ProvidesHealing, Ranged, Renderable, Saveable, SerializationHelper, SingleActivation,
+    SufferDamage, Trap, Triggered, Viewshed, WantsToCloseDoor, WantsToDisarmTrap, WantsToDouse,
+    WantsToDropItem, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight, WantsToMelee,
+    WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden,
+    WantsToTrap, WantsToUse,
+};
 use types::EquipMenuType;
 
 use dungeon::{dungeon::Dungeon, level_builders, tile_type::TileType};
@@ -53,11 +64,11 @@ use systems::{
     BloodSpawnSystem, CloseDoorSystem, CorpseSpawnSystem, DamageSystem, DebrisSpawnSystem,
     DisarmTrapSystem, DouseItemSystem, EquipSystem, FireBurnSystem, FireDieSystem,
     FireSpreadSystem, GrabSystem, HideSystem, ItemCollectionSystem, ItemDropSystem,
-    ItemSpawnSystem, LightItemSystem, LightSystem, MapIndexingSystem, MeleeCombatSystem, MonsterAI,
-    MoveSystem, OpenDoorSystem, ParticleSpawnSystem, ReleaseSystem, RemoveParticleEffectsSystem,
-    RemoveTriggeredTrapsSystem, RevealTrapsSystem, SearchForHiddenSystem, SetTrapSystem,
-    TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem, UpdateParticleEffectsSystem,
-    UseItemSystem, VisibilitySystem,
+    ItemSpawnSystem, LightItemSystem, LightSystem, MapIndexingSystem, MeleeCombatSystem,
+    MemoryCullSystem, MonsterAI, MoveSystem, OpenDoorSystem, ParticleSpawnSystem, ReleaseSystem,
+    RemoveParticleEffectsSystem, RemoveTriggeredTrapsSystem, RevealTrapsSystem,
+    SearchForHiddenSystem, SetTrapSystem, TrapSpawnSystem, TriggerSystem, UpdateMemoriesSystem,
+    UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
     map_input_to_horizontal_menu_action, map_input_to_interaction_targeting_action,
@@ -132,7 +143,7 @@ fn get_openable_doors(world: &World, entities: Box<[Entity]>) -> Box<[Entity]> {
         .iter()
         .filter(|e| match doors.get(**e) {
             Some(d) => d.state == DoorState::Closed,
-            None => false
+            None => false,
         })
         .map(|e| *e)
         .collect()
@@ -435,6 +446,11 @@ impl State {
         debris_spawn_system.run_now(&self.world);
         let mut corpse_spawn_system = CorpseSpawnSystem {};
         corpse_spawn_system.run_now(&self.world);
+        if self.run_state == RunState::PlayerTurn || self.run_state == RunState::MonsterTurn {
+            DamageSystem::delete_the_dead(&mut self.world);
+            let mut memory_cull_system = MemoryCullSystem {};
+            memory_cull_system.run_now(&self.world);
+        }
         self.world.maintain();
     }
 }
@@ -451,7 +467,6 @@ impl GameState for State {
         self.run_state = match &mut self.run_state {
             RunState::PreRun => {
                 ScreenMapGeneric::new(0, 0).draw(ctx, &mut self.world);
-                DamageSystem::delete_the_dead(&mut self.world);
                 RunState::AwaitingInput {
                     offset_x: 0,
                     offset_y: 0,
@@ -612,12 +627,10 @@ impl GameState for State {
             }
             RunState::PlayerTurn => {
                 ScreenMapGeneric::new(0, 0).draw(ctx, &mut self.world);
-                DamageSystem::delete_the_dead(&mut self.world);
                 RunState::MonsterTurn
             }
             RunState::MonsterTurn => {
                 ScreenMapGeneric::new(0, 0).draw(ctx, &mut self.world);
-                DamageSystem::delete_the_dead(&mut self.world);
                 let combat_stats = self.world.read_storage::<CombatStats>();
                 let player_ent = self.world.fetch::<Entity>();
                 let player_stats = combat_stats.get(*player_ent).unwrap();

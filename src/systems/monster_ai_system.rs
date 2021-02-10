@@ -1,9 +1,12 @@
-use crate::ai::{choose_action, reasoner, Action, WeightedAction};
 use crate::components::{
     CombatStats, Confused, Door, Furniture, Hiding, Memory, Monster, Position, Viewshed,
     WantsToMelee, WantsToMove, WantsToOpenDoor,
 };
 use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils, tile_type::TileType};
+use crate::{
+    ai::{choose_action, reasoner, Action, WeightedAction},
+    components::memory::MemoryLocation,
+};
 use rltk::{a_star_search, RandomNumberGenerator};
 use specs::{Entities, Entity, Join, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
@@ -132,76 +135,82 @@ impl<'a> System<'a> for MonsterAI {
             }
             let mut weighted_actions = vec![];
             let current_idx = position.idx;
-            if hiding.get(*player_entity).is_none() {
-                let distance =
-                    level_utils::get_distance_between_idxs(&level, position.idx, player_idx);
-                if distance < 1.5 {
+            let player_is_not_hiding = hiding.get(*player_entity).is_none();
+            let distance = level_utils::get_distance_between_idxs(&level, position.idx, player_idx);
+            if player_is_not_hiding && distance < 1.5 {
+                weighted_actions.push(WeightedAction::new(
+                    Action::Attack(*player_entity),
+                    reasoner::attack_weight(player_hp),
+                ));
+            } else if player_is_not_hiding && viewshed.visible_tiles.contains(&player_idx) {
+                if let Some((next_step, step_count)) =
+                    get_next_step(&level, current_idx, player_idx)
+                {
                     weighted_actions.push(WeightedAction::new(
-                        Action::Attack(*player_entity),
-                        reasoner::attack_weight(player_hp),
+                        Action::Chase(next_step),
+                        reasoner::chase_weight(player_hp, step_count as i32),
                     ));
-                } else if viewshed.visible_tiles.contains(&player_idx) {
-                    if let Some((next_step, step_count)) =
-                        get_next_step(&level, current_idx, player_idx)
-                    {
-                        weighted_actions.push(WeightedAction::new(
-                            Action::Chase(next_step),
-                            reasoner::chase_weight(player_hp, step_count as i32),
-                        ));
+                }
+            } else if !memory.known_enemy_hiding_spots.is_empty()
+                || !memory.last_known_enemy_positions.is_empty()
+            {
+                for (e, MemoryLocation(enemy_level, enemy_idx)) in
+                    memory.last_known_enemy_positions.iter()
+                {
+                    if *enemy_level != position.level as i32 {
+                        continue;
+                    }
+                    if let Some(action) = get_move_action_from_path(
+                        &level,
+                        current_idx,
+                        *enemy_idx,
+                        &furniture,
+                        &doors,
+                    ) {
+                        weighted_actions.push(action);
                     }
                 }
-            }
-            for enemy_position in memory.last_known_enemy_positions.iter() {
-                if enemy_position.level != position.level as i32 {
-                    continue;
-                }
-                if let Some(action) = get_move_action_from_path(
-                    &level,
-                    current_idx,
-                    enemy_position.idx,
-                    &furniture,
-                    &doors,
-                ) {
-                    weighted_actions.push(action);
-                }
-            }
-            for memory_enemy_hiding_place in memory.known_enemy_hiding_spots.iter() {
-                let hiding_place = memory_enemy_hiding_place.hiding_spot;
-                if let Some(hiding_position) = positions.get(hiding_place) {
-                    let hiding_idx = hiding_position.idx;
-                    let distance =
-                        level_utils::get_distance_between_idxs(&level, position.idx, hiding_idx);
-                    if distance < 1.5 {
-                        let hiding_place_hp = combat_stats.get(hiding_place).unwrap().hp;
-                        weighted_actions.push(WeightedAction::new(
-                            Action::Attack(hiding_place),
-                            reasoner::attack_weight(hiding_place_hp),
-                        ));
-                    } else if viewshed.visible_tiles.contains(&hiding_idx) {
-                        if let Some((next_step, step_count)) =
-                            get_next_step(&level, current_idx, player_idx)
-                        {
-                            let hiding_place_hp = combat_stats.get(hiding_place).unwrap().hp;
+                for (enemy, hiding_spot) in memory.known_enemy_hiding_spots.iter() {
+                    if let Some(hiding_position) = positions.get(*hiding_spot) {
+                        let hiding_idx = hiding_position.idx;
+                        let distance = level_utils::get_distance_between_idxs(
+                            &level,
+                            position.idx,
+                            hiding_idx,
+                        );
+                        if distance < 1.5 {
+                            let hiding_place_hp = combat_stats.get(*hiding_spot).unwrap().hp;
                             weighted_actions.push(WeightedAction::new(
-                                Action::Chase(next_step),
-                                reasoner::chase_weight(hiding_place_hp, step_count as i32),
+                                Action::Attack(*hiding_spot),
+                                reasoner::attack_weight(hiding_place_hp),
                             ));
+                        } else if viewshed.visible_tiles.contains(&hiding_idx) {
+                            if let Some((next_step, step_count)) =
+                                get_next_step(&level, current_idx, player_idx)
+                            {
+                                let hiding_place_hp = combat_stats.get(*hiding_spot).unwrap().hp;
+                                weighted_actions.push(WeightedAction::new(
+                                    Action::Chase(next_step),
+                                    reasoner::chase_weight(hiding_place_hp, step_count as i32),
+                                ));
+                            }
                         }
                     }
                 }
-            }
-            let destination_idx = match memory.wander_destination {
-                Some(dest) => Some(dest.idx),
-                None => level_utils::get_random_unblocked_floor_point(&level, &mut rng),
-            };
-            if let Some(idx) = destination_idx {
-                if let Some(action) =
-                    get_move_action_from_path(&level, current_idx, idx, &furniture, &doors)
-                {
-                    weighted_actions.push(action);
+            } else {
+                let destination_idx = match memory.wander_destination {
+                    Some(dest) => Some(dest.1),
+                    None => level_utils::get_random_unblocked_floor_point(&level, &mut rng),
+                };
+                if let Some(idx) = destination_idx {
+                    memory.wander_destination = Some(MemoryLocation(position.level as i32, idx));
+                    if let Some(action) =
+                        get_move_action_from_path(&level, current_idx, idx, &furniture, &doors)
+                    {
+                        weighted_actions.push(action);
+                    }
                 }
             }
-            // in the future this should be updated to include item use possibly
             match choose_action(weighted_actions) {
                 Some(Action::Chase(idx)) => {
                     wants_to_move

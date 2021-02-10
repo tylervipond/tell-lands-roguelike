@@ -257,8 +257,8 @@ pub fn spawn_monster<S: ToString>(
             off_hand: Some(torch),
         })
         .with(Memory {
-            last_known_enemy_positions: HashSet::new(),
-            known_enemy_hiding_spots: HashSet::new(),
+            last_known_enemy_positions: HashMap::new(),
+            known_enemy_hiding_spots: HashMap::new(),
             wander_destination: None,
         })
         .with(Inventory {
