@@ -64,4 +64,13 @@ pub enum RunState {
     FailureScreen,
     SuccessScreen,
     CreditsScreen,
+    LoadingScreen {
+        count_down: u32,
+    },
+    SavingScreen {
+        count_down: u32,
+    },
+    NewGameScreen {
+        count_down: u32,
+    },
 }

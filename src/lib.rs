@@ -52,9 +52,10 @@ use menu_option::{MenuOption, MenuOptionState};
 use player::{player_action, InteractionType};
 use run_state::RunState;
 use screens::{
-    ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenMainMenu, ScreenMapGeneric,
-    ScreenMapInteractMenu, ScreenMapInteractTarget, ScreenMapItemMenu, ScreenMapMenu,
-    ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
+    ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenLoading, ScreenMainMenu,
+    ScreenMapGeneric, ScreenMapInteractMenu, ScreenMapInteractTarget, ScreenMapItemMenu,
+    ScreenMapMenu, ScreenMapTargeting, ScreenNewGame, ScreenSaving, ScreenSuccess, SCREEN_HEIGHT,
+    SCREEN_WIDTH,
 };
 use services::{
     BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog, ItemSpawner, ParticleEffectSpawner,
@@ -481,10 +482,7 @@ impl GameState for State {
                 match action {
                     #[cfg(debug_assertions)]
                     MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
-                    MapAction::Exit => {
-                        persistence::save_game(&mut self.world);
-                        RunState::MainMenu { highlighted: 0 }
-                    }
+                    MapAction::Exit => RunState::SavingScreen { count_down: 15 },
                     MapAction::NoAction => {
                         let mut next_state = RunState::AwaitingInput {
                             offset_x: *offset_x,
@@ -1450,6 +1448,46 @@ impl GameState for State {
                     _ => RunState::MainMenu { highlighted: 0 },
                 }
             }
+            RunState::SavingScreen { count_down } => {
+                ScreenSaving::new().draw(ctx);
+                match *count_down > 0 {
+                    true => RunState::SavingScreen {
+                        count_down: *count_down - 1,
+                    },
+                    _ => {
+                        persistence::save_game(&mut self.world);
+                        RunState::MainMenu { highlighted: 0 }
+                    }
+                }
+            }
+            RunState::LoadingScreen { count_down } => {
+                ScreenLoading::new().draw(ctx);
+                match *count_down > 0 {
+                    true => RunState::LoadingScreen {
+                        count_down: *count_down - 1,
+                    },
+                    _ => {
+                        persistence::load_game(&mut self.world);
+                        persistence::delete_save();
+                        RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        }
+                    }
+                }
+            }
+            RunState::NewGameScreen { count_down } => {
+                ScreenNewGame::new().draw(ctx);
+                match *count_down > 0 {
+                    true => RunState::NewGameScreen {
+                        count_down: *count_down - 1,
+                    },
+                    false => {
+                        initialize_new_game(&mut self.world);
+                        RunState::IntroScreen
+                    }
+                }
+            }
             RunState::MainMenu { highlighted } => {
                 let has_save_game = persistence::has_save_game();
                 let new_game_state = match *highlighted == 0 {
@@ -1504,18 +1542,8 @@ impl GameState for State {
                         highlighted: menu.get_previous_index(*highlighted),
                     },
                     MenuAction::Select => match *highlighted {
-                        0 => {
-                            initialize_new_game(&mut self.world);
-                            RunState::IntroScreen
-                        }
-                        1 => {
-                            persistence::load_game(&mut self.world);
-                            persistence::delete_save();
-                            RunState::AwaitingInput {
-                                offset_x: 0,
-                                offset_y: 0,
-                            }
-                        }
+                        0 => RunState::NewGameScreen { count_down: 15 },
+                        1 => RunState::LoadingScreen { count_down: 15 },
                         2 => RunState::CreditsScreen,
                         3 => std::process::exit(0),
                         _ => RunState::MainMenu {
