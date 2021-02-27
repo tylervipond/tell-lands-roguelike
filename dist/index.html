@@ -1,118 +1,46 @@
 <html>
-  <head>
-    <title>Apprentice</title>
-    <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
-    <style>
-      *,
-      *::after,
-      *::before {
-        box-sizing: border-box;
+
+<head>
+  <title>Apprentice</title>
+  <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+  <style>
+    *,
+    *::after,
+    *::before {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+    }
+
+    .title {
+      text-align: center;
+      margin: 1rem;
+      font-family: "Courier New", Courier, monospace;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+
+<body>
+  <h1 class="title">Apprentice</h1>
+  <canvas id="canvas" width="800" height="496" tabindex="1"></canvas>
+  <script>
+    document.addEventListener('keydown', e => {
+      e.preventDefault();
+      const el = e.srcElement || e.target;
+      if (el.id === 'canvas') {
+        return false;
       }
 
-      body {
-        margin: 0;
-      }
+    })
+  </script>
+<script type="text/javascript" src="index.js"></script></body>
 
-      canvas {
-        display: block;
-        margin: 0 auto;
-      }
-
-      .title {
-        text-align: center;
-        margin: 1rem;
-        font-family: "Courier New", Courier, monospace;
-        text-transform: uppercase;
-      }
-
-      .controls-list {
-        max-width: 800px;
-        margin: 0 auto;
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-      }
-
-      .controls-list dd {
-        text-align: right;
-        margin: 0;
-        padding: 0.5rem 0.5rem 0.5rem 0;
-      }
-
-      .controls-list dt {
-        padding: 0.5rem 0rem 0.5rem 0.5rem;
-      }
-
-      .controls-list dd:nth-of-type(odd),
-      .controls-list dt:nth-of-type(odd) {
-        background-color: lightgrey;
-      }
-    </style>
-  </head>
-
-  <body>
-    <h1 class="title">Apprentice</h1>
-    <canvas id="canvas" width="800" height="496"></canvas>
-    <dl class="controls-list">
-      <dt>move up</dt>
-      <dd>w</dd>
-      <dt>move down</dt>
-      <dd>x</dd>
-      <dt>move left</dt>
-      <dd>a</dd>
-      <dt>move right</dt>
-      <dd>d</dd>
-      <dt>move up left</dt>
-      <dd>q</dd>
-      <dt>move up right</dt>
-      <dd>e</dd>
-      <dt>move down left</dt>
-      <dd>z</dd>
-      <dt>move down right</dt>
-      <dd>c</dd>
-      <dt>wait</dt>
-      <dd>s</dd>
-      <dt>select item to pick up</dt>
-      <dd>f</dd>
-      <dt>view inventory</dt>
-      <dd>i</dd>
-      <dt>drop item</dt>
-      <dd>r</dd>
-      <dt>open door</dt>
-      <dd>g</dd>
-      <dt>select container to open</dt>
-      <dd>v</dd>
-      <dt>search area</dt>
-      <dd>h</dd>
-      <dt>select trap to disarm</dt>
-      <dd>t</dd>
-      <dt>select furniture to grab</dt>
-      <dd>b</dd>
-      <dt>release furniture</dt>
-      <dd>n</dd>
-      <dt>select container to hide in</dt>
-      <dd>j</dd>
-      <dt>equipment menu</dt>
-      <dd>o</dd>
-      <dt>select object to interact with</dt>
-      <dd>y</dd>
-      <dt>select trap to arm</dt>
-      <dd>p</dd>
-      <dt>action menu</dt>
-      <dd>m</dd>
-      <dt>go down stairs</dt>
-      <dd>.</dd>
-      <dt>go up stairs</dt>
-      <dd>,</dd>
-      <dt>exit dungeon</dt>
-      <dd>l</dd>
-      <dt>scroll map right</dt>
-      <dd>right</dd>
-      <dt>scroll map left</dt>
-      <dd>left</dd>
-      <dt>scroll map up</dt>
-      <dd>up</dd>
-      <dt>scroll map down</dt>
-      <dd>down</dd>
-    </dl>
-  <script type="text/javascript" src="index.js"></script></body>
 </html>

@@ -1,4 +1,4 @@
-use menu::Menu;
+use menu::{Menu, MenuOption, MenuOptionState};
 use rltk::{a_star_search, GameState, RandomNumberGenerator, Rltk, RltkBuilder};
 use specs::prelude::*;
 use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
@@ -12,6 +12,7 @@ extern crate serde;
 mod ai;
 mod artwork;
 mod components;
+mod control;
 mod copy;
 #[cfg(debug_assertions)]
 mod debug;
@@ -20,13 +21,13 @@ mod entity_option;
 mod entity_set;
 mod inventory;
 mod menu;
-mod menu_option;
 mod persistence;
 mod player;
 mod ranged;
 mod run_state;
 mod screens;
 mod services;
+mod settings;
 mod spawner;
 mod systems;
 mod types;
@@ -45,16 +46,17 @@ use components::{
     WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden,
     WantsToTrap, WantsToUse,
 };
+use settings::Settings;
 use types::EquipMenuType;
 
 use dungeon::{dungeon::Dungeon, level_builders, tile_type::TileType};
-use menu_option::{MenuOption, MenuOptionState};
 use player::{player_action, InteractionType};
 use run_state::RunState;
 use screens::{
-    ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenMainMenu, ScreenMapGeneric,
-    ScreenMapInteractMenu, ScreenMapInteractTarget, ScreenMapItemMenu, ScreenMapMenu,
-    ScreenMapTargeting, ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
+    ScreenCredits, ScreenDeath, ScreenFailure, ScreenIntro, ScreenLoading, ScreenMainMenu,
+    ScreenMapGeneric, ScreenMapInteractMenu, ScreenMapInteractTarget, ScreenMapItemMenu,
+    ScreenMapMenu, ScreenMapTargeting, ScreenNewGame, ScreenOptions, ScreenSaving, ScreenSetKey,
+    ScreenSuccess, SCREEN_HEIGHT, SCREEN_WIDTH,
 };
 use services::{
     BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog, ItemSpawner, ParticleEffectSpawner,
@@ -71,10 +73,7 @@ use systems::{
     UpdateParticleEffectsSystem, UseItemSystem, VisibilitySystem,
 };
 use user_actions::{
-    map_input_to_horizontal_menu_action, map_input_to_interaction_targeting_action,
-    map_input_to_map_action, map_input_to_menu_action, map_input_to_static_action,
-    map_input_to_targeting_action, InteractionTargetingAction, MapAction, MenuAction, StaticAction,
-    TargetingAction,
+    InteractionTargetingAction, MapAction, MenuAction, StaticAction, TargetingAction,
 };
 
 fn player_can_leave_dungeon(world: &mut World) -> bool {
@@ -228,7 +227,10 @@ fn get_interaction_options_for_target(world: &World, target: Entity) -> Vec<Inte
     interactions
 }
 
-fn get_menu_from_interaction_options(highlighted: usize, options: &Vec<InteractionType>) -> Menu {
+fn get_menu_from_interaction_options(
+    highlighted: usize,
+    options: &Vec<InteractionType>,
+) -> Menu<&str> {
     let options = options
         .iter()
         .enumerate()
@@ -349,6 +351,7 @@ pub struct State {
     world: World,
     run_state: RunState,
     queued_action: Option<(Entity, InteractionType)>,
+    settings: Settings,
 }
 
 impl State {
@@ -474,18 +477,117 @@ impl GameState for State {
             }
             RunState::AwaitingInput { offset_x, offset_y } => {
                 ScreenMapGeneric::new(*offset_x, *offset_y).draw(ctx, &mut self.world);
-                let action = map_input_to_map_action(ctx);
-                if action != MapAction::NoAction {
+                let action = self.settings.control_scheme.map.get_value_with_context(ctx);
+
+                if action.is_some() {
                     self.queued_action = None
                 }
                 match action {
-                    #[cfg(debug_assertions)]
-                    MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
-                    MapAction::Exit => {
-                        persistence::save_game(&mut self.world);
-                        RunState::MainMenu { highlighted: 0 }
-                    }
-                    MapAction::NoAction => {
+                    Some(action) => match action {
+                        #[cfg(debug_assertions)]
+                        MapAction::ShowDebugMenu => RunState::DebugMenu { highlighted: 0 },
+                        MapAction::Exit => RunState::SavingScreen { count_down: 15 },
+                        MapAction::ShowInventoryMenu => RunState::InventoryMenu { highlighted: 0 },
+                        MapAction::ShowDropMenu => RunState::DropItemMenu { highlighted: 0 },
+                        MapAction::ShowEquipmentMenu => RunState::EquipmentMenu {
+                            highlighted: 0,
+                            action_highlighted: 0,
+                            action_menu: false,
+                        },
+                        MapAction::LeaveDungeon => {
+                            match player_can_leave_dungeon(&mut self.world) {
+                                true => RunState::ExitGameMenu { highlighted: 0 },
+                                false => {
+                                    let mut log = self.world.fetch_mut::<GameLog>();
+                                    log.add(
+                                        "You must first locate the exit to leave the dungeon"
+                                            .to_string(),
+                                    );
+                                    RunState::AwaitingInput {
+                                        offset_x: *offset_x,
+                                        offset_y: *offset_y,
+                                    }
+                                }
+                            }
+                        }
+                        MapAction::ShowActionMenu => RunState::ActionMenu { highlighted: 0 },
+
+                        MapAction::SearchContainer => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_interaction_type_targets::<Container>(&self.world),
+                            interaction_type: InteractionType::OpenContainer,
+                            cta: Some(copy::CTA_INTERACT_OPEN_CONTAINER),
+                        },
+                        MapAction::GrabFurniture => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_interaction_type_targets::<Grabbable>(&self.world),
+                            interaction_type: InteractionType::Grab,
+                            cta: Some(copy::CTA_INTERACT_GRAB),
+                        },
+                        MapAction::DisarmTrap => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_interaction_type_targets::<Disarmable>(&self.world),
+                            interaction_type: InteractionType::Disarm,
+                            cta: Some(copy::CTA_INTERACT_DISARM),
+                        },
+                        MapAction::ArmTrap => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_interaction_type_targets::<Armable>(&self.world),
+                            interaction_type: InteractionType::Arm,
+                            cta: Some(copy::CTA_INTERACT_ARM),
+                        },
+                        MapAction::Hide => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_interaction_type_targets::<HidingSpot>(&self.world),
+                            interaction_type: InteractionType::HideIn,
+                            cta: Some(copy::CTA_INTERACT_HIDE),
+                        },
+                        MapAction::PickupItem => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_interaction_type_targets::<Item>(&self.world),
+                            interaction_type: InteractionType::Pickup,
+                            cta: Some(copy::CTA_INTERACT_PICKUP),
+                        },
+                        MapAction::OpenDoor => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_openable_doors(
+                                &self.world,
+                                get_visible_entities(&self.world),
+                            ),
+                            interaction_type: InteractionType::OpenDoor,
+                            cta: Some(copy::CTA_INTERACT_OPEN_DOOR),
+                        },
+                        MapAction::Attack => RunState::InteractionTypeEntityTargeting {
+                            target_idx: 0,
+                            targets: get_interaction_type_targets::<CombatStats>(&self.world),
+                            interaction_type: InteractionType::Attack,
+                            cta: Some(copy::CTA_INTERACT_ATTACK),
+                        },
+                        MapAction::ScrollDown => RunState::AwaitingInput {
+                            offset_x: *offset_x,
+                            offset_y: *offset_y + 1,
+                        },
+                        MapAction::ScrollUp => RunState::AwaitingInput {
+                            offset_x: *offset_x,
+                            offset_y: *offset_y - 1,
+                        },
+                        MapAction::ScrollLeft => RunState::AwaitingInput {
+                            offset_x: *offset_x - 1,
+                            offset_y: *offset_y,
+                        },
+                        MapAction::ScrollRight => RunState::AwaitingInput {
+                            offset_x: *offset_x + 1,
+                            offset_y: *offset_y,
+                        },
+                        MapAction::Interact => {
+                            RunState::InteractiveEntityTargeting { target_idx: 0 }
+                        }
+                        _ => {
+                            player_action(&mut self.world, *action);
+                            RunState::PlayerTurn
+                        }
+                    },
+                    None => {
                         let mut next_state = RunState::AwaitingInput {
                             offset_x: *offset_x,
                             offset_y: *offset_y,
@@ -532,97 +634,6 @@ impl GameState for State {
                         }
                         next_state
                     }
-                    MapAction::ShowInventoryMenu => RunState::InventoryMenu { highlighted: 0 },
-                    MapAction::ShowDropMenu => RunState::DropItemMenu { highlighted: 0 },
-                    MapAction::ShowEquipmentMenu => RunState::EquipmentMenu {
-                        highlighted: 0,
-                        action_highlighted: 0,
-                        action_menu: false,
-                    },
-                    MapAction::LeaveDungeon => match player_can_leave_dungeon(&mut self.world) {
-                        true => RunState::ExitGameMenu { highlighted: 0 },
-                        false => {
-                            let mut log = self.world.fetch_mut::<GameLog>();
-                            log.add(
-                                "You must first locate the exit to leave the dungeon".to_string(),
-                            );
-                            RunState::AwaitingInput {
-                                offset_x: *offset_x,
-                                offset_y: *offset_y,
-                            }
-                        }
-                    },
-                    MapAction::ShowActionMenu => RunState::ActionMenu { highlighted: 0 },
-
-                    MapAction::SearchContainer => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_interaction_type_targets::<Container>(&self.world),
-                        interaction_type: InteractionType::OpenContainer,
-                        cta: Some(copy::CTA_INTERACT_OPEN_CONTAINER),
-                    },
-                    MapAction::GrabFurniture => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_interaction_type_targets::<Grabbable>(&self.world),
-                        interaction_type: InteractionType::Grab,
-                        cta: Some(copy::CTA_INTERACT_GRAB),
-                    },
-                    MapAction::DisarmTrap => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_interaction_type_targets::<Disarmable>(&self.world),
-                        interaction_type: InteractionType::Disarm,
-                        cta: Some(copy::CTA_INTERACT_DISARM),
-                    },
-                    MapAction::ArmTrap => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_interaction_type_targets::<Armable>(&self.world),
-                        interaction_type: InteractionType::Arm,
-                        cta: Some(copy::CTA_INTERACT_ARM),
-                    },
-                    MapAction::Hide => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_interaction_type_targets::<HidingSpot>(&self.world),
-                        interaction_type: InteractionType::HideIn,
-                        cta: Some(copy::CTA_INTERACT_HIDE),
-                    },
-                    MapAction::PickupItem => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_interaction_type_targets::<Item>(&self.world),
-                        interaction_type: InteractionType::Pickup,
-                        cta: Some(copy::CTA_INTERACT_PICKUP),
-                    },
-                    MapAction::OpenDoor => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_openable_doors(&self.world, get_visible_entities(&self.world)),
-                        interaction_type: InteractionType::OpenDoor,
-                        cta: Some(copy::CTA_INTERACT_OPEN_DOOR),
-                    },
-                    MapAction::Attack => RunState::InteractionTypeEntityTargeting {
-                        target_idx: 0,
-                        targets: get_interaction_type_targets::<CombatStats>(&self.world),
-                        interaction_type: InteractionType::Attack,
-                        cta: Some(copy::CTA_INTERACT_ATTACK),
-                    },
-                    MapAction::ScrollDown => RunState::AwaitingInput {
-                        offset_x: *offset_x,
-                        offset_y: *offset_y + 1,
-                    },
-                    MapAction::ScrollUp => RunState::AwaitingInput {
-                        offset_x: *offset_x,
-                        offset_y: *offset_y - 1,
-                    },
-                    MapAction::ScrollLeft => RunState::AwaitingInput {
-                        offset_x: *offset_x - 1,
-                        offset_y: *offset_y,
-                    },
-                    MapAction::ScrollRight => RunState::AwaitingInput {
-                        offset_x: *offset_x + 1,
-                        offset_y: *offset_y,
-                    },
-                    MapAction::Interact => RunState::InteractiveEntityTargeting { target_idx: 0 },
-                    _ => {
-                        player_action(&mut self.world, action);
-                        RunState::PlayerTurn
-                    }
                 }
             }
             RunState::PlayerTurn => {
@@ -649,7 +660,7 @@ impl GameState for State {
                 let inventory = inventory::get_player_inventory_list(&mut self.world);
                 let (inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
-                let menu_options: Box<[MenuOption]> = inventory_names
+                let menu_options: Box<[MenuOption<&String>]> = inventory_names
                     .iter()
                     .enumerate()
                     .map(|(index, text)| {
@@ -671,45 +682,55 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    MenuAction::MoveHighlightNext => RunState::InventoryMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                    },
-                    MenuAction::MoveHighlightPrev => RunState::InventoryMenu {
-                        highlighted: menu.get_previous_index(*highlighted),
-                    },
-                    MenuAction::NextPage => RunState::InventoryMenu {
-                        highlighted: menu.get_next_page_index(*highlighted),
-                    },
-                    MenuAction::PreviousPage => RunState::InventoryMenu {
-                        highlighted: menu.get_previous_page_index(*highlighted),
-                    },
-                    MenuAction::Select => match inventory_entities.get(*highlighted) {
-                        Some(ent) => {
-                            let is_ranged = {
-                                let ranged = self.world.read_storage::<Ranged>();
-                                match ranged.get(*ent) {
-                                    Some(ranged_props) => Some(ranged_props.range),
-                                    _ => None,
-                                }
-                            };
-                            match is_ranged {
-                                Some(range) => RunState::ItemUseTargeting { range, item: *ent },
-                                None => {
-                                    player::use_item(&mut self.world, *ent, None);
-                                    RunState::PlayerTurn
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        },
+                        MenuAction::MoveHighlightNext => RunState::InventoryMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::InventoryMenu {
+                            highlighted: menu.get_previous_index(*highlighted),
+                        },
+                        MenuAction::NextPage => RunState::InventoryMenu {
+                            highlighted: menu.get_next_page_index(*highlighted),
+                        },
+                        MenuAction::PreviousPage => RunState::InventoryMenu {
+                            highlighted: menu.get_previous_page_index(*highlighted),
+                        },
+                        MenuAction::Select => match inventory_entities.get(*highlighted) {
+                            Some(ent) => {
+                                let is_ranged = {
+                                    let ranged = self.world.read_storage::<Ranged>();
+                                    match ranged.get(*ent) {
+                                        Some(ranged_props) => Some(ranged_props.range),
+                                        _ => None,
+                                    }
+                                };
+                                match is_ranged {
+                                    Some(range) => RunState::ItemUseTargeting { range, item: *ent },
+                                    None => {
+                                        player::use_item(&mut self.world, *ent, None);
+                                        RunState::PlayerTurn
+                                    }
                                 }
                             }
-                        }
-                        None => RunState::InventoryMenu {
+                            None => RunState::InventoryMenu {
+                                highlighted: *highlighted,
+                            },
+                        },
+                        _ => RunState::InventoryMenu {
                             highlighted: *highlighted,
                         },
                     },
-                    _ => RunState::InventoryMenu {
+                    None => RunState::InventoryMenu {
                         highlighted: *highlighted,
                     },
                 }
@@ -718,7 +739,7 @@ impl GameState for State {
                 let inventory = inventory::get_player_inventory_list(&mut self.world);
                 let (inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
-                let menu_options: Box<[MenuOption]> = inventory_names
+                let menu_options: Box<[MenuOption<&String>]> = inventory_names
                     .iter()
                     .enumerate()
                     .map(|(index, text)| {
@@ -740,45 +761,55 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    MenuAction::MoveHighlightNext => RunState::DropItemMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                    },
-                    MenuAction::MoveHighlightPrev => RunState::DropItemMenu {
-                        highlighted: menu.get_previous_index(*highlighted),
-                    },
-                    MenuAction::NextPage => RunState::DropItemMenu {
-                        highlighted: menu.get_next_page_index(*highlighted),
-                    },
-                    MenuAction::PreviousPage => RunState::DropItemMenu {
-                        highlighted: menu.get_previous_page_index(*highlighted),
-                    },
-                    MenuAction::Select => match inventory_entities.get(*highlighted) {
-                        Some(ent) => {
-                            let mut intent = self.world.write_storage::<WantsToDropItem>();
-                            intent
-                                .insert(
-                                    *self.world.fetch::<Entity>(),
-                                    WantsToDropItem { item: *ent },
-                                )
-                                .expect("Unable To Insert Drop Item Intent");
-                            RunState::PlayerTurn
-                        }
-                        None => RunState::DropItemMenu {
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        },
+                        MenuAction::MoveHighlightNext => RunState::DropItemMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::DropItemMenu {
+                            highlighted: menu.get_previous_index(*highlighted),
+                        },
+                        MenuAction::NextPage => RunState::DropItemMenu {
+                            highlighted: menu.get_next_page_index(*highlighted),
+                        },
+                        MenuAction::PreviousPage => RunState::DropItemMenu {
+                            highlighted: menu.get_previous_page_index(*highlighted),
+                        },
+                        MenuAction::Select => match inventory_entities.get(*highlighted) {
+                            Some(ent) => {
+                                let mut intent = self.world.write_storage::<WantsToDropItem>();
+                                intent
+                                    .insert(
+                                        *self.world.fetch::<Entity>(),
+                                        WantsToDropItem { item: *ent },
+                                    )
+                                    .expect("Unable To Insert Drop Item Intent");
+                                RunState::PlayerTurn
+                            }
+                            None => RunState::DropItemMenu {
+                                highlighted: *highlighted,
+                            },
+                        },
+                        _ => RunState::DropItemMenu {
                             highlighted: *highlighted,
                         },
                     },
-                    _ => RunState::DropItemMenu {
+                    None => RunState::DropItemMenu {
                         highlighted: *highlighted,
                     },
                 }
             }
             RunState::ExitGameMenu { highlighted } => {
-                let menu_options: Box<[MenuOption]> =
+                let menu_options: Box<[MenuOption<&str>]> =
                     ["Yes, exit the dungeon", "No, remain in the dungeon"]
                         .iter()
                         .enumerate()
@@ -787,38 +818,48 @@ impl GameState for State {
                                 true => MenuOptionState::Highlighted,
                                 false => MenuOptionState::Normal,
                             };
-                            MenuOption::new(text, state)
+                            MenuOption::new(*text, state)
                         })
                         .collect();
                 let menu = Menu::new(menu_options, 10);
                 ScreenMapMenu::new(menu.get_page(0), "Exit Dungeon?", "Escape to Cancel")
                     .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    MenuAction::MoveHighlightNext => RunState::ExitGameMenu {
-                        highlighted: menu.get_next_page_index(*highlighted),
-                    },
-
-                    MenuAction::MoveHighlightPrev => RunState::ExitGameMenu {
-                        highlighted: menu.get_previous_page_index(*highlighted),
-                    },
-                    MenuAction::Select => match highlighted {
-                        0 => {
-                            persistence::delete_save();
-                            match has_objective_in_backpack(&self.world) {
-                                true => RunState::SuccessScreen,
-                                false => RunState::FailureScreen,
-                            }
-                        }
-                        _ => RunState::AwaitingInput {
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => RunState::AwaitingInput {
                             offset_x: 0,
                             offset_y: 0,
                         },
+                        MenuAction::MoveHighlightNext => RunState::ExitGameMenu {
+                            highlighted: menu.get_next_page_index(*highlighted),
+                        },
+
+                        MenuAction::MoveHighlightPrev => RunState::ExitGameMenu {
+                            highlighted: menu.get_previous_page_index(*highlighted),
+                        },
+                        MenuAction::Select => match highlighted {
+                            0 => {
+                                persistence::delete_save();
+                                match has_objective_in_backpack(&self.world) {
+                                    true => RunState::SuccessScreen,
+                                    false => RunState::FailureScreen,
+                                }
+                            }
+                            _ => RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            },
+                        },
+                        _ => RunState::ExitGameMenu {
+                            highlighted: *highlighted,
+                        },
                     },
-                    _ => RunState::ExitGameMenu {
+                    None => RunState::ExitGameMenu {
                         highlighted: *highlighted,
                     },
                 }
@@ -828,20 +869,32 @@ impl GameState for State {
                 let target = ranged::get_target(&self.world, ctx, &visible_tiles);
                 ScreenMapTargeting::new(*range, target, Some("Select Target".to_string()))
                     .draw(ctx, &mut self.world);
-                let action = map_input_to_targeting_action(ctx, target);
-                match action {
-                    TargetingAction::NoAction => RunState::ItemUseTargeting {
+                match self
+                    .settings
+                    .control_scheme
+                    .targeting
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        TargetingAction::Exit => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        },
+                        TargetingAction::Selected => match target {
+                            Some(idx) => {
+                                player::use_item(&mut self.world, *item, Some(idx));
+                                RunState::PlayerTurn
+                            }
+                            None => RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            },
+                        },
+                    },
+                    None => RunState::ItemUseTargeting {
                         range: *range,
                         item: *item,
                     },
-                    TargetingAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    TargetingAction::Selected(target) => {
-                        player::use_item(&mut self.world, *item, Some(target as usize));
-                        RunState::PlayerTurn
-                    }
                 }
             }
             RunState::InteractMenu {
@@ -850,7 +903,7 @@ impl GameState for State {
             } => {
                 let options: Vec<InteractionType> =
                     get_interaction_options_for_target(&self.world, *target);
-                let menu: Menu = get_menu_from_interaction_options(*highlighted, &options);
+                let menu: Menu<&str> = get_menu_from_interaction_options(*highlighted, &options);
                 let title = self
                     .world
                     .read_storage::<Name>()
@@ -864,34 +917,45 @@ impl GameState for State {
                     Some(""),
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::InteractiveEntityTargeting { target_idx: 0 },
-                    MenuAction::Select => {
-                        if let Some(interaction_type) = options.get(*highlighted) {
-                            self.queued_action = Some((*target, interaction_type.clone()));
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => RunState::InteractiveEntityTargeting { target_idx: 0 },
+                        MenuAction::Select => {
+                            if let Some(interaction_type) = options.get(*highlighted) {
+                                self.queued_action = Some((*target, interaction_type.clone()));
+                            }
+                            RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            }
                         }
-                        RunState::AwaitingInput {
-                            offset_x: 0,
-                            offset_y: 0,
-                        }
-                    }
-                    MenuAction::MoveHighlightNext => RunState::InteractMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                        target: *target,
+                        MenuAction::MoveHighlightNext => RunState::InteractMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                            target: *target,
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::InteractMenu {
+                            highlighted: menu.get_previous_index(*highlighted),
+                            target: *target,
+                        },
+                        MenuAction::NextPage => RunState::InteractMenu {
+                            highlighted: menu.get_next_page_index(*highlighted),
+                            target: *target,
+                        },
+                        MenuAction::PreviousPage => RunState::InteractMenu {
+                            highlighted: menu.get_previous_page_index(*highlighted),
+                            target: *target,
+                        },
+                        _ => RunState::InteractMenu {
+                            highlighted: *highlighted,
+                            target: *target,
+                        },
                     },
-                    MenuAction::MoveHighlightPrev => RunState::InteractMenu {
-                        highlighted: menu.get_previous_index(*highlighted),
-                        target: *target,
-                    },
-                    MenuAction::NextPage => RunState::InteractMenu {
-                        highlighted: menu.get_next_page_index(*highlighted),
-                        target: *target,
-                    },
-                    MenuAction::PreviousPage => RunState::InteractMenu {
-                        highlighted: menu.get_previous_page_index(*highlighted),
-                        target: *target,
-                    },
-                    MenuAction::NoAction | _ => RunState::InteractMenu {
+                    None => RunState::InteractMenu {
                         highlighted: *highlighted,
                         target: *target,
                     },
@@ -902,28 +966,37 @@ impl GameState for State {
                 let target_ent = targets.get(*target_idx);
                 ScreenMapInteractTarget::new(target_ent, Some(copy::CTA_INTERACT))
                     .draw(ctx, &mut self.world);
-                match map_input_to_interaction_targeting_action(ctx) {
-                    InteractionTargetingAction::Selected => match target_ent {
-                        Some(target_ent) => RunState::InteractMenu {
-                            highlighted: 0,
-                            target: *target_ent,
+                match self
+                    .settings
+                    .control_scheme
+                    .interaction
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        InteractionTargetingAction::Selected => match target_ent {
+                            Some(target_ent) => RunState::InteractMenu {
+                                highlighted: 0,
+                                target: *target_ent,
+                            },
+                            None => RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            },
                         },
-                        None => RunState::AwaitingInput {
+                        InteractionTargetingAction::Exit => RunState::AwaitingInput {
                             offset_x: 0,
                             offset_y: 0,
                         },
+                        InteractionTargetingAction::Next => RunState::InteractiveEntityTargeting {
+                            target_idx: utils::select_next_idx(*target_idx, targets.len()),
+                        },
+                        InteractionTargetingAction::Previous => {
+                            RunState::InteractiveEntityTargeting {
+                                target_idx: utils::select_previous_idx(*target_idx, targets.len()),
+                            }
+                        }
                     },
-                    InteractionTargetingAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    InteractionTargetingAction::Next => RunState::InteractiveEntityTargeting {
-                        target_idx: utils::select_next_idx(*target_idx, targets.len()),
-                    },
-                    InteractionTargetingAction::Previous => RunState::InteractiveEntityTargeting {
-                        target_idx: utils::select_previous_idx(*target_idx, targets.len()),
-                    },
-                    InteractionTargetingAction::NoAction => RunState::InteractiveEntityTargeting {
+                    None => RunState::InteractiveEntityTargeting {
                         target_idx: *target_idx,
                     },
                 }
@@ -936,42 +1009,49 @@ impl GameState for State {
             } => {
                 let target_ent = targets.get(*target_idx);
                 ScreenMapInteractTarget::new(target_ent, *cta).draw(ctx, &mut self.world);
-                match map_input_to_interaction_targeting_action(ctx) {
-                    InteractionTargetingAction::Selected => {
-                        if let Some(target_ent) = target_ent {
-                            self.queued_action = Some((*target_ent, *interaction_type));
+                match self
+                    .settings
+                    .control_scheme
+                    .interaction
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        InteractionTargetingAction::Selected => {
+                            if let Some(target_ent) = target_ent {
+                                self.queued_action = Some((*target_ent, *interaction_type));
+                            }
+                            RunState::AwaitingInput {
+                                offset_x: 0,
+                                offset_y: 0,
+                            }
                         }
-                        RunState::AwaitingInput {
+                        InteractionTargetingAction::Exit => RunState::AwaitingInput {
                             offset_x: 0,
                             offset_y: 0,
+                        },
+                        InteractionTargetingAction::Next => {
+                            RunState::InteractionTypeEntityTargeting {
+                                target_idx: utils::select_next_idx(*target_idx, targets.len()),
+                                targets: targets.clone(),
+                                interaction_type: *interaction_type,
+                                cta: *cta,
+                            }
                         }
-                    }
-                    InteractionTargetingAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
+                        InteractionTargetingAction::Previous => {
+                            RunState::InteractionTypeEntityTargeting {
+                                target_idx: utils::select_previous_idx(*target_idx, targets.len()),
+                                targets: targets.clone(),
+                                interaction_type: *interaction_type,
+                                cta: *cta,
+                            }
+                        }
                     },
-                    InteractionTargetingAction::Next => RunState::InteractionTypeEntityTargeting {
-                        target_idx: utils::select_next_idx(*target_idx, targets.len()),
+                    None => RunState::InteractionTypeEntityTargeting {
+                        target_idx: *target_idx,
                         targets: targets.clone(),
                         interaction_type: *interaction_type,
                         cta: *cta,
                     },
-                    InteractionTargetingAction::Previous => {
-                        RunState::InteractionTypeEntityTargeting {
-                            target_idx: utils::select_previous_idx(*target_idx, targets.len()),
-                            targets: targets.clone(),
-                            interaction_type: *interaction_type,
-                            cta: *cta,
-                        }
-                    }
-                    InteractionTargetingAction::NoAction => {
-                        RunState::InteractionTypeEntityTargeting {
-                            target_idx: *target_idx,
-                            targets: targets.clone(),
-                            interaction_type: *interaction_type,
-                            cta: *cta,
-                        }
-                    }
                 }
             }
             RunState::OpenContainerMenu {
@@ -982,7 +1062,7 @@ impl GameState for State {
                     inventory::get_container_inventory_list(&mut self.world, &container);
                 let (inventory_entities, inventory_names): (Vec<_>, Vec<_>) =
                     inventory.into_iter().unzip();
-                let menu_options: Box<[MenuOption]> = inventory_names
+                let menu_options: Box<[MenuOption<&String>]> = inventory_names
                     .iter()
                     .enumerate()
                     .map(|(index, text)| {
@@ -1005,50 +1085,61 @@ impl GameState for State {
                     "A to take all. Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    MenuAction::MoveHighlightNext => RunState::OpenContainerMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                        container: *container,
-                    },
-                    MenuAction::MoveHighlightPrev => RunState::OpenContainerMenu {
-                        highlighted: menu.get_previous_index(*highlighted),
-                        container: *container,
-                    },
-                    MenuAction::NextPage => RunState::OpenContainerMenu {
-                        highlighted: menu.get_next_page_index(*highlighted),
-                        container: *container,
-                    },
-                    MenuAction::PreviousPage => RunState::OpenContainerMenu {
-                        highlighted: menu.get_previous_page_index(*highlighted),
-                        container: *container,
-                    },
-                    MenuAction::Select => match inventory_entities.get(*highlighted) {
-                        Some(ent) => {
-                            player::pickup_item(&mut self.world, *ent, Some(*container));
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        },
+                        MenuAction::MoveHighlightNext => RunState::OpenContainerMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                            container: *container,
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::OpenContainerMenu {
+                            highlighted: menu.get_previous_index(*highlighted),
+                            container: *container,
+                        },
+                        MenuAction::NextPage => RunState::OpenContainerMenu {
+                            highlighted: menu.get_next_page_index(*highlighted),
+                            container: *container,
+                        },
+                        MenuAction::PreviousPage => RunState::OpenContainerMenu {
+                            highlighted: menu.get_previous_page_index(*highlighted),
+                            container: *container,
+                        },
+                        MenuAction::Select => match inventory_entities.get(*highlighted) {
+                            Some(ent) => {
+                                player::pickup_item(&mut self.world, *ent, Some(*container));
+                                RunState::PlayerTurn
+                            }
+                            None => RunState::OpenContainerMenu {
+                                highlighted: *highlighted,
+                                container: *container,
+                            },
+                        },
+                        MenuAction::SelectAll => {
+                            let items = HashSet::from_iter(inventory_entities);
+                            player::pickup_items(&mut self.world, items, Some(*container));
                             RunState::PlayerTurn
                         }
-                        None => RunState::OpenContainerMenu {
+                        _ => RunState::OpenContainerMenu {
                             highlighted: *highlighted,
                             container: *container,
                         },
                     },
-                    MenuAction::SelectAll => {
-                        let items = HashSet::from_iter(inventory_entities);
-                        player::pickup_items(&mut self.world, items, Some(*container));
-                        RunState::PlayerTurn
-                    }
-                    _ => RunState::OpenContainerMenu {
+                    None => RunState::OpenContainerMenu {
                         highlighted: *highlighted,
                         container: *container,
                     },
                 }
             }
             RunState::ActionMenu { highlighted } => {
-                let menu_options: Box<[MenuOption]> = [
+                let menu_options: Box<[MenuOption<&str>]> = [
                     "Use Item",
                     "Drop Item",
                     "Open Container",
@@ -1070,7 +1161,7 @@ impl GameState for State {
                         true => MenuOptionState::Highlighted,
                         false => MenuOptionState::Normal,
                     };
-                    MenuOption::new(text, state)
+                    MenuOption::new(*text, state)
                 })
                 .collect();
                 let menu = Menu::new(menu_options, 10);
@@ -1080,92 +1171,99 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::MoveHighlightNext => RunState::ActionMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                    },
-                    MenuAction::MoveHighlightPrev => RunState::ActionMenu {
-                        highlighted: menu.get_previous_index(*highlighted),
-                    },
-                    MenuAction::NoAction => RunState::ActionMenu {
-                        highlighted: *highlighted,
-                    },
-                    MenuAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    MenuAction::Select => match highlighted {
-                        0 => RunState::InventoryMenu { highlighted: 0 },
-                        1 => RunState::DropItemMenu { highlighted: 0 },
-                        2 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<Container>(&self.world),
-                            interaction_type: InteractionType::OpenContainer,
-                            cta: Some(copy::CTA_INTERACT_OPEN_CONTAINER),
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::MoveHighlightNext => RunState::ActionMenu {
+                            highlighted: menu.get_next_index(*highlighted),
                         },
-                        3 => {
-                            player::search_hidden(&mut self.world);
-                            RunState::PlayerTurn
-                        }
-                        4 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<Disarmable>(&self.world),
-                            interaction_type: InteractionType::Disarm,
-                            cta: Some(copy::CTA_INTERACT_DISARM),
+                        MenuAction::MoveHighlightPrev => RunState::ActionMenu {
+                            highlighted: menu.get_previous_index(*highlighted),
                         },
-                        5 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<Armable>(&self.world),
-                            interaction_type: InteractionType::Disarm,
-                            cta: Some(copy::CTA_INTERACT_DISARM),
+                        MenuAction::Exit => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
                         },
-                        6 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<Grabbable>(&self.world),
-                            interaction_type: InteractionType::Grab,
-                            cta: Some(copy::CTA_INTERACT_GRAB),
-                        },
-                        7 => {
-                            player::release_entity(&mut self.world);
-                            RunState::AwaitingInput {
-                                offset_x: 0,
-                                offset_y: 0,
+                        MenuAction::Select => match highlighted {
+                            0 => RunState::InventoryMenu { highlighted: 0 },
+                            1 => RunState::DropItemMenu { highlighted: 0 },
+                            2 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<Container>(&self.world),
+                                interaction_type: InteractionType::OpenContainer,
+                                cta: Some(copy::CTA_INTERACT_OPEN_CONTAINER),
+                            },
+                            3 => {
+                                player::search_hidden(&mut self.world);
+                                RunState::PlayerTurn
                             }
-                        }
-                        8 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<CombatStats>(&self.world),
-                            interaction_type: InteractionType::Attack,
-                            cta: Some(copy::CTA_INTERACT_ATTACK),
-                        },
-                        9 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<HidingSpot>(&self.world),
-                            interaction_type: InteractionType::HideIn,
-                            cta: Some(copy::CTA_INTERACT_HIDE),
-                        },
-                        10 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<Dousable>(&self.world),
-                            interaction_type: InteractionType::Douse,
-                            cta: Some(copy::CTA_INTERACT_DOUSE),
-                        },
-                        11 => RunState::InteractionTypeEntityTargeting {
-                            target_idx: 0,
-                            targets: get_interaction_type_targets::<Lightable>(&self.world),
-                            interaction_type: InteractionType::Light,
-                            cta: Some(copy::CTA_INTERACT_LIGHT),
-                        },
-                        12 => RunState::EquipmentMenu {
-                            highlighted: 0,
-                            action_highlighted: 0,
-                            action_menu: false,
+                            4 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<Disarmable>(&self.world),
+                                interaction_type: InteractionType::Disarm,
+                                cta: Some(copy::CTA_INTERACT_DISARM),
+                            },
+                            5 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<Armable>(&self.world),
+                                interaction_type: InteractionType::Disarm,
+                                cta: Some(copy::CTA_INTERACT_DISARM),
+                            },
+                            6 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<Grabbable>(&self.world),
+                                interaction_type: InteractionType::Grab,
+                                cta: Some(copy::CTA_INTERACT_GRAB),
+                            },
+                            7 => {
+                                player::release_entity(&mut self.world);
+                                RunState::AwaitingInput {
+                                    offset_x: 0,
+                                    offset_y: 0,
+                                }
+                            }
+                            8 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<CombatStats>(&self.world),
+                                interaction_type: InteractionType::Attack,
+                                cta: Some(copy::CTA_INTERACT_ATTACK),
+                            },
+                            9 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<HidingSpot>(&self.world),
+                                interaction_type: InteractionType::HideIn,
+                                cta: Some(copy::CTA_INTERACT_HIDE),
+                            },
+                            10 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<Dousable>(&self.world),
+                                interaction_type: InteractionType::Douse,
+                                cta: Some(copy::CTA_INTERACT_DOUSE),
+                            },
+                            11 => RunState::InteractionTypeEntityTargeting {
+                                target_idx: 0,
+                                targets: get_interaction_type_targets::<Lightable>(&self.world),
+                                interaction_type: InteractionType::Light,
+                                cta: Some(copy::CTA_INTERACT_LIGHT),
+                            },
+                            12 => RunState::EquipmentMenu {
+                                highlighted: 0,
+                                action_highlighted: 0,
+                                action_menu: false,
+                            },
+                            _ => RunState::ActionMenu {
+                                highlighted: *highlighted,
+                            },
                         },
                         _ => RunState::ActionMenu {
                             highlighted: *highlighted,
                         },
                     },
-                    _ => RunState::ActionMenu {
+                    None => RunState::ActionMenu {
                         highlighted: *highlighted,
                     },
                 }
@@ -1218,30 +1316,37 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::MoveHighlightNext => RunState::EquipMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                        position: *position,
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::MoveHighlightNext => RunState::EquipMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                            position: *position,
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::EquipMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                            position: *position,
+                        },
+                        MenuAction::Exit => RunState::EquipmentMenu {
+                            highlighted: 0,
+                            action_highlighted: 0,
+                            action_menu: false,
+                        },
+                        MenuAction::Select => {
+                            let (_, entity) = equipment[*highlighted];
+                            player::equip_item(&mut self.world, entity, *position);
+                            RunState::PlayerTurn
+                        }
+                        _ => RunState::EquipMenu {
+                            highlighted: *highlighted,
+                            position: *position,
+                        },
                     },
-                    MenuAction::MoveHighlightPrev => RunState::EquipMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                        position: *position,
-                    },
-                    MenuAction::NoAction => RunState::EquipMenu {
-                        highlighted: *highlighted,
-                        position: *position,
-                    },
-                    MenuAction::Exit => RunState::EquipmentMenu {
-                        highlighted: 0,
-                        action_highlighted: 0,
-                        action_menu: false,
-                    },
-                    MenuAction::Select => {
-                        let (_, entity) = equipment[*highlighted];
-                        player::equip_item(&mut self.world, entity, *position);
-                        RunState::PlayerTurn
-                    }
-                    _ => RunState::EquipMenu {
+                    None => RunState::EquipMenu {
                         highlighted: *highlighted,
                         position: *position,
                     },
@@ -1351,58 +1456,67 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::MoveHighlightNext => RunState::EquipmentMenu {
-                        highlighted: match action_menu {
-                            true => *highlighted,
-                            false => menu.get_next_index(*highlighted),
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::MoveHighlightNext => RunState::EquipmentMenu {
+                            highlighted: match action_menu {
+                                true => *highlighted,
+                                false => menu.get_next_index(*highlighted),
+                            },
+                            action_highlighted: match action_menu {
+                                true => submenu.get_next_index(*action_highlighted),
+                                false => *action_highlighted,
+                            },
+                            action_menu: *action_menu,
                         },
-                        action_highlighted: match action_menu {
-                            true => submenu.get_next_index(*action_highlighted),
-                            false => *action_highlighted,
+                        MenuAction::MoveHighlightPrev => RunState::EquipmentMenu {
+                            highlighted: match action_menu {
+                                true => *highlighted,
+                                false => menu.get_previous_index(*highlighted),
+                            },
+                            action_highlighted: match action_menu {
+                                true => submenu.get_next_index(*action_highlighted),
+                                false => *action_highlighted,
+                            },
+                            action_menu: *action_menu,
                         },
-                        action_menu: *action_menu,
-                    },
-                    MenuAction::MoveHighlightPrev => RunState::EquipmentMenu {
-                        highlighted: match action_menu {
-                            true => *highlighted,
-                            false => menu.get_previous_index(*highlighted),
+                        MenuAction::Exit => RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
                         },
-                        action_highlighted: match action_menu {
-                            true => submenu.get_next_index(*action_highlighted),
-                            false => *action_highlighted,
+                        MenuAction::Select => match submenu_actions[*action_highlighted].1 {
+                            EquipMenuType::Exchange(position) => RunState::EquipMenu {
+                                highlighted: 0,
+                                position,
+                            },
+                            EquipMenuType::Douse(ent) => {
+                                player::douse_item(&mut self.world, ent);
+                                RunState::PlayerTurn
+                            }
+                            EquipMenuType::Light(ent) => {
+                                player::light_item(&mut self.world, ent);
+                                RunState::PlayerTurn
+                            }
                         },
-                        action_menu: *action_menu,
-                    },
-                    MenuAction::NoAction => RunState::EquipmentMenu {
-                        highlighted: *highlighted,
-                        action_highlighted: *action_highlighted,
-                        action_menu: *action_menu,
-                    },
-                    MenuAction::Exit => RunState::AwaitingInput {
-                        offset_x: 0,
-                        offset_y: 0,
-                    },
-                    MenuAction::Select => match submenu_actions[*action_highlighted].1 {
-                        EquipMenuType::Exchange(position) => RunState::EquipMenu {
-                            highlighted: 0,
-                            position,
-                        },
-                        EquipMenuType::Douse(ent) => {
-                            player::douse_item(&mut self.world, ent);
-                            RunState::PlayerTurn
+                        MenuAction::NextMenu | MenuAction::PreviousMenu => {
+                            RunState::EquipmentMenu {
+                                highlighted: *highlighted,
+                                action_highlighted: *action_highlighted,
+                                action_menu: !*action_menu,
+                            }
                         }
-                        EquipMenuType::Light(ent) => {
-                            player::light_item(&mut self.world, ent);
-                            RunState::PlayerTurn
-                        }
+                        _ => RunState::EquipmentMenu {
+                            highlighted: *highlighted,
+                            action_highlighted: *action_highlighted,
+                            action_menu: *action_menu,
+                        },
                     },
-                    MenuAction::NextMenu | MenuAction::PreviousMenu => RunState::EquipmentMenu {
-                        highlighted: *highlighted,
-                        action_highlighted: *action_highlighted,
-                        action_menu: !*action_menu,
-                    },
-                    _ => RunState::EquipmentMenu {
+                    None => RunState::EquipmentMenu {
                         highlighted: *highlighted,
                         action_highlighted: *action_highlighted,
                         action_menu: *action_menu,
@@ -1411,43 +1525,219 @@ impl GameState for State {
             }
             RunState::IntroScreen => {
                 ScreenIntro::new().draw(ctx);
-                let action = map_input_to_static_action(ctx);
-                match action {
-                    StaticAction::Exit => RunState::MainMenu { highlighted: 0 },
-                    StaticAction::Continue => RunState::PreRun,
-                    StaticAction::NoAction => RunState::IntroScreen,
+                match self
+                    .settings
+                    .control_scheme
+                    .static_screen
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        StaticAction::Exit => RunState::MainMenu { highlighted: 0 },
+                        StaticAction::Continue => RunState::PreRun,
+                    },
+                    None => RunState::IntroScreen,
                 }
             }
             RunState::DeathScreen => {
                 ScreenDeath::new().draw(ctx);
-                let action = map_input_to_static_action(ctx);
-                match action {
-                    StaticAction::NoAction => RunState::DeathScreen,
-                    _ => RunState::MainMenu { highlighted: 0 },
+                match self
+                    .settings
+                    .control_scheme
+                    .static_screen
+                    .get_value_with_context(ctx)
+                {
+                    Some(_action) => RunState::MainMenu { highlighted: 0 },
+                    None => RunState::DeathScreen,
                 }
             }
             RunState::SuccessScreen => {
                 ScreenSuccess::new().draw(ctx);
-                let action = map_input_to_static_action(ctx);
-                match action {
-                    StaticAction::NoAction => RunState::SuccessScreen,
-                    _ => RunState::CreditsScreen,
+                match self
+                    .settings
+                    .control_scheme
+                    .static_screen
+                    .get_value_with_context(ctx)
+                {
+                    Some(_action) => RunState::CreditsScreen,
+                    None => RunState::SuccessScreen,
                 }
             }
             RunState::FailureScreen => {
                 ScreenFailure::new().draw(ctx);
-                let action = map_input_to_static_action(ctx);
-                match action {
-                    StaticAction::NoAction => RunState::FailureScreen,
-                    _ => RunState::MainMenu { highlighted: 0 },
+                match self
+                    .settings
+                    .control_scheme
+                    .static_screen
+                    .get_value_with_context(ctx)
+                {
+                    Some(_action) => RunState::MainMenu { highlighted: 0 },
+                    None => RunState::FailureScreen,
                 }
             }
             RunState::CreditsScreen => {
                 ScreenCredits::new().draw(ctx);
-                let action = map_input_to_static_action(ctx);
-                match action {
-                    StaticAction::NoAction => RunState::CreditsScreen,
-                    _ => RunState::MainMenu { highlighted: 0 },
+                match self
+                    .settings
+                    .control_scheme
+                    .static_screen
+                    .get_value_with_context(ctx)
+                {
+                    Some(_action) => RunState::MainMenu { highlighted: 0 },
+                    None => RunState::CreditsScreen,
+                }
+            }
+            RunState::SavingScreen { count_down } => {
+                ScreenSaving::new().draw(ctx);
+                match *count_down > 0 {
+                    true => RunState::SavingScreen {
+                        count_down: *count_down - 1,
+                    },
+                    _ => {
+                        persistence::save_game(&mut self.world);
+                        RunState::MainMenu { highlighted: 0 }
+                    }
+                }
+            }
+            RunState::LoadingScreen { count_down } => {
+                ScreenLoading::new().draw(ctx);
+                match *count_down > 0 {
+                    true => RunState::LoadingScreen {
+                        count_down: *count_down - 1,
+                    },
+                    _ => {
+                        persistence::load_game(&mut self.world);
+                        persistence::delete_save();
+                        RunState::AwaitingInput {
+                            offset_x: 0,
+                            offset_y: 0,
+                        }
+                    }
+                }
+            }
+            RunState::NewGameScreen { count_down } => {
+                ScreenNewGame::new().draw(ctx);
+                match *count_down > 0 {
+                    true => RunState::NewGameScreen {
+                        count_down: *count_down - 1,
+                    },
+                    false => {
+                        initialize_new_game(&mut self.world);
+                        RunState::IntroScreen
+                    }
+                }
+            }
+            RunState::SetKey {
+                action,
+                highlighted,
+            } => {
+                // add screen that prompts for key input
+                ScreenSetKey::new(action).draw(ctx);
+                match ctx.key {
+                    Some(key) => match key {
+                        rltk::VirtualKeyCode::Escape => RunState::OptionsScreen {
+                            highlighted: *highlighted,
+                        },
+                        rltk::VirtualKeyCode::LShift
+                        | rltk::VirtualKeyCode::RShift
+                        | rltk::VirtualKeyCode::LControl
+                        | rltk::VirtualKeyCode::RControl => RunState::SetKey {
+                            action: *action,
+                            highlighted: *highlighted,
+                        },
+                        _ => {
+                            //set the key
+                            self.settings.control_scheme.map.remove_by_value(action);
+                            self.settings
+                                .control_scheme
+                                .map
+                                .insert_with_context(ctx, *action);
+                            RunState::OptionsScreen {
+                                highlighted: *highlighted,
+                            }
+                        }
+                    },
+                    None => RunState::SetKey {
+                        action: *action,
+                        highlighted: *highlighted,
+                    },
+                }
+            }
+            RunState::OptionsScreen { highlighted } => {
+                let map_controls = &self.settings.control_scheme.map;
+                let menu_option_text: Box<[String]> = MapAction::actions()
+                    .iter()
+                    .map(|map_action| {
+                        let control_text = match map_controls.get_control_for_value(map_action) {
+                            Some(c) => c.to_string(),
+                            None => String::from("None"),
+                        };
+                        let action_text = map_action.to_string();
+                        let space_count = 50 - (control_text.len() + action_text.len());
+                        let space_text = match space_count > 0 {
+                            true => (0..space_count).map(|_| " ").collect(),
+                            false => String::from(""),
+                        };
+                        format!("{}{}{}", action_text, space_text, control_text)
+                    })
+                    .collect();
+                let menu_options = menu_option_text
+                    .iter()
+                    .enumerate()
+                    .map(|(i, text)| {
+                        MenuOption::new(
+                            text,
+                            match *highlighted == i {
+                                true => MenuOptionState::Highlighted,
+                                _ => MenuOptionState::Normal,
+                            },
+                        )
+                    })
+                    .collect();
+                let controls_menu = Menu::new(menu_options, MapAction::actions().len());
+                ScreenOptions::new(
+                    "Options",
+                    "Press Enter to set control, Delete to clear",
+                    controls_menu.get_page_at_index(*highlighted),
+                )
+                .draw(ctx);
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => {
+                            self.settings.save();
+                            RunState::MainMenu { highlighted: 0 }
+                        }
+                        MenuAction::Select => RunState::SetKey {
+                            action: MapAction::actions()[*highlighted],
+                            highlighted: *highlighted,
+                        },
+                        MenuAction::Delete => {
+                            let highlighted_value = MapAction::actions()[*highlighted];
+                            self.settings
+                                .control_scheme
+                                .map
+                                .remove_by_value(&highlighted_value);
+                            RunState::OptionsScreen {
+                                highlighted: *highlighted,
+                            }
+                        }
+                        MenuAction::MoveHighlightNext => RunState::OptionsScreen {
+                            highlighted: controls_menu.get_next_index(*highlighted),
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::OptionsScreen {
+                            highlighted: controls_menu.get_previous_index(*highlighted),
+                        },
+                        _ => RunState::OptionsScreen {
+                            highlighted: *highlighted,
+                        },
+                    },
+                    None => RunState::OptionsScreen {
+                        highlighted: *highlighted,
+                    },
                 }
             }
             RunState::MainMenu { highlighted } => {
@@ -1463,7 +1753,11 @@ impl GameState for State {
                     },
                     false => MenuOptionState::Disabled,
                 };
-                let credits_state = match *highlighted == 2 {
+                let options_state = match *highlighted == 2 {
+                    true => MenuOptionState::Highlighted,
+                    false => MenuOptionState::Normal,
+                };
+                let credits_state = match *highlighted == 3 {
                     true => MenuOptionState::Highlighted,
                     false => MenuOptionState::Normal,
                 };
@@ -1472,12 +1766,13 @@ impl GameState for State {
                         Box::new([
                             MenuOption::new("New Game", new_game_state),
                             MenuOption::new("Continue", continue_state),
+                            MenuOption::new("Options", options_state),
                             MenuOption::new("Credits", credits_state),
                         ]),
                         10,
                     )
                 } else {
-                    let quit_state = match *highlighted == 3 {
+                    let quit_state = match *highlighted == 4 {
                         true => MenuOptionState::Highlighted,
                         false => MenuOptionState::Normal,
                     };
@@ -1485,6 +1780,7 @@ impl GameState for State {
                         Box::new([
                             MenuOption::new("New Game", new_game_state),
                             MenuOption::new("Continue", continue_state),
+                            MenuOption::new("Options", options_state),
                             MenuOption::new("Credits", credits_state),
                             MenuOption::new("Quit", quit_state),
                         ]),
@@ -1493,36 +1789,37 @@ impl GameState for State {
                 };
 
                 ScreenMainMenu::new(menu.get_page_at_index(*highlighted)).draw(ctx);
-                match map_input_to_horizontal_menu_action(ctx) {
-                    MenuAction::Exit => RunState::MainMenu {
-                        highlighted: *highlighted,
-                    },
-                    MenuAction::MoveHighlightNext => RunState::MainMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                    },
-                    MenuAction::MoveHighlightPrev => RunState::MainMenu {
-                        highlighted: menu.get_previous_index(*highlighted),
-                    },
-                    MenuAction::Select => match *highlighted {
-                        0 => {
-                            initialize_new_game(&mut self.world);
-                            RunState::IntroScreen
-                        }
-                        1 => {
-                            persistence::load_game(&mut self.world);
-                            persistence::delete_save();
-                            RunState::AwaitingInput {
-                                offset_x: 0,
-                                offset_y: 0,
-                            }
-                        }
-                        2 => RunState::CreditsScreen,
-                        3 => std::process::exit(0),
+                match self
+                    .settings
+                    .control_scheme
+                    .horizontal_menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => RunState::MainMenu {
+                            highlighted: *highlighted,
+                        },
+                        MenuAction::MoveHighlightNext => RunState::MainMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::MainMenu {
+                            highlighted: menu.get_previous_index(*highlighted),
+                        },
+                        MenuAction::Select => match *highlighted {
+                            0 => RunState::NewGameScreen { count_down: 15 },
+                            1 => RunState::LoadingScreen { count_down: 15 },
+                            2 => RunState::OptionsScreen { highlighted: 0 },
+                            3 => RunState::CreditsScreen,
+                            4 => std::process::exit(0),
+                            _ => RunState::MainMenu {
+                                highlighted: *highlighted,
+                            },
+                        },
                         _ => RunState::MainMenu {
                             highlighted: *highlighted,
                         },
                     },
-                    _ => RunState::MainMenu {
+                    None => RunState::MainMenu {
                         highlighted: *highlighted,
                     },
                 }
@@ -1552,44 +1849,54 @@ impl GameState for State {
                     "Escape to Cancel",
                 )
                 .draw(ctx, &mut self.world);
-                match map_input_to_menu_action(ctx) {
-                    MenuAction::Exit => RunState::DebugMenu {
-                        highlighted: *highlighted,
-                    },
-                    MenuAction::MoveHighlightNext => RunState::DebugMenu {
-                        highlighted: menu.get_next_index(*highlighted),
-                    },
-                    MenuAction::MoveHighlightPrev => RunState::DebugMenu {
-                        highlighted: menu.get_previous_index(*highlighted),
-                    },
-                    MenuAction::Select => match highlighted {
-                        0 => {
-                            debug::kill_all_monsters(&mut self.world);
-                            self.world
-                                .fetch_mut::<GameLog>()
-                                .entries
-                                .insert(0, "all monsters removed".to_owned());
-                            RunState::AwaitingInput {
-                                offset_x: 0,
-                                offset_y: 0,
+                match self
+                    .settings
+                    .control_scheme
+                    .menu
+                    .get_value_with_context(ctx)
+                {
+                    Some(action) => match action {
+                        MenuAction::Exit => RunState::DebugMenu {
+                            highlighted: *highlighted,
+                        },
+                        MenuAction::MoveHighlightNext => RunState::DebugMenu {
+                            highlighted: menu.get_next_index(*highlighted),
+                        },
+                        MenuAction::MoveHighlightPrev => RunState::DebugMenu {
+                            highlighted: menu.get_previous_index(*highlighted),
+                        },
+                        MenuAction::Select => match highlighted {
+                            0 => {
+                                debug::kill_all_monsters(&mut self.world);
+                                self.world
+                                    .fetch_mut::<GameLog>()
+                                    .entries
+                                    .insert(0, "all monsters removed".to_owned());
+                                RunState::AwaitingInput {
+                                    offset_x: 0,
+                                    offset_y: 0,
+                                }
                             }
-                        }
-                        1 => {
-                            debug::reveal_map(&mut self.world);
-                            self.world
-                                .fetch_mut::<GameLog>()
-                                .entries
-                                .insert(0, "map revealed".to_owned());
-                            RunState::AwaitingInput {
-                                offset_x: 0,
-                                offset_y: 0,
+                            1 => {
+                                debug::reveal_map(&mut self.world);
+                                self.world
+                                    .fetch_mut::<GameLog>()
+                                    .entries
+                                    .insert(0, "map revealed".to_owned());
+                                RunState::AwaitingInput {
+                                    offset_x: 0,
+                                    offset_y: 0,
+                                }
                             }
-                        }
+                            _ => RunState::DebugMenu {
+                                highlighted: *highlighted,
+                            },
+                        },
                         _ => RunState::DebugMenu {
                             highlighted: *highlighted,
                         },
                     },
-                    _ => RunState::DebugMenu {
+                    None => RunState::DebugMenu {
                         highlighted: *highlighted,
                     },
                 }
@@ -1604,6 +1911,7 @@ pub fn start() {
         world: World::new(),
         run_state: RunState::MainMenu { highlighted: 0 },
         queued_action: None,
+        settings: Settings::load(),
     };
     gs.world.register::<Memory>();
     gs.world.register::<Position>();

@@ -1,4 +1,4 @@
-use crate::{components::equipable::EquipmentPositions, player::InteractionType};
+use crate::{components::equipable::EquipmentPositions, player::InteractionType, user_actions::MapAction};
 use specs::Entity;
 
 #[derive(PartialEq, Clone)]
@@ -63,5 +63,16 @@ pub enum RunState {
     IntroScreen,
     FailureScreen,
     SuccessScreen,
+    OptionsScreen { highlighted: usize },
+    SetKey { action: MapAction, highlighted: usize },
     CreditsScreen,
+    LoadingScreen {
+        count_down: u32,
+    },
+    SavingScreen {
+        count_down: u32,
+    },
+    NewGameScreen {
+        count_down: u32,
+    },
 }

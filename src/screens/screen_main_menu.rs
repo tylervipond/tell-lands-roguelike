@@ -1,15 +1,17 @@
+use std::fmt::Display;
+
 use super::constants::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::artwork::INTRO_ARTWORK;
-use crate::menu_option::MenuOption;
+use crate::menu::MenuOption;
 use crate::ui_components::{UIMenuItemGroupHorizontal, UITextLine};
 use rltk::Rltk;
 
-pub struct ScreenMainMenu<'a> {
-    menu_options: Box<[&'a MenuOption<'a>]>,
+pub struct ScreenMainMenu<'a, T: Display + Copy> {
+    menu_options: Box<[&'a MenuOption<T>]>,
 }
 
-impl<'a> ScreenMainMenu<'a> {
-    pub fn new(menu_options: Box<[&'a MenuOption<'a>]>) -> Self {
+impl<'a, T: Display + Copy> ScreenMainMenu<'a, T> {
+    pub fn new(menu_options: Box<[&'a MenuOption<T>]>) -> Self {
         Self { menu_options }
     }
 

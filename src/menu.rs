@@ -1,19 +1,37 @@
-use crate::menu_option::{MenuOption, MenuOptionState};
+#[derive(Clone, Debug, PartialEq)]
+pub enum MenuOptionState {
+    Disabled,
+    Highlighted,
+    Normal,
+}
 
-pub struct Menu<'a> {
-    pub options: Box<[MenuOption<'a>]>,
+#[derive(Clone, Debug)]
+pub struct MenuOption<T> {
+    pub text: T,
+    pub state: MenuOptionState,
+}
+
+impl<T> MenuOption<T> {
+    pub fn new(text: T, state: MenuOptionState) -> Self {
+        Self { text, state }
+    }
+}
+
+
+pub struct Menu<T> {
+    pub options: Box<[MenuOption<T>]>,
     pub options_per_page: usize,
 }
 
-impl<'a> Menu<'a> {
-    pub fn new(options: Box<[MenuOption<'a>]>, options_per_page: usize) -> Self {
+impl<T> Menu<T> {
+    pub fn new(options: Box<[MenuOption<T>]>, options_per_page: usize) -> Self {
         Self {
             options,
             options_per_page,
         }
     }
 
-    pub fn get_page(&self, page: usize) -> Box<[&MenuOption]> {
+    pub fn get_page(&self, page: usize) -> Box<[&MenuOption<T>]> {
         let page = self
             .options
             .iter()
@@ -31,7 +49,7 @@ impl<'a> Menu<'a> {
         index / self.options_per_page
     }
 
-    pub fn get_page_at_index(&self, index: usize) -> Box<[&MenuOption]> {
+    pub fn get_page_at_index(&self, index: usize) -> Box<[&MenuOption<T>]> {
         let page = self.page_number_at_index(index);
         self.get_page(page)
     }

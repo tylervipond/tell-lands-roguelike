@@ -1,0 +1,242 @@
+(
+	map: (
+		map: {
+			(
+				modifier: None,
+				input: Key(M),
+			): ShowActionMenu,
+			(
+				modifier: None,
+				input: Key(O),
+			): ShowEquipmentMenu,
+			(
+				modifier: None,
+				input: Key(Period),
+			): GoDownStairs,
+			(
+				modifier: None,
+				input: Key(L),
+			): LeaveDungeon,
+			(
+				modifier: None,
+				input: Key(E),
+			): MoveUpRight,
+			(
+				modifier: None,
+				input: Key(N),
+			): ReleaseFurniture,
+			(
+				modifier: None,
+				input: Key(V),
+			): SearchContainer,
+			(
+				modifier: None,
+				input: Key(I),
+			): ShowInventoryMenu,
+			(
+				modifier: None,
+				input: Key(Y),
+			): Interact,
+			(
+				modifier: None,
+				input: Key(S),
+			): StayStill,
+			(
+				modifier: None,
+				input: Key(G),
+			): OpenDoor,
+			(
+				modifier: None,
+				input: Key(F),
+			): PickupItem,
+			(
+				modifier: None,
+				input: Key(Right),
+			): ScrollRight,
+			(
+				modifier: None,
+				input: Key(K),
+			): Attack,
+			(
+				modifier: None,
+				input: Key(H),
+			): SearchHidden,
+			(
+				modifier: None,
+				input: Key(Q),
+			): MoveUpLeft,
+			(
+				modifier: None,
+				input: Key(A),
+			): MoveLeft,
+			(
+				modifier: None,
+				input: Key(X),
+			): MoveDown,
+			(
+				modifier: None,
+				input: Key(B),
+			): GrabFurniture,
+			(
+				modifier: None,
+				input: Key(Escape),
+			): Exit,
+			(
+				modifier: None,
+				input: Key(J),
+			): Hide,
+			(
+				modifier: None,
+				input: Key(D),
+			): MoveRight,
+			(
+				modifier: None,
+				input: Key(Comma),
+			): GoUpStairs,
+			(
+				modifier: None,
+				input: Key(T),
+			): DisarmTrap,
+			(
+				modifier: None,
+				input: Key(C),
+			): MoveDownRight,
+			(
+				modifier: None,
+				input: Key(Left),
+			): ScrollLeft,
+			(
+				modifier: None,
+				input: Key(W),
+			): MoveUp,
+			(
+				modifier: None,
+				input: Key(P),
+			): ArmTrap,
+			(
+				modifier: None,
+				input: Key(Down),
+			): ScrollDown,
+			(
+				modifier: None,
+				input: Key(R),
+			): ShowDropMenu,
+			(
+				modifier: None,
+				input: Key(Up),
+			): ScrollUp,
+			(
+				modifier: None,
+				input: Key(Z),
+			): MoveDownLeft,
+		},
+	),
+	menu: (
+		map: {
+			(
+				modifier: None,
+				input: Key(Down),
+			): MoveHighlightNext,
+			(
+				modifier: None,
+				input: Key(Period),
+			): NextPage,
+			(
+				modifier: None,
+				input: Key(Return),
+			): Select,
+			(
+				modifier: None,
+				input: Key(Back),
+			): Delete,
+			(
+				modifier: None,
+				input: Key(Up),
+			): MoveHighlightPrev,
+			(
+				modifier: None,
+				input: Key(Escape),
+			): Exit,
+			(
+				modifier: None,
+				input: Key(Comma),
+			): PreviousPage,
+			(
+				modifier: None,
+				input: Key(Right),
+			): NextMenu,
+			(
+				modifier: None,
+				input: Key(A),
+			): SelectAll,
+			(
+				modifier: None,
+				input: Key(Left),
+			): PreviousMenu,
+		},
+	),
+	horizontal_menu: (
+		map: {
+			(
+				modifier: None,
+				input: Key(Left)
+			): MoveHighlightPrev,
+			(
+				modifier: None,
+				input: Key(Right)
+			): MoveHighlightNext,
+			(
+				modifier: None,
+				input: Key(Return)
+			): Select,
+			(
+				modifier: None,
+				input: Key(Escape)
+			): Exit
+		}
+	),
+	interaction: (
+		map: {
+			(
+				modifier: None,
+				input: Key(Left),
+			): Previous,
+			(
+				modifier: None,
+				input: Key(Right),
+			): Next,
+			(
+				modifier: None,
+				input: Key(Return),
+			): Selected,
+			(
+				modifier: None,
+				input: Key(Escape),
+			): Exit,
+		},
+	),
+	static_screen: (
+		map: {
+			(
+				modifier: None,
+				input: Key(Escape),
+			): Exit,
+			(
+				modifier: None,
+				input: Key(Return),
+			): Continue,
+		}
+	),
+	targeting: (
+		map: {
+			(
+				modifier: None,
+				input: Key(Escape)
+			): Exit,
+    		(
+				modifier: None,
+				input: LeftClick
+			): Selected
+		}
+	)
+)

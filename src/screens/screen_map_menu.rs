@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::ui::{ui_hud::UIHud, ui_map::UIMap};
 use super::utils::{get_render_data, get_render_offset};
 use crate::components::{CombatStats, Position, Viewshed};
@@ -6,20 +8,20 @@ use crate::dungeon::{
     dungeon::Dungeon,
     level_utils,
 };
-use crate::menu_option::MenuOption;
+use crate::menu::MenuOption;
 use crate::services::GameLog;
 use crate::ui_components::ui_dynamic_menu::UIDynamicMenu;
 use rltk::Rltk;
 use specs::{Entity, World, WorldExt};
 
-pub struct ScreenMapMenu<'a> {
-    menu_options: Box<[&'a MenuOption<'a>]>,
+pub struct ScreenMapMenu<'a, T: Display + Copy> {
+    menu_options: Box<[&'a MenuOption<T>]>,
     title: &'a str,
     cta: &'a str,
 }
 
-impl<'a> ScreenMapMenu<'a> {
-    pub fn new(menu_options: Box<[&'a MenuOption<'a>]>, title: &'a str, cta: &'a str) -> Self {
+impl<'a, T: Display + Copy> ScreenMapMenu<'a, T> {
+    pub fn new(menu_options: Box<[&'a MenuOption<T>]>, title: &'a str, cta: &'a str) -> Self {
         Self {
             menu_options,
             title,

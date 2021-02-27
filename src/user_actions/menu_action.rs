@@ -1,9 +1,12 @@
-use rltk::{Rltk, VirtualKeyCode};
+use core::fmt;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
+#[derive(Eq, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub enum MenuAction {
-    NoAction,
     Exit,
     Select,
+    Delete,
     SelectAll,
     MoveHighlightNext,
     MoveHighlightPrev,
@@ -13,33 +16,23 @@ pub enum MenuAction {
     PreviousPage,
 }
 
-pub fn map_input_to_menu_action(ctx: &mut Rltk) -> MenuAction {
-    match ctx.key {
-        None => MenuAction::NoAction,
-        Some(key) => match key {
-            VirtualKeyCode::Up => MenuAction::MoveHighlightPrev,
-            VirtualKeyCode::Down => MenuAction::MoveHighlightNext,
-            VirtualKeyCode::Comma => MenuAction::PreviousPage,
-            VirtualKeyCode::Period => MenuAction::NextPage,
-            VirtualKeyCode::Left => MenuAction::PreviousMenu,
-            VirtualKeyCode::Right => MenuAction::NextMenu,
-            VirtualKeyCode::Return => MenuAction::Select,
-            VirtualKeyCode::A => MenuAction::SelectAll,
-            VirtualKeyCode::Escape => MenuAction::Exit,
-            _ => MenuAction::NoAction,
-        },
-    }
-}
-
-pub fn map_input_to_horizontal_menu_action(ctx: &mut Rltk) -> MenuAction {
-    match ctx.key {
-        None => MenuAction::NoAction,
-        Some(key) => match key {
-            VirtualKeyCode::Left => MenuAction::MoveHighlightPrev,
-            VirtualKeyCode::Right => MenuAction::MoveHighlightNext,
-            VirtualKeyCode::Return => MenuAction::Select,
-            VirtualKeyCode::Escape => MenuAction::Exit,
-            _ => MenuAction::NoAction,
-        },
+impl Display for MenuAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            String::from(match self {
+                MenuAction::Exit => "Exit Menu",
+                MenuAction::Select => "Select",
+                MenuAction::Delete => "Delete",
+                MenuAction::SelectAll => "Select All",
+                MenuAction::MoveHighlightNext => "Next",
+                MenuAction::MoveHighlightPrev => "Previous",
+                MenuAction::NextMenu => "Next Menu",
+                MenuAction::PreviousMenu => "Previous Menu",
+                MenuAction::NextPage => "Next Page",
+                MenuAction::PreviousPage => "Previous Page",
+            })
+        )
     }
 }

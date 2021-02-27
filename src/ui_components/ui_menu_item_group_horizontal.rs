@@ -1,22 +1,24 @@
+use std::fmt::Display;
+
 use super::{style::Style, UITextLine};
-use crate::menu_option::{MenuOption, MenuOptionState};
+use crate::menu::{MenuOption, MenuOptionState};
 use rltk::{Rltk, BLACK, GREY, WHITE, YELLOW};
 
 const SPACE_BETWEEN: i32 = 3;
 
-pub struct UIMenuItemGroupHorizontal<'a, 'b> {
+pub struct UIMenuItemGroupHorizontal<'a, 'b, T: Display + Copy> {
     pub x: i32,
     pub y: i32,
     pub width: u32,
-    pub menu_options: &'b Box<[&'a MenuOption<'a>]>,
+    pub menu_options: &'b Box<[&'a MenuOption<T>]>,
 }
 
-impl<'a, 'b> UIMenuItemGroupHorizontal<'a, 'b> {
-    pub fn new(x: i32, y: i32, menu_options: &'b Box<[&'a MenuOption<'a>]>) -> Self {
+impl<'a, 'b, T: Display + Copy> UIMenuItemGroupHorizontal<'a, 'b, T> {
+    pub fn new(x: i32, y: i32, menu_options: &'b Box<[&'a MenuOption<T>]>) -> Self {
         let white_space = (menu_options.len() - 1) * SPACE_BETWEEN as usize;
         let width = menu_options
             .iter()
-            .fold(0, |acc, o| acc + o.text.chars().count())
+            .fold(0, |acc, o| acc + o.text.to_string().chars().count())
             + white_space;
         Self {
             x,
@@ -35,7 +37,7 @@ impl<'a, 'b> UIMenuItemGroupHorizontal<'a, 'b> {
             };
             let style = Style { fg, bg: BLACK };
             UITextLine::new(this_text_x, self.y, menu_option.text, Some(style)).draw(ctx);
-            this_text_x += menu_option.text.chars().count() as i32 + SPACE_BETWEEN;
+            this_text_x += menu_option.text.to_string().chars().count() as i32 + SPACE_BETWEEN;
         }
     }
 }

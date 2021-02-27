@@ -1,44 +1,22 @@
-use rltk::{Rltk, VirtualKeyCode};
+use core::fmt;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
+#[derive(Eq, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub enum TargetingAction {
-  NoAction,
-  Exit,
-  Selected(usize)
+    Exit,
+    Selected,
 }
 
-pub fn map_input_to_targeting_action(ctx: &mut Rltk, target: Option<usize>) -> TargetingAction {
-  if ctx.left_click {
-    return match target {
-      Some(idx) => TargetingAction::Selected(idx),
-      None => TargetingAction::Exit,
-    };
-  }
-  match ctx.key {
-    None => TargetingAction::NoAction,
-    Some(key) => match key {
-      VirtualKeyCode::Escape => TargetingAction::Exit,
-      _ => TargetingAction::NoAction,
-    },
-  }
-}
-
-pub enum InteractionTargetingAction {
-  NoAction,
-  Exit,
-  Selected,
-  Next,
-  Previous,
-}
-
-pub fn map_input_to_interaction_targeting_action(ctx: &mut Rltk) -> InteractionTargetingAction {
-  match ctx.key {
-    None => InteractionTargetingAction::NoAction,
-    Some(key) => match key {
-      VirtualKeyCode::Escape => InteractionTargetingAction::Exit,
-      VirtualKeyCode::Left => InteractionTargetingAction::Previous,
-      VirtualKeyCode::Right => InteractionTargetingAction::Next,
-      VirtualKeyCode::Return => InteractionTargetingAction::Selected,
-      _ => InteractionTargetingAction::NoAction,
-    },
+impl Display for TargetingAction {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+      write!(
+          f,
+          "{}",
+          String::from(match self {
+              TargetingAction::Exit => "Exit Screen",
+              TargetingAction::Selected => "Select Target",
+          })
+      )
   }
 }

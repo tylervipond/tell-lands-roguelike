@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::ui::ui_map::UIMap;
 use super::utils::{get_render_data, get_render_offset};
 use crate::components::{Position, Viewshed};
@@ -6,20 +8,20 @@ use crate::dungeon::{
     dungeon::Dungeon,
     level_utils,
 };
-use crate::menu_option::MenuOption;
+use crate::menu::MenuOption;
 use crate::ui_components::ui_dynamic_menu::UIDynamicMenu;
 use rltk::Rltk;
 use specs::{Entity, World, WorldExt};
 
-pub struct ScreenMapInteractMenu<'a> {
-    menu_options: Box<[&'a MenuOption<'a>]>,
+pub struct ScreenMapInteractMenu<'a, T: Display + Copy> {
+    menu_options: Box<[&'a MenuOption<T>]>,
     title: Option<&'a str>,
     cta: Option<&'a str>,
 }
 
-impl<'a> ScreenMapInteractMenu<'a> {
+impl<'a, T: Display + Copy> ScreenMapInteractMenu<'a, T> {
     pub fn new(
-        menu_options: Box<[&'a MenuOption<'a>]>,
+        menu_options: Box<[&'a MenuOption<T>]>,
         title: Option<&'a str>,
         cta: Option<&'a str>,
     ) -> Self {
