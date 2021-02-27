@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::ui::{ui_hud::UIHud, ui_map::UIMap};
 use super::utils::{get_render_data, get_render_offset};
 use crate::components::{CombatStats, Position, Viewshed};
@@ -6,7 +8,7 @@ use crate::dungeon::{
     dungeon::Dungeon,
     level_utils,
 };
-use crate::menu_option::MenuOption;
+use crate::menu::MenuOption;
 use crate::services::GameLog;
 use crate::ui_components::{UILineVertical, UIMenuBox, UIMenuItemGroup, UIParagraph};
 use rltk::Rltk;
@@ -14,19 +16,19 @@ use specs::{Entity, World, WorldExt};
 
 const SCREEN_PADDING: u8 = 4;
 
-pub struct ScreenMapItemMenu<'a> {
-    menu_options: Box<[&'a MenuOption<'a>]>,
-    sub_menu_options: Box<[&'a MenuOption<'a>]>,
+pub struct ScreenMapItemMenu<'a, T: Display + Copy, S: Display + Copy> {
+    menu_options: Box<[&'a MenuOption<T>]>,
+    sub_menu_options: Box<[&'a MenuOption<S>]>,
     sub_menu_active: bool,
     description: &'a str,
     title: &'a str,
     cta: &'a str,
 }
 
-impl<'a> ScreenMapItemMenu<'a> {
+impl<'a, T: Display + Copy, S: Display + Copy> ScreenMapItemMenu<'a, T, S> {
     pub fn new(
-        menu_options: Box<[&'a MenuOption<'a>]>,
-        sub_menu_options: Box<[&'a MenuOption<'a>]>,
+        menu_options: Box<[&'a MenuOption<T>]>,
+        sub_menu_options: Box<[&'a MenuOption<S>]>,
         sub_menu_active: bool,
         description: &'a str,
         title: &'a str,

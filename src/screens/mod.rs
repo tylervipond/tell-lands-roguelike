@@ -13,7 +13,9 @@ pub mod screen_map_menu;
 pub mod screen_map_targeting;
 pub mod screen_new_game;
 pub mod screen_saving;
+pub mod screen_options;
 pub mod screen_success;
+pub mod screen_set_key;
 mod ui;
 pub mod utils;
 
@@ -33,3 +35,5 @@ pub use screen_map_targeting::ScreenMapTargeting;
 pub use screen_new_game::ScreenNewGame;
 pub use screen_saving::ScreenSaving;
 pub use screen_success::ScreenSuccess;
+pub use screen_options::ScreenOptions;
+pub use screen_set_key::ScreenSetKey;

@@ -154,7 +154,7 @@ impl<'a> System<'a> for MonsterAI {
             } else if !memory.known_enemy_hiding_spots.is_empty()
                 || !memory.last_known_enemy_positions.is_empty()
             {
-                for (e, MemoryLocation(enemy_level, enemy_idx)) in
+                for (_e, MemoryLocation(enemy_level, enemy_idx)) in
                     memory.last_known_enemy_positions.iter()
                 {
                     if *enemy_level != position.level as i32 {
@@ -170,7 +170,7 @@ impl<'a> System<'a> for MonsterAI {
                         weighted_actions.push(action);
                     }
                 }
-                for (enemy, hiding_spot) in memory.known_enemy_hiding_spots.iter() {
+                for (_enemy, hiding_spot) in memory.known_enemy_hiding_spots.iter() {
                     if let Some(hiding_position) = positions.get(*hiding_spot) {
                         let hiding_idx = hiding_position.idx;
                         let distance = level_utils::get_distance_between_idxs(

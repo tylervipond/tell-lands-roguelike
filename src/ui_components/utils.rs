@@ -1,12 +1,15 @@
-pub fn get_longest_line<'a, 'b>(lines: &'b Box<[&'a str]>) -> Option<&'b &'a str> {
-    lines
-        .iter()
-        .max_by(|x, y| x.chars().count().cmp(&y.chars().count()))
+pub fn get_longest_line<'a, T: ToString>(lines: &'a Box<[T]>) -> Option<&'a T> {
+    lines.iter().max_by(|x, y| {
+        x.to_string()
+            .chars()
+            .count()
+            .cmp(&y.to_string().chars().count())
+    })
 }
 
-pub fn get_longest_line_length(lines: &Box<[&str]>) -> usize {
+pub fn get_longest_line_length<T: ToString>(lines: &Box<[T]>) -> usize {
     match get_longest_line(lines) {
-        Some(line) => line.chars().count(),
+        Some(line) => line.to_string().chars().count(),
         None => 0,
     }
 }

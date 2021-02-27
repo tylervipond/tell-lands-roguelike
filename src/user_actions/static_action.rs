@@ -1,18 +1,21 @@
-use rltk::{Rltk, VirtualKeyCode};
-
+use core::fmt;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
+#[derive(Eq, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub enum StaticAction {
     Exit,
     Continue,
-    NoAction,
 }
 
-pub fn map_input_to_static_action(ctx: &mut Rltk) -> StaticAction {
-    match ctx.key {
-        None => StaticAction::NoAction,
-        Some(key) => match key {
-            VirtualKeyCode::Escape => StaticAction::Exit,
-            VirtualKeyCode::Return => StaticAction::Continue,
-            _ => StaticAction::NoAction,
-        },
+impl Display for StaticAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            String::from(match self {
+                StaticAction::Exit => "Exit Screen",
+                StaticAction::Continue => "Continue",
+            })
+        )
     }
 }

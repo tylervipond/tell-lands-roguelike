@@ -1,30 +1,32 @@
+use std::fmt::Display;
+
 use super::{
     ui_menu_box::UIMenuBox, ui_menu_item_group::UIMenuItemGroup, utils::get_longest_line_length,
 };
-use crate::menu_option::MenuOption;
+use crate::menu::MenuOption;
 use rltk::Rltk;
 
 const INTERNAL_PADDING: u8 = 2;
 
-pub struct UIDynamicMenu<'a, 'b> {
+pub struct UIDynamicMenu<'a, 'b, T: Display + Copy> {
     pub x: i32,
     pub y: i32,
     pub width: u8,
     pub height: u8,
-    pub menu_options: &'b Box<[&'a MenuOption<'a>]>,
+    pub menu_options: &'b Box<[&'a MenuOption<T>]>,
     pub cta: Option<&'a str>,
     pub title: Option<&'a str>,
 }
 
-impl<'a, 'b> UIDynamicMenu<'a, 'b> {
+impl<'a, 'b, T: Display + Copy> UIDynamicMenu<'a, 'b, T> {
     pub fn new(
         x: i32,
         y: i32,
-        menu_options: &'b Box<[&'a MenuOption<'a>]>,
+        menu_options: &'b Box<[&'a MenuOption<T>]>,
         cta: Option<&'a str>,
         title: Option<&'a str>,
     ) -> Self {
-        let lines: Box<[&str]> = menu_options.iter().map(|o| o.text).collect();
+        let lines: Box<[T]> = menu_options.iter().map(|o| o.text).collect();
         let longest_line_length = get_longest_line_length(&lines);
         let title_length = match &title {
             Some(title) => title.chars().count(),
