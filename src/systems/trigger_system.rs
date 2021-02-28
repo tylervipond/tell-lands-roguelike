@@ -1,4 +1,4 @@
-use crate::components::{CausesDamage, DamageHistory, EntityMoved, EntryTrigger, Hidden, Name, Position, SufferDamage, Triggered};
+use crate::components::{CausesDamage, DamageHistory, EntityMoved, EntryTrigger, Hidden, Name, Position, SufferDamage, Triggered, Viewshed};
 use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::services::{GameLog, ParticleEffectSpawner};
 use rltk::RandomNumberGenerator;
@@ -22,6 +22,7 @@ impl<'a> System<'a> for TriggerSystem {
         WriteStorage<'a, SufferDamage>,
         WriteStorage<'a, Triggered>,
         WriteStorage<'a, DamageHistory>,
+        ReadStorage<'a, Viewshed>,
         WriteExpect<'a, ParticleEffectSpawner>,
         WriteExpect<'a, GameLog>,
         Entities<'a>,
@@ -41,12 +42,14 @@ impl<'a> System<'a> for TriggerSystem {
             mut suffer_damage,
             mut triggered,
             mut damage_histories,
+            viewsheds,
             mut particle_spawner,
             mut log,
             ents,
             mut rng,
         ) = data;
         let player_level = positions.get(*player_ent).unwrap().level;
+        let player_viewshed = viewsheds.get(*player_ent).unwrap();
         let level = dungeon.get_level(player_level).unwrap();
         for (entity, mut _ent_moved, pos) in (&ents, &mut moved, &positions).join() {
             for maybe_triggered in level_utils::entities_at_idx(&level, pos.idx)
@@ -54,12 +57,14 @@ impl<'a> System<'a> for TriggerSystem {
                 .filter(|e| *e != &entity)
             {
                 if let Some(_) = entry_triggers.get(*maybe_triggered) {
-                    if let Some(triggered_name) = names.get(*maybe_triggered) {
-                        if let Some(ent_name) = names.get(entity) {
-                            log.add(format!(
-                                "{} triggers {}",
-                                &ent_name.name, &triggered_name.name
-                            ));
+                    if player_viewshed.visible_tiles.contains(&pos.idx) {
+                        if let Some(triggered_name) = names.get(*maybe_triggered) {
+                            if let Some(ent_name) = names.get(entity) {
+                                log.add(format!(
+                                    "{} triggers {}",
+                                    &ent_name.name, &triggered_name.name
+                                ));
+                            }
                         }
                     }
                     if let Some(damage) = damages.get(*maybe_triggered) {

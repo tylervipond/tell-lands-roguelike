@@ -1,11 +1,4 @@
-use crate::{
-    components::{
-        monster::MonsterSpecies, CombatStats, Container, DamageHistory, Equipment, Hiding,
-        Inventory, Monster, Name, Player, Position, Renderable, SufferDamage,
-    },
-    player::InteractionType,
-    services::{BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog},
-};
+use crate::{components::{CombatStats, Container, DamageHistory, Equipment, Hiding, Inventory, Monster, Name, Player, Position, Renderable, SufferDamage, Viewshed, monster::MonsterSpecies}, player::InteractionType, services::{BloodSpawner, CorpseSpawner, DebrisSpawner, GameLog}};
 use rltk::RGB;
 use specs::{
     Entities, Entity, Join, ReadExpect, ReadStorage, System, World, WorldExt, WriteExpect,
@@ -34,15 +27,18 @@ impl<'a> DamageSystem<'a> {
             let equipment = ecs.read_storage::<Equipment>();
             let player_entity = ecs.fetch::<Entity>();
             let damage_histories = ecs.read_storage::<DamageHistory>();
+            let viewsheds = ecs.read_storage::<Viewshed>();
+            let player_viewshed = viewsheds.get(*player_entity).unwrap();
 
             for (entity, _stats, name, renderable) in
                 (&entities, &combat_stats, &names, &renderables)
                     .join()
                     .filter(|(e, s, _n, _r)| *e != *player_entity && s.hp < 1)
             {
+                let position = { positions.get(entity).unwrap().clone() };
+                let visible_to_player = player_viewshed.visible_tiles.contains(&position.idx);
                 if let Some(m) = monsters.get(entity) {
                     let damage_history = damage_histories.get(entity).unwrap();
-                    let position = positions.get(entity).unwrap();
                     let mut items = inventory.get(entity).unwrap().items.clone();
                     if let Some(equip) = equipment.get(entity) {
                         for i in equip.as_items().drain() {
@@ -59,9 +55,10 @@ impl<'a> DamageSystem<'a> {
                             );
                         }
                     }
-                    log.add(format!("{} has died", name.name));
+                    if visible_to_player {
+                        log.add(format!("{} has died", name.name));
+                    }
                 } else {
-                    let position = { positions.get(entity).unwrap().clone() };
                     let name = names.get(entity).unwrap();
                     debris_spawner.request(
                         position.idx,
@@ -72,7 +69,9 @@ impl<'a> DamageSystem<'a> {
                         format!("{} debris", name.name),
                         true
                     );
-                    log.add(format!("{} has been destroyed", name.name));
+                    if visible_to_player {
+                        log.add(format!("{} has been destroyed", name.name));
+                    }
                     if let Some(container) = containers.get(entity) {
                         container.items.iter().for_each(|e| {
                             positions
