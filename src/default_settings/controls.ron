@@ -11,14 +11,6 @@
 			): ShowEquipmentMenu,
 			(
 				modifier: None,
-				input: Key(Period),
-			): GoDownStairs,
-			(
-				modifier: None,
-				input: Key(L),
-			): LeaveDungeon,
-			(
-				modifier: None,
 				input: Key(E),
 			): MoveUpRight,
 			(
@@ -89,10 +81,6 @@
 				modifier: None,
 				input: Key(D),
 			): MoveRight,
-			(
-				modifier: None,
-				input: Key(Comma),
-			): GoUpStairs,
 			(
 				modifier: None,
 				input: Key(T),

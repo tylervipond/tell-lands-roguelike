@@ -6,7 +6,7 @@ use specs::{
 };
 
 pub struct DamageSystem<'a> {
-    pub queued_action: &'a mut Option<(Entity, InteractionType)>,
+    pub queued_action: &'a mut Option<InteractionType>,
 }
 
 impl<'a> DamageSystem<'a> {

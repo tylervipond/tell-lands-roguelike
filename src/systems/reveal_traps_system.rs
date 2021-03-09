@@ -5,7 +5,7 @@ use rltk::RandomNumberGenerator;
 use specs::{Entity, ReadExpect, ReadStorage, System, WriteExpect, WriteStorage};
 
 pub struct RevealTrapsSystem<'a> {
-    pub queued_action: &'a mut Option<(Entity, InteractionType)>
+    pub queued_action: &'a mut Option<InteractionType>
 }
 
 impl<'a> System<'a> for RevealTrapsSystem<'a> {

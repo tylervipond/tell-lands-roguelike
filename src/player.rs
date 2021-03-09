@@ -1,16 +1,8 @@
-use std::collections::HashSet;
-
-use crate::components::{
-    equipable::EquipmentPositions, Item, Monster, Position, Trap, Viewshed, WantsToCloseDoor,
-    WantsToDisarmTrap, WantsToDouse, WantsToEquip, WantsToGrab, WantsToHide, WantsToLight,
-    WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed,
-    WantsToSearchHidden, WantsToTrap, WantsToUse,
-};
-use crate::dungeon::{dungeon::Dungeon, level::Level, level_utils};
+use crate::components::{Container, Disarmable, Door, HidingSpot, Item, Monster, Position, Trap, WantsToCloseDoor, WantsToDisarmTrap, WantsToDouse, WantsToEquip, WantsToExit, WantsToGoDownStairs, WantsToGoUpStairs, WantsToGrab, WantsToHide, WantsToLight, WantsToMelee, WantsToMove, WantsToOpenDoor, WantsToPickUpItem, WantsToReleaseGrabbed, WantsToSearchHidden, WantsToTrap, WantsToUse, door::DoorState, equipable::EquipmentPositions};
+use crate::dungeon::{dungeon::Dungeon, level_utils};
 use crate::entity_option::EntityOption;
-use crate::services::game_log::GameLog;
-use crate::user_actions::MapAction;
-use specs::{Component, Entity, Join, World, WorldExt};
+use specs::{Component, Entity, World, WorldExt};
+use std::collections::HashSet;
 
 pub fn move_to_position(world: &mut World, idx: usize) {
     let player_entity = world.fetch::<Entity>();
@@ -18,144 +10,6 @@ pub fn move_to_position(world: &mut World, idx: usize) {
         .write_storage::<WantsToMove>()
         .insert(*player_entity, WantsToMove { idx })
         .expect("couldn't insert player move intent");
-}
-
-// It's not really "try move player" though, it's more like "player act"
-// because the function does more than just move the player. Should probably
-// break this up a bit.
-fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
-    let positions = world.read_storage::<Position>();
-    let monsters = world.read_storage::<Monster>();
-    let dungeon = world.fetch::<Dungeon>();
-    let player_entity = world.fetch::<Entity>();
-    let player_position = positions.get(*player_entity).unwrap();
-    let level = dungeon.get_level(player_position.level).unwrap();
-    let level_width = level.width as i32;
-    let destination_index = level_utils::add_xy_to_idx(
-        level_width as i32,
-        delta_x as i32,
-        delta_y as i32,
-        player_position.idx as i32,
-    );
-    let target = level.tile_content[destination_index as usize]
-        .iter()
-        .filter(|e| monsters.get(**e).is_some())
-        .next();
-    match target {
-        Some(target) => {
-            world
-                .write_storage::<WantsToMelee>()
-                .insert(*player_entity, WantsToMelee { target: *target })
-                .expect("Add target failed");
-        }
-        None => {
-            world
-                .write_storage::<WantsToMove>()
-                .insert(
-                    *player_entity,
-                    WantsToMove {
-                        idx: destination_index as usize,
-                    },
-                )
-                .expect("couldn't insert player move intent");
-        }
-    };
-}
-
-fn try_pickup_item(world: &mut World) {
-    let player_entity = world.fetch::<Entity>();
-    let entities = world.entities();
-    let items = world.read_storage::<Item>();
-    let positions = world.read_storage::<Position>();
-    let player_pos = positions.get(*player_entity).unwrap();
-    let mut gamelog = world.fetch_mut::<GameLog>();
-    let target_item: Option<Entity> =
-        (&entities, &items, &positions)
-            .join()
-            .find_map(|(ent, _item, position)| {
-                if position.idx == player_pos.idx && position.level == player_pos.level {
-                    return Some(ent);
-                }
-                return None;
-            });
-
-    match target_item {
-        None => gamelog
-            .entries
-            .insert(0, "there is nothing here to pick up".to_string()),
-        Some(item) => {
-            let mut items = HashSet::new();
-            items.insert(item);
-            let mut pickup = world.write_storage::<WantsToPickUpItem>();
-            pickup
-                .insert(
-                    *player_entity,
-                    WantsToPickUpItem {
-                        container: None,
-                        items,
-                    },
-                )
-                .expect("Unable to insert want to pick up");
-        }
-    }
-}
-
-fn can_go_up(current_level: &Level, player_idx: usize) -> bool {
-    match current_level.stairs_up {
-        Some(idx) => idx == player_idx,
-        None => false,
-    }
-}
-
-fn can_go_down(current_level: &Level, player_idx: usize) -> bool {
-    match current_level.stairs_down {
-        Some(idx) => idx == player_idx,
-        None => false,
-    }
-}
-
-// most of this should be moved into a go down stairs system
-fn try_go_down_stairs(world: &mut World) {
-    let player_entity = world.fetch::<Entity>();
-    let mut positions = world.write_storage::<Position>();
-    let mut player_position = positions.get_mut(*player_entity).unwrap();
-    let dungeon = world.fetch::<Dungeon>();
-    let current_level = dungeon.get_level(player_position.level).unwrap();
-    if !can_go_down(current_level, player_position.idx) {
-        return;
-    }
-    let next_level_number = player_position.level - 1;
-    let next_map = dungeon.get_level(next_level_number);
-    if let Some(next_map) = next_map {
-        let stairs_up_coords = next_map.stairs_up.unwrap();
-        player_position.idx = stairs_up_coords;
-        player_position.level = next_level_number;
-        let mut viewsheds = world.write_storage::<Viewshed>();
-        let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
-        player_viewshed.dirty = true;
-    }
-}
-
-// most of this should be moved into a go up stairs system
-fn try_go_up_stairs(world: &mut World) {
-    let player_entity = world.fetch::<Entity>();
-    let mut positions = world.write_storage::<Position>();
-    let mut player_position = positions.get_mut(*player_entity).unwrap();
-    let dungeon = world.fetch::<Dungeon>();
-    let current_level = dungeon.get_level(player_position.level).unwrap();
-    if !can_go_up(current_level, player_position.idx) {
-        return;
-    }
-    let next_level_number = player_position.level + 1;
-    let next_map = dungeon.get_level(next_level_number);
-    if let Some(next_map) = next_map {
-        let stairs_down_coords = next_map.stairs_down.unwrap();
-        player_position.idx = stairs_down_coords;
-        player_position.level = next_level_number;
-        let mut viewsheds = world.write_storage::<Viewshed>();
-        let mut player_viewshed = viewsheds.get_mut(*player_entity).unwrap();
-        player_viewshed.dirty = true;
-    }
 }
 
 fn insert_intent<T: Component>(
@@ -274,57 +128,143 @@ pub fn pickup_item(world: &mut World, item: Entity, container: Option<Entity>) {
     pickup_items(world, items, container);
 }
 
+pub fn go_up_stairs(world: &mut World, idx: usize) {
+    insert_intent(world, WantsToGoUpStairs { idx })
+        .expect("Unable to insert wants to go up stairs");
+}
+
+pub fn go_down_stairs(world: &mut World, idx: usize) {
+    insert_intent(world, WantsToGoDownStairs { idx })
+        .expect("Unable to insert want to go down stairs");
+}
+
+pub fn exit_dungeon(world: &mut World, idx: usize) {
+    insert_intent(world, WantsToExit { idx }).expect("Unable to insert want to pick up");
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum InteractionType {
-    Douse,
-    Light,
-    HideIn,
-    Attack,
-    Grab,
+    Douse(Entity),
+    Light(Entity),
+    HideIn(Entity),
+    Attack(Entity),
+    Grab(Entity),
     // Release,
-    Disarm,
-    Arm,
+    Disarm(Entity),
+    Arm(Entity),
     // Use,
-    // GoUp,
-    // GoDown,
-    // Exit,
-    Pickup,
-    OpenDoor,
-    CloseDoor,
-    OpenContainer,
+    GoUp(usize),
+    GoDown(usize),
+    Move(usize),
+    Exit(usize),
+    Pickup(Entity),
+    OpenDoor(Entity),
+    CloseDoor(Entity),
+    OpenContainer(Entity),
 }
 
-pub fn interact(world: &mut World, object: Entity, interaction_type: InteractionType) {
+pub fn interact(world: &mut World, interaction_type: InteractionType) {
     match interaction_type {
-        InteractionType::Douse => douse_item(world, object),
-        InteractionType::Light => light_item(world, object),
-        InteractionType::HideIn => hide_in_container(world, object),
-        InteractionType::Grab => grab_entity(world, object),
-        InteractionType::Disarm => disarm_trap(world, object),
-        InteractionType::Arm => arm_trap(world, object),
-        InteractionType::Attack => attack_entity(world, object),
-        InteractionType::Pickup => pickup_item(world, object, None),
-        InteractionType::OpenDoor => open_door(world, object),
-        InteractionType::CloseDoor => close_door(world, object),
+        InteractionType::Douse(ent) => douse_item(world, ent),
+        InteractionType::Light(ent) => light_item(world, ent),
+        InteractionType::HideIn(ent) => hide_in_container(world, ent),
+        InteractionType::Grab(ent) => grab_entity(world, ent),
+        InteractionType::Disarm(ent) => disarm_trap(world, ent),
+        InteractionType::Arm(ent) => arm_trap(world, ent),
+        InteractionType::Attack(ent) => attack_entity(world, ent),
+        InteractionType::Pickup(ent) => pickup_item(world, ent, None),
+        InteractionType::OpenDoor(ent) => open_door(world, ent),
+        InteractionType::CloseDoor(ent) => close_door(world, ent),
+        InteractionType::GoDown(idx) => go_down_stairs(world, idx),
+        InteractionType::GoUp(idx) => go_up_stairs(world, idx),
+        InteractionType::Move(idx) => move_to_position(world, idx),
         _ => {}
     }
 }
 
-pub fn player_action(world: &mut World, action: MapAction) {
-    match action {
-        MapAction::MoveLeft => try_move_player(-1, 0, world),
-        MapAction::MoveRight => try_move_player(1, 0, world),
-        MapAction::MoveUp => try_move_player(0, -1, world),
-        MapAction::MoveDown => try_move_player(0, 1, world),
-        MapAction::MoveUpLeft => try_move_player(-1, -1, world),
-        MapAction::MoveUpRight => try_move_player(1, -1, world),
-        MapAction::MoveDownLeft => try_move_player(-1, 1, world),
-        MapAction::MoveDownRight => try_move_player(1, 1, world),
-        MapAction::PickupItem => try_pickup_item(world),
-        MapAction::GoDownStairs => try_go_down_stairs(world),
-        MapAction::GoUpStairs => try_go_up_stairs(world),
-        MapAction::SearchHidden => search_hidden(world),
-        MapAction::ReleaseFurniture => release_entity(world),
-        _ => {}
+fn get_entity_with_component<T: Component>(world: &World, ents: &Vec<Entity>) -> Option<Entity> {
+    let component_storage = world.read_storage::<T>();
+    ents.iter()
+        .filter(|e| component_storage.get(**e).is_some())
+        .map(|e| *e)
+        .next()
+}
+
+fn get_open_door_entity_at_idx(world: &World, ents: &Vec<Entity>) -> Option<Entity> {
+    let doors = world.read_storage::<Door>();
+    ents.iter()
+        .filter(|e| {
+            let door = doors.get(**e);
+            match door {
+                Some(d) => d.state == DoorState::Closed,
+                None => false,
+            }
+        })
+        .map(|e| *e)
+        .next()
+}
+// this returns interaction type
+pub fn get_default_action(world: &mut World, delta_x: i32, delta_y: i32) -> InteractionType {
+    let (ents, stairs_up_idx, stairs_down_idx, exit_idx, destination_index) = {
+        let positions = world.read_storage::<Position>();
+        let player_entity = world.fetch::<Entity>();
+        let player_position = positions.get(*player_entity).unwrap();
+        let floor = player_position.level;
+        let dungeon = world.fetch::<Dungeon>();
+        let level = dungeon.get_level(floor).unwrap();
+        let level_width = level.width as i32;
+        let destination_index = level_utils::add_xy_to_idx(
+            level_width as i32,
+            delta_x as i32,
+            delta_y as i32,
+            player_position.idx as i32,
+        ) as usize;
+        (
+            level.tile_content[destination_index].clone(),
+            level.stairs_up,
+            level.stairs_down,
+            level.exit,
+            destination_index,
+        )
+    };
+    if let Some(e) = get_entity_with_component::<Container>(world, &ents) {
+        return InteractionType::OpenContainer(e);
     }
+    if let Some(e) = get_entity_with_component::<HidingSpot>(world, &ents) {
+        return InteractionType::HideIn(e);
+    }
+    if let Some(e) = get_open_door_entity_at_idx(world, &ents) {
+        return InteractionType::OpenDoor(e);
+    }
+    if let Some(e) = get_entity_with_component::<Monster>(world, &ents) {
+        return InteractionType::Attack(e);
+    }
+    if let Some(e) = get_entity_with_component::<Disarmable>(world, &ents) {
+        return InteractionType::Disarm(e);
+    }
+    if let Some(e) = get_entity_with_component::<Item>(world, &ents) {
+        return InteractionType::Pickup(e);
+    }
+    let idx_is_stairs_down = match stairs_down_idx {
+        Some(i) => i == destination_index,
+        None => false,
+    };
+    if idx_is_stairs_down {
+        return InteractionType::GoDown(destination_index);
+    }
+    let idx_is_stairs_up = match stairs_up_idx {
+        Some(i) => i == destination_index,
+        None => false,
+    };
+    if idx_is_stairs_up {
+        return InteractionType::GoUp(destination_index);
+    }
+    let idx_is_exit = match exit_idx {
+        Some(i) => i == destination_index,
+        None => false,
+    };
+    if idx_is_exit {
+        return InteractionType::Exit(destination_index);
+    }
+    InteractionType::Move(destination_index)
 }

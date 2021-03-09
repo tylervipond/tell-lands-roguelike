@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 
 pub struct VisibilitySystem<'a> {
-    pub queued_action: &'a mut Option<(Entity, InteractionType)>,
+    pub queued_action: &'a mut Option<InteractionType>,
 }
 
 impl<'a> System<'a> for VisibilitySystem<'a> {

@@ -30,3 +30,7 @@ pub const MENU_OPTION_PICKUP: &str = "Pickup";
 pub const MENU_OPTION_OPEN: &str = "Open";
 pub const MENU_OPTION_OPEN_DOOR: &str = "Open Door";
 pub const MENU_OPTION_CLOSE_DOOR: &str = "Close Door";
+pub const MENU_OPTION_GO_DOWN: &str = "Go Down Stairs";
+pub const MENU_OPTION_GO_UP: &str = "Go Up Stairs";
+pub const MENU_OPTION_EXIT: &str = "Exit the dungeon";
+pub const MENU_OPTION_MOVE: &str = "Move to location";

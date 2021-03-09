@@ -1,5 +1,20 @@
-use crate::{components::equipable::EquipmentPositions, player::InteractionType, user_actions::MapAction};
+use crate::{components::equipable::EquipmentPositions, user_actions::MapAction};
 use specs::Entity;
+
+
+#[derive(PartialEq, Clone, Copy)]
+pub enum TargetIntent {
+    OpenContainer,
+    Grab,
+    Disarm,
+    Arm,
+    HideIn,
+    Pickup,
+    OpenDoor,
+    Attack,
+    Light,
+    Douse
+}
 
 #[derive(PartialEq, Clone)]
 pub enum RunState {
@@ -17,7 +32,7 @@ pub enum RunState {
     InteractionTypeEntityTargeting {
         target_idx: usize,
         targets: Box<[Entity]>,
-        interaction_type: InteractionType,
+        intent: TargetIntent,
         cta: Option<&'static str>,
     },
     InteractiveEntityTargeting {
